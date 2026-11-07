@@ -8,6 +8,7 @@ import { AcceptSheet, CargoFacts, PriceBreakdown, Economics, InvoiceDoc } from '
 import { useStore, useIndex, useNow, isActive } from '../lib/store.jsx';
 import { money, money2, km, time, dayLabel, duration, ago, placeShort } from '../lib/format.js';
 import { post } from '../lib/api.js';
+import { back } from '../lib/router.js';
 
 export default function LoadDetail({ id }) {
   const { data, upsert, toast } = useStore();
@@ -47,6 +48,9 @@ export default function LoadDetail({ id }) {
 
   return (
     <div className="page wide fade-in" style={{ maxWidth: 1320 }}>
+      <button className="btn plain" style={{ paddingLeft: 0, marginBottom: 6 }} onClick={() => back(role === 'shipper' ? '/shipments' : '/dispatch')}>
+        <Icon name="chevronLeft" size={15} />Back
+      </button>
       <div className="page-head">
         <div>
           <div className="row" style={{ gap: 10 }}>

@@ -27,7 +27,7 @@ export function GlobalSearch() {
   const box = useRef(null);
   const input = useRef(null);
   const collapse = () => { setOpen(false); setQ(''); setExpanded(false); };
-  const expand = () => { setExpanded(true); setOpen(true); setTimeout(() => input.current?.focus(), 30); };
+  const expand = () => { setExpanded(true); setOpen(true); input.current?.focus(); setTimeout(() => input.current?.focus(), 30); };
   useOutside(box, () => { setOpen(false); if (!input.current?.value) setExpanded(false); });
 
   useEffect(() => {

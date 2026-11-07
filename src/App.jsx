@@ -66,18 +66,16 @@ export default function App() {
   const role = data.me.role;
   const nav = NAV[role];
   let page = null;
-  let crumb = null;
   const loadParams = match('/loads/:id', path);
   const activePath = loadParams ? (role === 'shipper' ? '/shipments' : role === 'dispatcher' ? '/dispatch' : '/') : (nav.find((n) => n.path === path) ? path : '/');
   const current = nav.find((n) => n.path === activePath);
   if (loadParams) {
     page = role === 'driver' ? <DriverJob loadId={loadParams.id} /> : <LoadDetail id={loadParams.id} />;
     const ref = data.loads.find((l) => l.id === loadParams.id)?.ref;
-    crumb = <><button className="btn plain" style={{ padding: 0, fontSize: 'inherit', color: 'var(--label-2)' }} onClick={() => go(activePath)}>{current?.label}</button><span className="sep">›</span><span className="mono">{ref}</span></>;
+    void ref;
   } else {
     const P = current.page;
     page = <P />;
-    crumb = current.label;
   }
   const mobileNav = nav.filter((n) => !(role === 'dispatcher' && n.path === '/fuel'));
   const sections = [...new Set(nav.map((n) => n.section || ''))];
@@ -123,11 +121,9 @@ export default function App() {
       <main className="main">
         <div className="panel">
           <header className="topbar">
-            <Icon name={current?.icon || 'box'} size={17} style={{ color: 'var(--label-2)' }} />
-            <div className="crumb row" style={{ gap: 0, minWidth: 0 }}>{crumb}</div>
+            <GlobalSearch />
             <div className="spacer" />
             <span className={`pill hide-mobile ${online ? 'green live' : 'orange'}`} style={{ border: 0 }}><span className="dot" />{online ? 'Live' : 'Offline'}</span>
-            <GlobalSearch />
             <NotificationBell />
           </header>
           {page}

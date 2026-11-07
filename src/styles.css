@@ -473,7 +473,7 @@ table.table { width: 100%; border-collapse: collapse; font-size: 0.93rem; font-v
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 
 /* --------------------------- top bar tools ------------------------------ */
-.gsearch { position: relative; display: flex; align-items: center; justify-content: flex-end; }
+.gsearch { position: relative; display: flex; align-items: center; justify-content: flex-start; margin-left: -6px; }
 .gsearch .search {
   width: 0; max-width: none; padding: 0; border-width: 0; opacity: 0; pointer-events: none; overflow: hidden;
   height: 34px; background: var(--bg-elevated); transition: width 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.15s, padding 0.22s;
@@ -504,7 +504,7 @@ table.table { width: 100%; border-collapse: collapse; font-size: 0.93rem; font-v
 .unread-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--blue); flex: none; margin-top: 6px; }
 @media (max-width: 860px) {
   .gsearch kbd { display: none; }
-  .gsearch.expanded { position: absolute; left: 12px; right: 52px; top: calc(7px + env(safe-area-inset-top)); z-index: 5; }
+  .gsearch.expanded { position: absolute; left: 10px; right: 52px; margin-left: 0; top: calc(7px + env(safe-area-inset-top)); z-index: 5; }
   .gsearch.expanded .search { width: 100%; }
   .topbar .crumb { max-width: 50vw; overflow: hidden; }
 }
