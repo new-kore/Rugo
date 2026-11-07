@@ -1,5 +1,5 @@
 // Live fleet: map + every truck with kilometres left and arrival time; click a truck for its full file.
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Icon from '../../components/Icon.jsx';
 import MapView from '../../components/MapView.jsx';
 import { PageHead, Avatar, StatusPill, Tracker, RouteLine, Lightbox, ActionButton, ConfirmButton } from '../../components/ui.jsx';
@@ -16,7 +16,14 @@ export default function Fleet() {
   const { data } = useStore();
   const idx = useIndex();
   useNow(5000);
-  const [sel, setSel] = useState(null);
+  const [sel, setSel] = useState(() => sessionStorage.getItem('rugo.fleetSel') || null);
+  useEffect(() => {
+    // Opened from global search or a notification.
+    const pick = () => { const v = sessionStorage.getItem('rugo.fleetSel'); if (v) { setSel(v); sessionStorage.removeItem('rugo.fleetSel'); } };
+    pick();
+    window.addEventListener('rugo:fleet-select', pick);
+    return () => window.removeEventListener('rugo:fleet-select', pick);
+  }, []);
   const jobByTruck = Object.fromEntries(data.loads.filter(isActive).map((l) => [l.truckId, l]));
   const avg = data.settings.avgSpeedKmh;
 

@@ -3,6 +3,7 @@ import { useStore, isActive } from './lib/store.jsx';
 import { useRoute, go, match } from './lib/router.js';
 import Icon from './components/Icon.jsx';
 import { Toasts } from './components/ui.jsx';
+import { GlobalSearch, NotificationBell } from './components/TopbarTools.jsx';
 import { applyTheme } from './lib/theme.js';
 import Login from './pages/Login.jsx';
 import Settings from './pages/Settings.jsx';
@@ -123,9 +124,12 @@ export default function App() {
         <div className="panel">
           <header className="topbar">
             <Icon name={current?.icon || 'box'} size={17} style={{ color: 'var(--label-2)' }} />
-            <div className="crumb row" style={{ gap: 0 }}>{crumb}</div>
+            <div className="crumb row" style={{ gap: 0, minWidth: 0 }}>{crumb}</div>
             <div className="spacer" />
-            <span className={`pill ${online ? 'green live' : 'orange'}`} style={{ border: 0 }}><span className="dot" />{online ? 'Live' : 'Offline'}</span>
+            <GlobalSearch />
+            <div className="spacer hide-mobile" />
+            <span className={`pill hide-mobile ${online ? 'green live' : 'orange'}`} style={{ border: 0 }}><span className="dot" />{online ? 'Live' : 'Offline'}</span>
+            <NotificationBell />
           </header>
           {page}
         </div>

@@ -1,0 +1,215 @@
+// Top bar tools: global search (⌘K) and the notification bell.
+import { useEffect, useMemo, useRef, useState } from 'react';
+import Icon from './Icon.jsx';
+import { Avatar } from './ui.jsx';
+import { StatusIcon } from './LoadList.jsx';
+import { useStore, useIndex, useNow } from '../lib/store.jsx';
+import { go } from '../lib/router.js';
+import { placeShort, ago, km } from '../lib/format.js';
+
+function useOutside(ref, onOut) {
+  useEffect(() => {
+    const on = (e) => { if (!ref.current?.contains(e.target)) onOut(); };
+    document.addEventListener('mousedown', on);
+    return () => document.removeEventListener('mousedown', on);
+  }, [ref, onOut]);
+}
+
+/* -------------------------------- search -------------------------------- */
+
+export function GlobalSearch() {
+  const { data } = useStore();
+  const idx = useIndex();
+  const [q, setQ] = useState('');
+  const [open, setOpen] = useState(false);
+  const [cursor, setCursor] = useState(0);
+  const box = useRef(null);
+  const input = useRef(null);
+  useOutside(box, () => setOpen(false));
+
+  useEffect(() => {
+    const on = (e) => {
+      const typing = /input|textarea|select/i.test(document.activeElement?.tagName || '');
+      if ((e.key === 'k' && (e.metaKey || e.ctrlKey)) || (e.key === '/' && !typing)) {
+        e.preventDefault();
+        input.current?.focus();
+        setOpen(true);
+      }
+    };
+    window.addEventListener('keydown', on);
+    return () => window.removeEventListener('keydown', on);
+  }, []);
+
+  const results = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    if (!s) return [];
+    const has = (...xs) => xs.filter(Boolean).join(' ').toLowerCase().includes(s);
+    const out = [];
+    const role = data.me.role;
+    data.loads
+      .filter((l) => has(l.ref, l.poNumber, l.pickup.city, l.pickup.name, l.dropoff.city, l.dropoff.name, l.cargo.description, idx.companies[l.shipperId]?.name, idx.users[l.driverId]?.name))
+      .sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 6)
+      .forEach((l) => out.push({
+        group: 'Loads', key: l.id, icon: <StatusIcon status={l.status} />,
+        title: <><span className="mono">{l.ref}</span> {placeShort(l.pickup)} → {placeShort(l.dropoff)}</>,
+        sub: `${data.meta.statuses.find((x) => x.key === l.status)?.short} · ${l.cargo.description}${l.poNumber ? ` · ${l.poNumber}` : ''}`,
+        go: () => go(`/loads/${l.id}`),
+      }));
+    if (role === 'dispatcher') {
+      data.users.filter((u) => u.role === 'driver' && has(u.name, u.phone, u.email)).slice(0, 4).forEach((u) => out.push({
+        group: 'Drivers', key: u.id, icon: <Avatar user={u} size="sm" />, title: u.name,
+        sub: `${idx.trucks[u.truckId] ? `Unit ${idx.trucks[u.truckId].unit}` : 'No truck'} · ${u.phone}`,
+        go: () => { sessionStorage.setItem('rugo.fleetSel', u.truckId || ''); go('/fleet'); window.dispatchEvent(new Event('rugo:fleet-select')); },
+      }));
+      data.trucks.filter((t) => has(`unit ${t.unit}`, t.unit, t.plate, t.make, t.model, t.vin)).slice(0, 4).forEach((t) => out.push({
+        group: 'Trucks', key: t.id, icon: <Icon name="truck" size={16} />, title: `Unit ${t.unit}`,
+        sub: `${t.year} ${t.make} ${t.model} · ${t.plate} · ${km(t.odometerKm)}`,
+        go: () => { sessionStorage.setItem('rugo.fleetSel', t.id); go('/fleet'); window.dispatchEvent(new Event('rugo:fleet-select')); },
+      }));
+    }
+    data.companies.filter((c) => c.id !== data.me.companyId && has(c.name, c.city)).slice(0, 3).forEach((c) => out.push({
+      group: 'Companies', key: c.id, icon: <Icon name="building" size={16} />, title: c.name,
+      sub: `${c.type === 'carrier' ? 'Carrier' : 'Shipper'} · ${c.city}`,
+      go: () => go(role === 'shipper' ? '/shipments' : '/dispatch'),
+    }));
+    const pages = [
+      ['Request a pickup', '/new', 'shipper'], ['Billing & invoices', '/billing', 'shipper'], ['Load board', '/', 'dispatcher'],
+      ['Live fleet', '/fleet', 'dispatcher'], ['Fuel log', '/fuel', 'dispatcher'], ['Reports', '/reports', 'dispatcher'],
+      ['Drivers & trucks', '/drivers', 'dispatcher'], ['Log fuel', '/fuel', 'driver'], ['Hours & pay', '/hours', 'driver'], ['Settings', '/settings', '*'],
+    ];
+    pages.filter(([n, , r]) => (r === '*' || r === role) && n.toLowerCase().includes(s)).forEach(([n, p]) => out.push({
+      group: 'Go to', key: p + n, icon: <Icon name="chevron" size={14} />, title: n, sub: '', go: () => go(p),
+    }));
+    return out;
+  }, [q, data, idx]);
+
+  useEffect(() => setCursor(0), [q]);
+  const pick = (r) => { r.go(); setQ(''); setOpen(false); input.current?.blur(); };
+
+  return (
+    <div className="gsearch" ref={box}>
+      <label className={`search ${open ? 'focus' : ''}`}>
+        <Icon name="search" size={14} />
+        <input ref={input} value={q} placeholder={window.matchMedia('(max-width: 860px)').matches ? 'Search…' : 'Search loads, drivers, trucks, places…'} aria-label="Search everything"
+          onFocus={() => setOpen(true)} onChange={(e) => { setQ(e.target.value); setOpen(true); }}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowDown') { e.preventDefault(); setCursor((c) => Math.min(c + 1, results.length - 1)); }
+            if (e.key === 'ArrowUp') { e.preventDefault(); setCursor((c) => Math.max(c - 1, 0)); }
+            if (e.key === 'Enter' && results[cursor]) pick(results[cursor]);
+            if (e.key === 'Escape') { setOpen(false); e.currentTarget.blur(); }
+          }} />
+        <kbd>⌘K</kbd>
+      </label>
+      {open && q.trim() && (
+        <div className="popover gsearch-results" role="listbox">
+          {results.length === 0 && <div className="pop-empty">No results for “{q}”.</div>}
+          {results.map((r, i) => (
+            <div key={r.group + r.key}>
+              {(i === 0 || results[i - 1].group !== r.group) && <div className="pop-group">{r.group}</div>}
+              <button role="option" aria-selected={i === cursor} className={`pop-item ${i === cursor ? 'on' : ''}`} onMouseEnter={() => setCursor(i)} onClick={() => pick(r)}>
+                <span className="pop-icon">{r.icon}</span>
+                <span className="pop-text"><span className="truncate">{r.title}</span>{r.sub && <span className="truncate pop-sub">{r.sub}</span>}</span>
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------------------------- notifications ----------------------------- */
+
+const TITLES = {
+  requested: (l) => ['New pickup request', `${placeShort(l.pickup)} → ${placeShort(l.dropoff)}`],
+  accepted: (l) => ['Carrier assigned', `${placeShort(l.pickup)} → ${placeShort(l.dropoff)}`],
+  en_route_pickup: (l) => ['Driver on the way to pickup', placeShort(l.pickup)],
+  at_pickup: (l) => ['Arrived at pickup', l.pickup.name],
+  in_transit: (l) => ['On the road', `Left ${placeShort(l.pickup)} for ${placeShort(l.dropoff)}`],
+  at_delivery: (l) => ['Arrived at destination', l.dropoff.name],
+  delivered: (l) => [l.damage?.hasDamage ? 'Delivered — damage reported' : 'Delivered', `${placeShort(l.dropoff)} · signed by ${l.signature?.name || '—'}`],
+  cancelled: (l) => ['Cancelled', `${placeShort(l.pickup)} → ${placeShort(l.dropoff)}`],
+};
+
+function useNotifications() {
+  const { data } = useStore();
+  const me = data.me;
+  return useMemo(() => {
+    const items = [];
+    for (const l of data.loads) {
+      for (const t of l.timeline) {
+        if (t.by === me.name) continue; // your own actions aren't news to you
+        if (me.role === 'driver' && !['accepted'].includes(t.status)) continue;
+        const [title, body] = (TITLES[t.status] || TITLES.requested)(l);
+        items.push({ id: `${l.id}:${t.status}:${t.t}`, t: t.t, title, body, load: l, kind: t.status, warn: t.status === 'delivered' && l.damage?.hasDamage });
+      }
+      for (const m of l.messages) {
+        if (m.userId === me.id) continue;
+        items.push({ id: m.id, t: m.t, title: `Message from ${m.name}`, body: m.text, load: l, kind: 'message' });
+      }
+    }
+    for (const tr of data.trucks) {
+      for (const n of tr.notes || []) {
+        if (n.by === me.name) continue;
+        items.push({ id: n.id, t: n.t, title: `Note on Unit ${tr.unit}`, body: n.text, truck: tr, kind: 'note' });
+      }
+    }
+    return items.sort((a, b) => b.t - a.t).slice(0, 40);
+  }, [data.loads, data.trucks, me]);
+}
+
+export function NotificationBell() {
+  const { data } = useStore();
+  useNow(30000);
+  const items = useNotifications();
+  const key = `rugo.seen.${data.me.id}`;
+  // First visit: only the last 12 hours count as new.
+  const [seen, setSeen] = useState(() => { try { return Number(localStorage.getItem(key)) || Date.now() - 12 * 3.6e6; } catch { return Date.now() - 12 * 3.6e6; } });
+  const [open, setOpen] = useState(false);
+  const box = useRef(null);
+  useOutside(box, () => setOpen(false));
+  const unread = items.filter((n) => n.t > seen).length;
+  const markAll = () => {
+    const now = Date.now();
+    setSeen(now);
+    try { localStorage.setItem(key, String(now)); } catch { /* ignore */ }
+  };
+  const openItem = (n) => {
+    setOpen(false);
+    if (n.load) go(`/loads/${n.load.id}`);
+    else if (n.truck) { sessionStorage.setItem('rugo.fleetSel', n.truck.id); go('/fleet'); window.dispatchEvent(new Event('rugo:fleet-select')); }
+  };
+
+  return (
+    <div className="bell" ref={box}>
+      <button className="icon-btn" aria-label={`Notifications${unread ? `, ${unread} unread` : ''}`} aria-expanded={open} onClick={() => setOpen(!open)}>
+        <Icon name="bell" size={18} />
+        {unread > 0 && <span className="bell-badge">{unread > 99 ? '99+' : unread}</span>}
+      </button>
+      {open && (
+        <div className="popover bell-panel">
+          <div className="row between" style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>
+            <span className="headline">Notifications</span>
+            <button className="btn plain small" onClick={markAll} disabled={!unread}>Mark all read</button>
+          </div>
+          <div style={{ maxHeight: 440, overflowY: 'auto' }}>
+            {items.length === 0 && <div className="pop-empty">You’re all caught up.</div>}
+            {items.map((n) => (
+              <button key={n.id} className={`pop-item notif ${n.t > seen ? 'unread' : ''}`} onClick={() => openItem(n)}>
+                <span className="pop-icon">
+                  {n.kind === 'message' ? <Icon name="message" size={15} /> : n.kind === 'note' ? <Icon name="doc" size={15} /> : <StatusIcon status={n.kind} />}
+                </span>
+                <span className="pop-text">
+                  <span className={n.warn ? 'orange' : ''} style={{ fontWeight: 500 }}>{n.title}</span>
+                  <span className="pop-sub" style={{ whiteSpace: 'normal' }}>{n.load ? <><span className="mono">{n.load.ref}</span> · </> : null}{n.body}</span>
+                  <span className="caption tertiary">{ago(n.t)}</span>
+                </span>
+                {n.t > seen && <span className="unread-dot" />}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
