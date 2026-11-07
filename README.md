@@ -58,6 +58,9 @@ npm run build:standalone
 ```
 This writes `dist-standalone/rugo.html`, a single page with the server logic built in. It needs no backend. Data is kept in the viewer's own browser, and it uses a simplified offline map. Use it to share a quick demo. Use the Node server for real multi-company use.
 
+### Public web link (GitHub Pages)
+`npm run build:standalone` also writes `docs/index.html`, a complete web page. To publish it, go to GitHub → **Settings → Pages**. Under **Build and deployment**, choose **Deploy from a branch**, pick this branch and the **/docs** folder, then save. The demo is then at `https://<owner>.github.io/<repo>/`. On a normal web host the real street map loads; inside sandboxed pages it falls back to the offline map.
+
 ### Demo simulation vs. real GPS
 In demo mode, trucks drive themselves along their route. A leg takes about 2–3 minutes, so you can follow a whole job from start to finish. When a driver turns on **Settings → Share my phone's GPS**, their phone's location is streamed instead, and the simulator leaves that truck alone. Dispatch can switch the simulator off in Settings.
 

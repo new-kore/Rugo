@@ -27,11 +27,15 @@ function truckIcon(t) {
 }
 const placeIcon = (kind) => L.divIcon({ className: '', iconSize: [22, 22], iconAnchor: [11, 11], html: `<div class="place-pin ${kind}"></div>` });
 
+// Whether real map tiles can load here (blocked inside some sandboxed pages). Learned once per page.
+let tilesOk = !standalone;
+
+/** Simplified offline map, drawn until (unless) real tiles load. Returns a function that removes it. */
 function drawBasemap(m) {
-  m.attributionControl.setPrefix('');
+  const group = L.layerGroup().addTo(m);
   m.attributionControl.addAttribution('Simplified offline map');
-  WATER.forEach((ring) => L.polygon(ring, { className: 'bm-water', weight: 1, interactive: false, smoothFactor: 0 }).addTo(m));
-  RIVERS.forEach((line) => L.polyline(line, { className: 'bm-river', weight: 3, interactive: false }).addTo(m));
+  WATER.forEach((ring) => L.polygon(ring, { className: 'bm-water', weight: 1, interactive: false, smoothFactor: 0 }).addTo(group));
+  RIVERS.forEach((line) => L.polyline(line, { className: 'bm-river', weight: 3, interactive: false }).addTo(group));
   const labels = CITIES.map(([name, lat, lng, rank]) => ({
     rank,
     mk: L.marker([lat, lng], {
@@ -43,12 +47,17 @@ function drawBasemap(m) {
     const z = m.getZoom();
     labels.forEach(({ rank, mk }) => {
       const show = rank === 1 || (rank === 2 && z >= 6) || (rank === 3 && z >= 8);
-      if (show && !m.hasLayer(mk)) mk.addTo(m);
-      if (!show && m.hasLayer(mk)) mk.remove();
+      if (show && !group.hasLayer(mk)) mk.addTo(group);
+      if (!show && group.hasLayer(mk)) group.removeLayer(mk);
     });
   };
   m.on('zoomend', sync);
   sync();
+  return () => {
+    m.off('zoomend', sync);
+    group.remove();
+    m.attributionControl.removeAttribution('Simplified offline map');
+  };
 }
 
 export default function MapView({ trucks = [], places = [], route, track, height = 360, fitKey, onTruckClick, interactive = true, padding = 40 }) {
@@ -63,15 +72,22 @@ export default function MapView({ trucks = [], places = [], route, track, height
       doubleClickZoom: interactive, touchZoom: interactive, keyboard: interactive,
     }).setView([44.2, -78.5], 6);
     map.current = m;
+    let removeBasemap = tilesOk ? null : drawBasemap(m);
+    if (removeBasemap) el.current.classList.add('offline');
     const setTiles = () => {
-      if (standalone) return;
       layers.current.tiles?.remove();
-      layers.current.tiles = L.tileLayer(`https://{s}.basemaps.cartocdn.com/${isDark() ? 'dark_all' : 'voyager'}/{z}/{x}/{y}{r}.png`, {
+      const t = L.tileLayer(`https://{s}.basemaps.cartocdn.com/${isDark() ? 'dark_all' : 'voyager'}/{z}/{x}/{y}{r}.png`, {
         maxZoom: 19, subdomains: 'abcd', attribution: '© OpenStreetMap · © CARTO',
-      }).addTo(m);
+      });
+      t.once('tileload', () => {
+        tilesOk = true;
+        removeBasemap?.();
+        removeBasemap = null;
+        el.current?.classList.remove('offline');
+      });
+      layers.current.tiles = t.addTo(m);
     };
     setTiles();
-    if (standalone) drawBasemap(m);
     layers.current.places.addTo(m);
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
     mq.addEventListener('change', setTiles);
@@ -148,5 +164,5 @@ export default function MapView({ trucks = [], places = [], route, track, height
     else m.fitBounds(L.latLngBounds(pts), { padding: [padding, padding], maxZoom: 12 });
   }, [fitKey, places, trucks, route, padding]);
 
-  return <div ref={el} className={`map ${standalone ? 'offline' : ''}`} style={{ height }} />;
+  return <div ref={el} className="map" style={{ height }} />;
 }

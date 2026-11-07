@@ -19,4 +19,18 @@ const out = `<title>Rugo Freight</title>
 <script type="module">${js.replace(/<\/script/gi, '<\\/script')}</script>
 `;
 fs.writeFileSync(path.join(dir, 'rugo.html'), out);
+
+// A complete web page for static hosting (GitHub Pages serves /docs).
+const page = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Rugo — on-demand freight. Request a pickup, get a truck, track it live.">
+${out.replace('<div id="root"></div>', '</head>\n<body>\n<div id="root"></div>')}</body>
+</html>
+`;
+fs.mkdirSync('docs', { recursive: true });
+fs.writeFileSync('docs/index.html', page);
+fs.writeFileSync('docs/.nojekyll', '');
 console.log(`Wrote ${dir}/rugo.html (${(out.length / 1024).toFixed(0)} KB)`);
