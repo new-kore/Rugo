@@ -7,6 +7,7 @@ import { GlobalSearch, NotificationBell } from './components/TopbarTools.jsx';
 import { applyTheme } from './lib/theme.js';
 import Login from './pages/Login.jsx';
 import Settings from './pages/Settings.jsx';
+import CalendarPage from './pages/Calendar.jsx';
 import LoadDetail from './pages/LoadDetail.jsx';
 import ShipperHome from './pages/shipper/Home.jsx';
 import NewLoad from './pages/shipper/NewLoad.jsx';
@@ -27,12 +28,14 @@ const NAV = {
     { path: '/', label: 'Home', icon: 'map', page: ShipperHome },
     { path: '/new', label: 'Request pickup', icon: 'plusCircle', page: NewLoad },
     { path: '/shipments', label: 'Shipments', icon: 'box', page: Shipments, section: 'Workspace', badge: (d) => d.loads.filter((l) => l.status === 'requested' || isActive(l)).length, quiet: true },
+    { path: '/calendar', label: 'Calendar', icon: 'calendar', page: CalendarPage, section: 'Workspace', desktopOnly: true },
     { path: '/billing', label: 'Billing', icon: 'receipt', page: Billing, section: 'Workspace' },
     { path: '/settings', label: 'Settings', icon: 'gear', page: Settings, section: 'Workspace' },
   ],
   dispatcher: [
     { path: '/', label: 'Load board', icon: 'list', page: Board, badge: (d) => d.loads.filter((l) => l.status === 'requested').length },
     { path: '/dispatch', label: 'Jobs', icon: 'route', page: Dispatch, badge: (d) => d.loads.filter(isActive).length, quiet: true },
+    { path: '/calendar', label: 'Calendar', icon: 'calendar', page: CalendarPage },
     { path: '/fleet', label: 'Live fleet', icon: 'map', page: Fleet, section: 'Fleet' },
     { path: '/drivers', label: 'Drivers & trucks', icon: 'people', page: Drivers, section: 'Fleet' },
     { path: '/fuel', label: 'Fuel', icon: 'fuel', page: Fuel, section: 'Fleet' },
@@ -41,6 +44,7 @@ const NAV = {
   ],
   driver: [
     { path: '/', label: 'My job', icon: 'truck', page: DriverJob },
+    { path: '/calendar', label: 'Calendar', icon: 'calendar', page: CalendarPage, section: 'Workspace' },
     { path: '/fuel', label: 'Fuel', icon: 'fuel', page: DriverFuel, section: 'Workspace' },
     { path: '/hours', label: 'Hours & pay', icon: 'clock', page: DriverHours, section: 'Workspace' },
     { path: '/settings', label: 'Settings', icon: 'gear', page: Settings, section: 'Workspace' },
@@ -77,7 +81,7 @@ export default function App() {
     const P = current.page;
     page = <P />;
   }
-  const mobileNav = nav.filter((n) => !(role === 'dispatcher' && n.path === '/fuel'));
+  const mobileNav = nav.filter((n) => !n.desktopOnly && !(role === 'dispatcher' && n.path === '/fuel'));
   const sections = [...new Set(nav.map((n) => n.section || ''))];
   const initials = (data.me.company?.name || 'R').split(/\s+/).map((w) => w[0]).slice(0, 2).join('');
 
