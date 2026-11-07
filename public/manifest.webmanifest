@@ -1,0 +1,1 @@
+{ "name": "Rugo Freight", "short_name": "Rugo", "start_url": "/", "display": "standalone", "background_color": "#f2f2f7", "theme_color": "#007aff", "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }] }
