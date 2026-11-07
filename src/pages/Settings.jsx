@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Icon from '../components/Icon.jsx';
 import { PageHead, Segmented, Switch, Avatar, ConfirmButton } from '../components/ui.jsx';
 import { useStore } from '../lib/store.jsx';
+import { applyTheme } from '../lib/theme.js';
 import { patch, post, standalone, resetDemo, setToken } from '../lib/api.js';
 
 function usePref(key, attr, def) {
@@ -9,7 +10,7 @@ function usePref(key, attr, def) {
   const set = (x) => {
     setV(x);
     try { localStorage.setItem(key, x); } catch { /* ignore */ }
-    if (x === def && attr === 'theme') delete document.documentElement.dataset.theme;
+    if (attr === 'theme') applyTheme(x);
     else document.documentElement.dataset[attr] = x;
   };
   return [v, set];
@@ -18,7 +19,7 @@ function usePref(key, attr, def) {
 export default function Settings() {
   const { data, signOut, setData, toast } = useStore();
   const [text, setText] = usePref('rugo.text', 'text', 'normal');
-  const [theme, setTheme] = usePref('rugo.theme', 'theme', 'auto');
+  const [theme, setTheme] = usePref('rugo.theme', 'theme', 'light');
   const me = data.me;
   const s = data.settings;
   const [fuel, setFuel] = useState(s.fuelPricePerL);
@@ -50,7 +51,7 @@ export default function Settings() {
         <div className="list-row indent">
           <div className="icon-tile" style={{ background: 'var(--indigo)' }}><Icon name="moon" size={18} /></div>
           <div className="label">Appearance</div>
-          <Segmented value={theme} onChange={setTheme} options={[{ value: 'auto', label: 'Auto' }, { value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }]} />
+          <Segmented value={theme} onChange={setTheme} options={[{ value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }, { value: 'auto', label: 'System' }]} />
         </div>
       </div>
       <div className="section-footer">Bigger text makes every screen easier to read on the road or in the office.</div>

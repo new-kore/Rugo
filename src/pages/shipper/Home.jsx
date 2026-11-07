@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import Icon from '../../components/Icon.jsx';
 import MapView from '../../components/MapView.jsx';
 import { Stat, Empty } from '../../components/ui.jsx';
-import { LoadCard } from '../../components/LoadBits.jsx';
+import { LoadGroups } from '../../components/LoadList.jsx';
 import { useStore, useIndex, isActive } from '../../lib/store.jsx';
 import { go } from '../../lib/router.js';
 import { money } from '../../lib/format.js';
@@ -67,7 +67,7 @@ export default function ShipperHome() {
       </div>
       {active.length === 0
         ? <div className="card"><Empty icon="box" title="Nothing on the road">Tap “Where is your load going?” to request a pickup.</Empty></div>
-        : <div className="grid grid-2">{active.map((l) => <LoadCard key={l.id} load={l} />)}</div>}
+        : <LoadGroups loads={active} />}
     </div>
   );
 }

@@ -110,14 +110,12 @@ export function Empty({ icon = 'box', title, children }) {
   );
 }
 
-export function PageHead({ title, sub, children }) {
+export function PageHead({ sub, children }) {
+  if (!sub && !children) return null;
   return (
     <div className="page-head">
-      <div>
-        <h1 className="large-title">{title}</h1>
-        {sub && <div className="sub subhead">{sub}</div>}
-      </div>
-      {children && <div className="row wrap">{children}</div>}
+      <div className="subhead secondary">{sub}</div>
+      {children && <div className="row wrap" style={{ gap: 8 }}>{children}</div>}
     </div>
   );
 }

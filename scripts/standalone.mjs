@@ -7,11 +7,12 @@ execSync('npx vite build --mode standalone', { stdio: 'inherit' });
 const dir = 'dist-standalone';
 const html = fs.readFileSync(path.join(dir, 'index.html'), 'utf8');
 const read = (p) => fs.readFileSync(path.join(dir, p.replace(/^\.\//, '')), 'utf8');
-const css = [...html.matchAll(/<link rel="stylesheet"[^>]*href="([^"]+)"[^>]*>/g)].map((m) => read(m[1])).join('\n');
+const css = [...html.matchAll(/<link rel="stylesheet"[^>]*href="(\.\/[^"]+)"[^>]*>/g)].map((m) => read(m[1])).join('\n');
 const js = [...html.matchAll(/<script type="module"[^>]*src="([^"]+)"[^>]*><\/script>/g)].map((m) => read(m[1])).join('\n');
 const icon = fs.readFileSync('public/icon.svg', 'utf8');
 const out = `<title>Rugo Freight</title>
-<meta name="theme-color" content="#007aff">
+<meta name="theme-color" content="#ffffff">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="icon" href="data:image/svg+xml,${encodeURIComponent(icon)}">
 <style>${css}</style>
 <div id="root"></div>
