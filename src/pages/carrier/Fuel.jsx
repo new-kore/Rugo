@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import Icon from '../../components/Icon.jsx';
-import { PageHead, Stat, Sheet, Empty, Segmented } from '../../components/ui.jsx';
+import { PageHead, Stat, Sheet, Empty, Segmented, ConfirmButton } from '../../components/ui.jsx';
 import FuelForm from '../../components/FuelForm.jsx';
 import BarChart from '../../components/BarChart.jsx';
 import { useStore, useIndex } from '../../lib/store.jsx';
@@ -8,7 +8,7 @@ import { money, money2, km, num, dateTime, date } from '../../lib/format.js';
 import { del } from '../../lib/api.js';
 
 export default function Fuel() {
-  const { data, toast } = useStore();
+  const { data } = useStore();
   const idx = useIndex();
   const [adding, setAdding] = useState(false);
   const [days, setDays] = useState(30);
@@ -62,8 +62,7 @@ export default function Fuel() {
                   <td className="r">{money2(f.total)}</td>
                   <td className="r">{km(f.odometerKm)}</td>
                   <td className="mono">{idx.loads[f.loadId]?.ref || '—'}</td>
-                  <td><button className="icon-btn" style={{ width: 28, height: 28, color: 'var(--red)' }} aria-label="Delete"
-                    onClick={async () => { if (window.confirm('Delete this fill-up?')) { try { await del(`/fuel/${f.id}`); } catch (e) { toast({ title: 'Not deleted', body: e.message, tone: 'error' }); } } }}><Icon name="trash" size={14} /></button></td>
+                  <td><ConfirmButton className="btn small danger" confirmLabel="Delete?" aria-label="Delete fill-up" onConfirm={() => del(`/fuel/${f.id}`)}><Icon name="trash" size={14} /></ConfirmButton></td>
                 </tr>
               ))}
             </tbody>

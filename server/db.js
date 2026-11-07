@@ -30,6 +30,25 @@ export function flush() {
 export const id = (prefix) => `${prefix}_${crypto.randomBytes(6).toString('hex')}`;
 export const find = (col, key) => db[col].find((x) => x.id === key);
 
+export const randomToken = (bytes = 24) => crypto.randomBytes(bytes).toString('hex');
+
+/** Store an uploaded image (data URL). Returns its public URL, or null if it isn't a readable image. */
+export function saveUpload(dataUrl) {
+  const m = /^data:(image\/(jpeg|png|webp));base64,(.+)$/.exec(dataUrl || '');
+  if (!m) return null;
+  const buf = Buffer.from(m[3], 'base64');
+  if (buf.length > 12 * 1024 * 1024) return null;
+  const name = `${randomToken(12)}.${m[2] === 'jpeg' ? 'jpg' : m[2]}`;
+  fs.writeFileSync(path.join(UPLOAD_DIR, name), buf);
+  return `/uploads/${name}`;
+}
+
+/** Write a generated file (e.g. demo SVG photos). Returns its public URL. */
+export function writeUpload(name, text) {
+  fs.writeFileSync(path.join(UPLOAD_DIR, name), text);
+  return `/uploads/${name}`;
+}
+
 export function hashPassword(pw) {
   const salt = crypto.randomBytes(16).toString('hex');
   return `${salt}:${crypto.scryptSync(pw, salt, 32).toString('hex')}`;

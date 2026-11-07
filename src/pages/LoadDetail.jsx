@@ -3,7 +3,7 @@ import Icon from '../components/Icon.jsx';
 import MapView from '../components/MapView.jsx';
 import Chat from '../components/Chat.jsx';
 import { PhotoCompare } from '../components/Inspection.jsx';
-import { StatusPill, Tracker, RouteLine, Avatar, ActionButton, Empty, STATUS_STYLE } from '../components/ui.jsx';
+import { StatusPill, Tracker, RouteLine, Avatar, ActionButton, ConfirmButton, Empty, STATUS_STYLE } from '../components/ui.jsx';
 import { AcceptSheet, CargoFacts, PriceBreakdown, Economics, InvoiceDoc } from '../components/LoadBits.jsx';
 import { useStore, useIndex, useNow, isActive } from '../lib/store.jsx';
 import { money, money2, km, time, dayLabel, duration, ago, placeShort } from '../lib/format.js';
@@ -62,7 +62,7 @@ export default function LoadDetail({ id }) {
         <div className="row wrap">
           {role === 'dispatcher' && load.status === 'requested' && <button className="btn primary large" onClick={() => setAccepting(true)}><Icon name="check" size={20} stroke={2.4} />Accept for {money(load.quote.carrierPayout)}</button>}
           {role === 'dispatcher' && load.status === 'accepted' && <ActionButton className="btn danger" onClick={async () => upsert('loads', await post(`/loads/${load.id}/cancel`))}>Release load</ActionButton>}
-          {role === 'shipper' && ['requested', 'accepted'].includes(load.status) && <ActionButton className="btn danger" onClick={async () => { if (window.confirm('Cancel this pickup request?')) upsert('loads', await post(`/loads/${load.id}/cancel`)); }}>Cancel request</ActionButton>}
+          {role === 'shipper' && ['requested', 'accepted'].includes(load.status) && <ConfirmButton confirmLabel="Tap again to cancel" onConfirm={async () => upsert('loads', await post(`/loads/${load.id}/cancel`))}>Cancel request</ConfirmButton>}
           {load.invoice && <button className="btn" onClick={() => setInvoice(true)}><Icon name="receipt" size={18} />Invoice</button>}
         </div>
       </div>

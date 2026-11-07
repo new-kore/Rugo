@@ -195,6 +195,25 @@ export function ActionButton({ onClick, children, className = 'btn primary', dis
   );
 }
 
+/** Two-tap confirmation in the page itself (browser confirm dialogs are blocked in some frames). */
+export function ConfirmButton({ onConfirm, children, confirmLabel = 'Tap again to confirm', className = 'btn danger', ...rest }) {
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    if (!armed) return undefined;
+    const t = setTimeout(() => setArmed(false), 4000);
+    return () => clearTimeout(t);
+  }, [armed]);
+  return (
+    <ActionButton {...rest} className={className} onClick={async (e) => {
+      if (!armed) { setArmed(true); return; }
+      setArmed(false);
+      await onConfirm(e);
+    }}>
+      {armed ? confirmLabel : children}
+    </ActionButton>
+  );
+}
+
 export function Field({ label, children, hint }) {
   return (
     <label className="field">

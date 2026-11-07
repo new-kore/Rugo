@@ -2,6 +2,8 @@
 import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { standalone } from '../lib/api.js';
+import { WATER, RIVERS, CITIES } from '../lib/basemap.js';
 
 const truckSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 16.5V7a1.5 1.5 0 0 1 1.5-1.5h9A1.5 1.5 0 0 1 14.5 7v9.5"/><path d="M14.5 10h3.6l3.4 4v2.5h-1.6"/><circle cx="6.8" cy="17" r="2"/><circle cx="17.6" cy="17" r="2"/></svg>';
 
@@ -25,6 +27,30 @@ function truckIcon(t) {
 }
 const placeIcon = (kind) => L.divIcon({ className: '', iconSize: [22, 22], iconAnchor: [11, 11], html: `<div class="place-pin ${kind}"></div>` });
 
+function drawBasemap(m) {
+  m.attributionControl.setPrefix('');
+  m.attributionControl.addAttribution('Simplified offline map');
+  WATER.forEach((ring) => L.polygon(ring, { className: 'bm-water', weight: 1, interactive: false, smoothFactor: 0 }).addTo(m));
+  RIVERS.forEach((line) => L.polyline(line, { className: 'bm-river', weight: 3, interactive: false }).addTo(m));
+  const labels = CITIES.map(([name, lat, lng, rank]) => ({
+    rank,
+    mk: L.marker([lat, lng], {
+      interactive: false, keyboard: false,
+      icon: L.divIcon({ className: `bm-city r${rank}`, iconSize: [0, 0], html: `<i></i><span>${name}</span>` }),
+    }),
+  }));
+  const sync = () => {
+    const z = m.getZoom();
+    labels.forEach(({ rank, mk }) => {
+      const show = rank === 1 || (rank === 2 && z >= 6) || (rank === 3 && z >= 8);
+      if (show && !m.hasLayer(mk)) mk.addTo(m);
+      if (!show && m.hasLayer(mk)) mk.remove();
+    });
+  };
+  m.on('zoomend', sync);
+  sync();
+}
+
 export default function MapView({ trucks = [], places = [], route, track, height = 360, fitKey, onTruckClick, interactive = true, padding = 40 }) {
   const el = useRef(null);
   const map = useRef(null);
@@ -38,12 +64,14 @@ export default function MapView({ trucks = [], places = [], route, track, height
     }).setView([44.2, -78.5], 6);
     map.current = m;
     const setTiles = () => {
+      if (standalone) return;
       layers.current.tiles?.remove();
       layers.current.tiles = L.tileLayer(`https://{s}.basemaps.cartocdn.com/${isDark() ? 'dark_all' : 'voyager'}/{z}/{x}/{y}{r}.png`, {
         maxZoom: 19, subdomains: 'abcd', attribution: '© OpenStreetMap · © CARTO',
       }).addTo(m);
     };
     setTiles();
+    if (standalone) drawBasemap(m);
     layers.current.places.addTo(m);
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
     mq.addEventListener('change', setTiles);
@@ -120,5 +148,5 @@ export default function MapView({ trucks = [], places = [], route, track, height
     else m.fitBounds(L.latLngBounds(pts), { padding: [padding, padding], maxZoom: 12 });
   }, [fitKey, places, trucks, route, padding]);
 
-  return <div ref={el} className="map" style={{ height }} />;
+  return <div ref={el} className={`map ${standalone ? 'offline' : ''}`} style={{ height }} />;
 }

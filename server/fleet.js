@@ -107,7 +107,7 @@ export function notify(filter, message) {
     if (filter(viewer)) res.write(`data: ${JSON.stringify({ type: 'toast', ...message })}\n\n`);
   }
 }
-setInterval(() => { for (const { res } of clients) res.write(': ping\n\n'); }, 20000).unref();
+setInterval(() => { for (const { res } of clients) res.write(': ping\n\n'); }, 20000).unref?.();
 
 /* ------------------------------ lifecycle ----------------------------- */
 
@@ -340,7 +340,7 @@ setInterval(async () => {
   if (running) return;
   running = true;
   try { await tick(); } catch (e) { console.error('simulator', e); } finally { running = false; }
-}, 2000).unref();
+}, 2000).unref?.();
 
 export function newLoadShell() {
   return {

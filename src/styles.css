@@ -410,3 +410,15 @@ table.table { width: 100%; border-collapse: collapse; font-size: 0.92rem; font-v
 .driver-hero .tracker .seg { background: rgba(255, 255, 255, 0.28); }
 .driver-hero .tracker .seg.done, .driver-hero .tracker.delivered .seg { background: #fff; }
 .driver-hero .tracker .seg.now { background: linear-gradient(90deg, #fff 50%, rgba(255, 255, 255, 0.28) 50%); background-size: 200% 100%; }
+
+/* Offline base map (standalone build) */
+:root { --land: #eef0ea; --water: #c9dff0; --water-edge: #a9c8e3; --map-label: rgba(60, 60, 67, 0.7); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme='light']) { --land: #1b1e22; --water: #172a3b; --water-edge: #24425c; --map-label: rgba(235, 235, 245, 0.6); } }
+:root[data-theme='dark'] { --land: #1b1e22; --water: #172a3b; --water-edge: #24425c; --map-label: rgba(235, 235, 245, 0.6); }
+.map.offline, .map.offline.leaflet-container { background: var(--land); }
+.bm-water { fill: var(--water); fill-opacity: 1; stroke: var(--water-edge); }
+.bm-river { stroke: var(--water-edge); fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.bm-city { pointer-events: none; }
+.bm-city i { position: absolute; width: 5px; height: 5px; border-radius: 50%; background: var(--map-label); left: -2.5px; top: -2.5px; }
+.bm-city span { position: absolute; left: 6px; top: -8px; white-space: nowrap; font-size: 11px; font-weight: 500; color: var(--map-label); text-shadow: 0 0 3px var(--land), 0 0 3px var(--land); }
+.bm-city.r1 span { font-size: 12.5px; font-weight: 600; }

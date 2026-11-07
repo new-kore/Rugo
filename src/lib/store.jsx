@@ -1,6 +1,6 @@
 // App-wide data store: loads everything the user may see once, then stays live over Server-Sent Events.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { api, getToken, setToken, post } from './api.js';
+import { api, getToken, setToken, post, openStream } from './api.js';
 
 const Ctx = createContext(null);
 const COLS = ['companies', 'users', 'trucks', 'loads', 'fuelLogs', 'shifts'];
@@ -10,7 +10,7 @@ export function StoreProvider({ children }) {
   const [authed, setAuthed] = useState(!!getToken());
   const [toasts, setToasts] = useState([]);
   const [online, setOnline] = useState(true);
-  const esRef = useRef(null);
+  const closeRef = useRef(null);
 
   const toast = useCallback((t) => {
     const id = Math.random().toString(36).slice(2);
@@ -31,12 +31,8 @@ export function StoreProvider({ children }) {
   useEffect(() => {
     if (!authed) return undefined;
     load();
-    const es = new EventSource(`/api/stream?token=${getToken()}`);
-    esRef.current = es;
-    es.onopen = () => setOnline(true);
-    es.onerror = () => setOnline(false);
-    es.onmessage = (ev) => {
-      const msg = JSON.parse(ev.data);
+    const onMessage = (msg) => {
+      setOnline(true);
       if (msg.type === 'toast') return toast(msg);
       setData((d) => {
         if (!d || !COLS.includes(msg.col)) return d;
@@ -48,7 +44,9 @@ export function StoreProvider({ children }) {
         return { ...d, me, [msg.col]: next };
       });
     };
-    return () => es.close();
+    const close = openStream(onMessage, () => setOnline(true), () => setOnline(false));
+    closeRef.current = close;
+    return close;
   }, [authed, load, toast]);
 
   const signIn = useCallback(async (promise) => {
@@ -58,7 +56,7 @@ export function StoreProvider({ children }) {
   }, []);
   const signOut = useCallback(async () => {
     try { await post('/auth/logout'); } catch { /* ignore */ }
-    esRef.current?.close();
+    closeRef.current?.();
     setToken('');
     setAuthed(false);
     setData(null);

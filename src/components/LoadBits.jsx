@@ -5,7 +5,7 @@ import { StatusPill, Tracker, RouteLine, Sheet, Avatar, ActionButton } from './u
 import { useStore, useIndex, isActive } from '../lib/store.jsx';
 import { money, money2, km, kg, dayLabel, time, duration, placeShort } from '../lib/format.js';
 import { haversine } from '../lib/geo.js';
-import { post } from '../lib/api.js';
+import { post, standalone } from '../lib/api.js';
 import { go } from '../lib/router.js';
 
 export function etaText(load) {
@@ -173,7 +173,7 @@ export function Economics({ e }) {
 export function InvoiceDoc({ load, company, shipper, onClose }) {
   const inv = load.invoice;
   return (
-    <Sheet title={inv.number} onClose={onClose} wide action={<button className="btn small" onClick={() => window.print()}><Icon name="print" size={16} />Print</button>}>
+    <Sheet title={inv.number} onClose={onClose} wide action={standalone ? null : <button className="btn small" onClick={() => window.print()}><Icon name="print" size={16} />Print</button>}>
       <div className="card pad-lg stack" id="invoice">
         <div className="row between wrap">
           <div className="row"><div className="brand-mark"><Icon name="truck" size={20} stroke={2.2} /></div><div><div className="title3">Invoice</div><div className="mono secondary">{inv.number}</div></div></div>

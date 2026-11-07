@@ -1,7 +1,5 @@
 // Demo data so the platform is alive on first launch: two shippers, one carrier fleet, live and historic loads.
-import fs from 'node:fs';
-import path from 'node:path';
-import { db, save, id, hashPassword, UPLOAD_DIR } from './db.js';
+import { db, save, id, hashPassword, writeUpload } from './db.js';
 import { route, pathLength, pointAlong, haversine } from './geo.js';
 import { quote, invoice, economics, DEFAULT_SETTINGS } from './pricing.js';
 import { PHOTO_SLOTS } from './constants.js';
@@ -40,8 +38,7 @@ function placeholderPhoto(label, phase, hue) {
 <text x="40" y="70" font-family="-apple-system,Helvetica,Arial" font-size="34" font-weight="600" fill="#fff">${label}</text>
 <text x="40" y="112" font-family="-apple-system,Helvetica,Arial" font-size="24" fill="#fff" opacity=".85">Sample ${phase} photo · demo data</text>
 </svg>`;
-  fs.writeFileSync(path.join(UPLOAD_DIR, name), svg);
-  return `/uploads/${name}`;
+  return writeUpload(name, svg);
 }
 
 function photoSet(phase, t, place, by) {

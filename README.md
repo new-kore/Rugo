@@ -52,6 +52,12 @@ To clear all data and re-seed on the next start:
 npm run reset
 ```
 
+### One-file browser demo
+```bash
+npm run build:standalone
+```
+This writes `dist-standalone/rugo.html`, a single page with the server logic built in. It needs no backend. Data is kept in the viewer's own browser, and it uses a simplified offline map. Use it to share a quick demo. Use the Node server for real multi-company use.
+
 ### Demo simulation vs. real GPS
 In demo mode, trucks drive themselves along their route. A leg takes about 2–3 minutes, so you can follow a whole job from start to finish. When a driver turns on **Settings → Share my phone's GPS**, their phone's location is streamed instead, and the simulator leaves that truck alone. Dispatch can switch the simulator off in Settings.
 

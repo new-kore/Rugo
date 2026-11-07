@@ -45,7 +45,7 @@ function syntheticRoute(a, b) {
 /** Driving route between two points. Tries the public OSRM router, falls back to an estimate. */
 export async function route(a, b) {
   if (haversine(a, b) < 0.05) return { points: [a, b], distanceKm: 0, source: 'estimate' };
-  if (process.env.RUGO_OFFLINE_ROUTING !== '1') {
+  if (typeof window === 'undefined' && globalThis.process?.env?.RUGO_OFFLINE_ROUTING !== '1') {
     try {
       const url = `https://router.project-osrm.org/route/v1/driving/${a.lng},${a.lat};${b.lng},${b.lat}?overview=simplified&geometries=geojson`;
       const res = await fetch(url, { signal: AbortSignal.timeout(4000), headers: { 'User-Agent': 'Rugo-Freight/1.0' } });

@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import Icon from '../components/Icon.jsx';
-import { PageHead, Segmented, Switch, Avatar } from '../components/ui.jsx';
+import { PageHead, Segmented, Switch, Avatar, ConfirmButton } from '../components/ui.jsx';
 import { useStore } from '../lib/store.jsx';
-import { patch, post } from '../lib/api.js';
+import { patch, post, standalone, resetDemo, setToken } from '../lib/api.js';
 
 function usePref(key, attr, def) {
   const [v, setV] = useState(() => { try { return localStorage.getItem(key) || def; } catch { return def; } });
@@ -101,6 +101,21 @@ export default function Settings() {
         <div className="list-row"><div className="label">Sales tax (HST)</div><div className="value">{Math.round(s.taxRate * 100)}%</div></div>
         <div className="list-row"><div className="label">Currency</div><div className="value">{s.currency}</div></div>
       </div>
+
+      {standalone && (
+        <>
+          <div className="section-header">Demo</div>
+          <div className="list">
+            <div className="list-row">
+              <div className="label">
+                <div>Start the demo over</div>
+                <div className="footnote secondary">Everything runs in this browser. This brings back the original sample loads.</div>
+              </div>
+              <ConfirmButton className="btn small danger" confirmLabel="Tap to reset" onConfirm={async () => { resetDemo(); setToken(''); window.location.hash = ''; window.location.reload(); }}>Reset</ConfirmButton>
+            </div>
+          </div>
+        </>
+      )}
 
       <div className="section-header" />
       <div className="list">

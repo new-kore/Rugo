@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import Icon from '../components/Icon.jsx';
-import { post } from '../lib/api.js';
+import { post, standalone } from '../lib/api.js';
 import { useStore } from '../lib/store.jsx';
 
 const ROLES = [
@@ -54,6 +54,7 @@ export default function Login() {
           <input className="input" type="password" autoComplete="current-password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
           <button className="btn primary large" disabled={!email || !password || !!busy}>{busy === 'form' ? 'Signing in…' : 'Sign in'}</button>
           <div className="footnote tertiary" style={{ textAlign: 'center' }}>Demo accounts use the password “demo”.</div>
+          {standalone && <div className="footnote tertiary" style={{ textAlign: 'center' }}>This demo runs entirely in your browser. Sign out and pick another role to see the other side of the same load.</div>}
         </form>
       </div>
     </div>
