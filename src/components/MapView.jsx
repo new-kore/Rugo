@@ -63,7 +63,7 @@ function drawBasemap(m) {
   };
 }
 
-function LeafletMapView({ trucks = [], places = [], route, track, height = 360, fitKey, onTruckClick, interactive = true, padding = 40 }) {
+function LeafletMapView({ trucks = [], places = [], route, track, lines = [], highlight, onLineHover, onLineClick, height = 360, fitKey, onTruckClick, interactive = true, padding = 40 }) {
   const el = useRef(null);
   const map = useRef(null);
   const layers = useRef({ trucks: new Map(), places: L.layerGroup(), route: null, track: null, tiles: null });
@@ -152,6 +152,40 @@ function LeafletMapView({ trucks = [], places = [], route, track, height = 360, 
     }
   }, [places, route, track]);
 
+  // Coloured route lines (calendar map): hover tooltip, highlight, click.
+  const lineLayers = useRef(new Map());
+  useEffect(() => {
+    const m = map.current;
+    for (const g of lineLayers.current.values()) g.remove();
+    lineLayers.current.clear();
+    for (const ln of lines) {
+      if (!ln.points?.length) continue;
+      const ll = ln.points.map((p) => [p.lat, p.lng]);
+      const halo = L.polyline(ll, { color: '#fff', weight: 8, opacity: 0.9 });
+      const line = L.polyline(ll, { color: ln.color, weight: 4, opacity: 0.95, lineCap: 'round' });
+      const a = L.circleMarker(ll[0], { radius: 5, color: '#fff', weight: 2, fillColor: ln.color, fillOpacity: 1 });
+      const b = L.circleMarker(ll[ll.length - 1], { radius: 5, color: '#fff', weight: 2, fillColor: '#1b1c1f', fillOpacity: 1 });
+      const g = L.featureGroup([halo, line, a, b]).addTo(m);
+      g.bindTooltip(ln.tooltip, { sticky: true, className: 'rugo-tip', direction: 'top', offset: [0, -8] });
+      g.on('mouseover', () => onLineHover?.(ln.id));
+      g.on('mouseout', () => onLineHover?.(null));
+      g.on('click', () => onLineClick?.(ln.id));
+      g._line = line; g._halo = halo;
+      lineLayers.current.set(ln.id, g);
+    }
+    return () => { for (const g of lineLayers.current.values()) g.remove(); lineLayers.current.clear(); };
+  }, [lines]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    for (const [id, g] of lineLayers.current) {
+      const on = highlight === id;
+      const dim = highlight && !on;
+      g._line.setStyle({ weight: on ? 7 : 4, opacity: dim ? 0.25 : 0.95 });
+      g._halo.setStyle({ weight: on ? 11 : 8, opacity: dim ? 0.3 : 0.9 });
+      if (on) g.bringToFront();
+    }
+  }, [highlight, lines]);
+
   // Fit to everything once per fitKey
   useEffect(() => {
     const m = map.current;
@@ -160,12 +194,13 @@ function LeafletMapView({ trucks = [], places = [], route, track, height = 360, 
       ...places.filter((p) => p?.lat).map((p) => [p.lat, p.lng]),
       ...trucks.filter((t) => t.location).map((t) => [t.location.lat, t.location.lng]),
       ...(route || []).map((p) => [p.lat, p.lng]),
+      ...lines.flatMap((ln) => (ln.points || []).map((p) => [p.lat, p.lng])),
     ];
     if (!pts.length) return;
     fitted.current = fitKey;
     if (pts.length === 1) m.setView(pts[0], 11);
     else m.fitBounds(L.latLngBounds(pts), { padding: [padding, padding], maxZoom: 12 });
-  }, [fitKey, places, trucks, route, padding]);
+  }, [fitKey, places, trucks, route, lines, padding]);
 
   return <div ref={el} className="map" style={{ height }} />;
 }

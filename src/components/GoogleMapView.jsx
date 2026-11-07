@@ -22,13 +22,13 @@ function placeEl(p) {
   return el;
 }
 
-export default function GoogleMapView({ trucks = [], places = [], route, track, height = 360, fitKey, onTruckClick, interactive = true, padding = 40, onFail }) {
+export default function GoogleMapView({ trucks = [], places = [], route, track, lines = [], highlight, onLineHover, onLineClick, height = 360, fitKey, onTruckClick, interactive = true, padding = 40, onFail }) {
   const el = useRef(null);
   const g = useRef(null); // { maps, map, Marker }
   const reg = useRef({ trucks: new Map(), places: [], route: [], track: null });
   const fitted = useRef(null);
   const latest = useRef({});
-  latest.current = { trucks, places, route, track, fitKey, onTruckClick, padding };
+  latest.current = { trucks, places, route, track, lines, highlight, onLineHover, onLineClick, fitKey, onTruckClick, padding };
 
   useEffect(() => {
     let alive = true;
@@ -106,11 +106,35 @@ export default function GoogleMapView({ trucks = [], places = [], route, track, 
     }
     }
 
+    // Coloured route lines with hover info.
+    const { lines: lns, highlight: hl } = latest.current;
+    if (r.lastLines !== lns) {
+      r.lastLines = lns;
+      (r.lines || []).forEach((x) => { x.halo.setMap(null); x.line.setMap(null); });
+      r.info = r.info || new maps.InfoWindow({ disableAutoPan: true });
+      r.lines = (lns || []).filter((ln) => ln.points?.length).map((ln) => {
+        const path = ln.points.map((p) => ({ lat: p.lat, lng: p.lng }));
+        const halo = new maps.Polyline({ map, path, strokeColor: '#ffffff', strokeOpacity: 0.9, strokeWeight: 8 });
+        const line = new maps.Polyline({ map, path, strokeColor: ln.color, strokeOpacity: 0.95, strokeWeight: 4 });
+        [halo, line].forEach((pl) => {
+          pl.addListener('mouseover', (e) => { latest.current.onLineHover?.(ln.id); r.info.setContent(ln.tooltip); r.info.setPosition(e.latLng); r.info.open({ map }); });
+          pl.addListener('mouseout', () => { latest.current.onLineHover?.(null); r.info.close(); });
+          pl.addListener('click', () => latest.current.onLineClick?.(ln.id));
+        });
+        return { id: ln.id, halo, line };
+      });
+    }
+    (r.lines || []).forEach((x) => {
+      const on = hl === x.id; const dim = hl && !on;
+      x.line.setOptions({ strokeWeight: on ? 7 : 4, strokeOpacity: dim ? 0.25 : 0.95, zIndex: on ? 10 : 1 });
+      x.halo.setOptions({ strokeWeight: on ? 11 : 8, strokeOpacity: dim ? 0.3 : 0.9, zIndex: on ? 9 : 0 });
+    });
+
     // Fit once per fitKey.
     if (fitted.current !== fk) {
       const b = new maps.LatLngBounds();
       let n = 0;
-      [...ps.filter((p) => p?.lat), ...ts.filter((t) => t.location).map((t) => t.location), ...(rt || [])].forEach((p) => { b.extend({ lat: p.lat, lng: p.lng }); n++; });
+      [...ps.filter((p) => p?.lat), ...ts.filter((t) => t.location).map((t) => t.location), ...(rt || []), ...(lns || []).flatMap((ln) => ln.points || [])].forEach((p) => { b.extend({ lat: p.lat, lng: p.lng }); n++; });
       if (n) {
         fitted.current = fk;
         if (n === 1) { map.setCenter(b.getCenter()); map.setZoom(11); } else map.fitBounds(b, pad);
@@ -119,7 +143,7 @@ export default function GoogleMapView({ trucks = [], places = [], route, track, 
     void click;
   }
 
-  useEffect(draw, [trucks, places, route, track, fitKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(draw, [trucks, places, route, track, lines, highlight, fitKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return <div ref={el} className="map" style={{ height }} />;
 }

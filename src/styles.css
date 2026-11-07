@@ -543,3 +543,8 @@ table.table { width: 100%; border-collapse: collapse; font-size: 0.93rem; font-v
   .cal-ev { padding: 3px; width: auto; display: inline-flex; background: none; }
   .cal-grid.week .cal-day { min-height: 120px; }
 }
+
+.cal-mapday { display: flex; align-items: center; gap: 8px; width: 100%; border: 0; background: var(--bg-fill-2); padding: 9px 16px; cursor: pointer; text-align: left; border-top: 1px solid var(--border); }
+.cal-mapday i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.cal-maprow { display: flex; align-items: center; gap: 8px; width: 100%; border: 0; background: none; padding: 7px 14px 7px 16px; cursor: pointer; text-align: left; font-size: 0.9rem; color: var(--label); }
+.cal-maprow:hover, .cal-maprow.on { background: var(--bg-hover); }

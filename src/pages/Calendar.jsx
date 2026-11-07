@@ -5,12 +5,15 @@ import { Segmented, Avatar, Empty } from '../components/ui.jsx';
 import { StatusIcon, FilterChip, EQ_COLOR } from '../components/LoadList.jsx';
 import { useStore, useIndex, useNow } from '../lib/store.jsx';
 import { go } from '../lib/router.js';
-import { time, placeShort, km } from '../lib/format.js';
+import { time, placeShort, km, duration } from '../lib/format.js';
+import MapView from '../components/MapView.jsx';
 
 const DAY = 864e5;
 const startOfDay = (t) => { const d = new Date(t); d.setHours(0, 0, 0, 0); return d.getTime(); };
 const sameDay = (a, b) => startOfDay(a) === startOfDay(b);
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+// One colour per weekday (Sun → Sat).
+const DAY_COLORS = ['#8e6ad8', '#5e6ad2', '#26b5ce', '#3fae72', '#d9a514', '#f2994a', '#e5484d'];
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 /** Pickup and delivery events for a load, using actual times when known, otherwise ETA or the requested window. */
@@ -57,6 +60,7 @@ export default function Calendar() {
     const weeks = Math.ceil((first.getDay() + new Date(c.getFullYear(), c.getMonth() + 1, 0).getDate()) / 7);
     days = Array.from({ length: weeks * 7 }, (_, i) => startOfDay(start + i * DAY + 3 * 3.6e6));
   } else {
+    // week and map views both cover one week
     const start = startOfDay(cursor - c.getDay() * DAY);
     days = Array.from({ length: 7 }, (_, i) => startOfDay(start + i * DAY + 3 * 3.6e6));
   }
@@ -84,10 +88,11 @@ export default function Calendar() {
         <div className="row wrap" style={{ gap: 8 }}>
           <FilterChip icon="route" label="Type" value={kind} onChange={setKind} options={[{ value: 'pickup', label: 'Pickups' }, { value: 'delivery', label: 'Deliveries' }]} />
           {isDispatch && <FilterChip icon="person" label="Driver" value={driver} onChange={setDriver} options={drivers.map((d) => ({ value: d.id, label: d.name }))} />}
-          <Segmented value={view} onChange={setView} options={[{ value: 'month', label: 'Month' }, { value: 'week', label: 'Week' }]} />
+          <Segmented value={view} onChange={setView} options={[{ value: 'month', label: 'Month' }, { value: 'week', label: 'Week' }, { value: 'map', label: 'Map' }]} />
         </div>
       </div>
 
+      {view === 'map' ? <CalendarMap days={days} byDay={byDay} /> : (
       <div className="cal-layout">
         <div className={`cal-grid ${view}`}>
           {WEEKDAYS.map((w) => <div key={w} className="cal-wd">{w}</div>)}
@@ -158,6 +163,62 @@ export default function Calendar() {
           )}
         </aside>
       </div>
+      )}
+    </div>
+  );
+}
+
+/** One week of loads drawn as routes, coloured by pickup day. Hover a route or a row for distance and drive time. */
+function CalendarMap({ days, byDay }) {
+  const { data } = useStore();
+  const idx = useIndex();
+  const [hover, setHover] = useState(null);
+  const [onlyDay, setOnlyDay] = useState(null);
+  const groups = days.map((d) => ({
+    day: d, color: DAY_COLORS[new Date(d).getDay()],
+    loads: (byDay.get(d) || []).filter((e) => e.kind === 'pickup').map((e) => ({ ...e, l: e.load })),
+  }));
+  const shown = groups.filter((g) => !onlyDay || g.day === onlyDay);
+  const lines = useMemo(() => shown.flatMap((g) => g.loads.map(({ l, t }) => {
+    const kmv = l.status === 'delivered' && l.metrics.loadedKm > 1 ? l.metrics.loadedKm : l.quote.distanceKm;
+    const hrs = l.legs.toDropoff?.durationH || l.quote.driveHours;
+    const d = idx.users[l.driverId];
+    return {
+      id: l.id, color: g.color, points: l.legs.toDropoff?.points?.length ? l.legs.toDropoff.points : [l.pickup, l.dropoff],
+      tooltip: `<b>${l.ref}</b> · ${new Date(g.day).toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' })}, ${time(t)}<br>${placeShort(l.pickup)} → ${placeShort(l.dropoff)}<br><b>${km(kmv)}</b> · ${duration(hrs)} driving${d ? `<br>${d.name}` : ''}`,
+    };
+  })), [shown, idx]); // eslint-disable-line react-hooks/exhaustive-deps
+  const total = (g) => g.loads.reduce((a, { l }) => a + l.quote.distanceKm, 0);
+
+  return (
+    <div className="cal-layout">
+      <div className="map-card" style={{ height: 'calc(100vh - 170px)', minHeight: 520 }}>
+        <MapView height="100%" lines={lines} highlight={hover} onLineHover={setHover} onLineClick={(id) => go(`/loads/${id}`)} fitKey={`calmap-${days[0]}-${onlyDay}`} padding={50} />
+      </div>
+      <aside className="card cal-agenda">
+        {groups.map((g) => (
+          <div key={g.day} style={{ opacity: onlyDay && onlyDay !== g.day ? 0.4 : 1 }}>
+            <button className="cal-mapday" onClick={() => setOnlyDay(onlyDay === g.day ? null : g.day)} title="Show only this day">
+              <i style={{ background: g.color }} />
+              <span className="headline">{new Date(g.day).toLocaleDateString('en-CA', { weekday: 'long', month: 'short', day: 'numeric' })}</span>
+              <span className="footnote secondary" style={{ marginLeft: 'auto' }}>{g.loads.length ? `${g.loads.length} · ${km(total(g))}` : '—'}</span>
+            </button>
+            {g.loads.map(({ l, t }) => (
+              <button key={l.id} className={`cal-maprow ${hover === l.id ? 'on' : ''}`}
+                onMouseEnter={() => setHover(l.id)} onMouseLeave={() => setHover(null)} onClick={() => go(`/loads/${l.id}`)}>
+                <span className="num footnote secondary" style={{ width: 66, flex: "none", whiteSpace: "nowrap" }}>{time(t)}</span>
+                <span className="spacer" style={{ minWidth: 0 }}>
+                  <span className="truncate" style={{ display: 'block' }}><span className="mono footnote secondary">{l.ref}</span> {placeShort(l.pickup)} → {placeShort(l.dropoff)}</span>
+                </span>
+                <span className="footnote num">{km(l.quote.distanceKm)}</span>
+                <span className="footnote secondary num" style={{ width: 70, textAlign: 'right' }}>{duration(l.legs.toDropoff?.durationH || l.quote.driveHours)}</span>
+              </button>
+            ))}
+          </div>
+        ))}
+        {groups.every((g) => !g.loads.length) && <Empty icon="map" title="No loads this week">Use ‹ › to change week.</Empty>}
+        <div className="footnote tertiary" style={{ padding: '10px 16px' }}>{data.meta ? 'Click a day to show only that day.' : ''}</div>
+      </aside>
     </div>
   );
 }
