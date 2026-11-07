@@ -4,6 +4,9 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { standalone } from '../lib/api.js';
 import { WATER, RIVERS, CITIES } from '../lib/basemap.js';
+import { useState } from 'react';
+import GoogleMapView from './GoogleMapView.jsx';
+import { getKey, googleFailed, onGoogleFailure } from '../lib/google.js';
 
 const truckSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 16.5V7a1.5 1.5 0 0 1 1.5-1.5h9A1.5 1.5 0 0 1 14.5 7v9.5"/><path d="M14.5 10h3.6l3.4 4v2.5h-1.6"/><circle cx="6.8" cy="17" r="2"/><circle cx="17.6" cy="17" r="2"/></svg>';
 
@@ -60,7 +63,7 @@ function drawBasemap(m) {
   };
 }
 
-export default function MapView({ trucks = [], places = [], route, track, height = 360, fitKey, onTruckClick, interactive = true, padding = 40 }) {
+function LeafletMapView({ trucks = [], places = [], route, track, height = 360, fitKey, onTruckClick, interactive = true, padding = 40 }) {
   const el = useRef(null);
   const map = useRef(null);
   const layers = useRef({ trucks: new Map(), places: L.layerGroup(), route: null, track: null, tiles: null });
@@ -165,4 +168,12 @@ export default function MapView({ trucks = [], places = [], route, track, height
   }, [fitKey, places, trucks, route, padding]);
 
   return <div ref={el} className="map" style={{ height }} />;
+}
+
+/** Google Maps when a key is configured and accepted; otherwise the built-in map. */
+export default function MapView(props) {
+  const [useGoogle, setUseGoogle] = useState(() => !!getKey() && !googleFailed());
+  useEffect(() => onGoogleFailure(() => setUseGoogle(false)), []);
+  if (useGoogle) return <GoogleMapView {...props} onFail={() => setUseGoogle(false)} />;
+  return <LeafletMapView {...props} />;
 }

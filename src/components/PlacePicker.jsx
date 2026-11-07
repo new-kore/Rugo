@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import Icon from './Icon.jsx';
-import { searchLocal, searchRemote } from '../lib/places.js';
+import { searchLocal, searchRemote, searchGoogle, resolveGoogle } from '../lib/places.js';
 import { placeShort } from '../lib/format.js';
 
 export default function PlacePicker({ value, onChange, placeholder, kind, autoFocus }) {
@@ -16,9 +16,10 @@ export default function PlacePicker({ value, onChange, placeholder, kind, autoFo
     if (q.trim().length < 4) return undefined;
     setLoading(true);
     const t = setTimeout(async () => {
-      const r = await searchRemote(q, ac.signal);
+      const g = await searchGoogle(q);
+      const r = g.length ? g : await searchRemote(q, ac.signal);
       if (!ac.signal.aborted) { setRemote(r); setLoading(false); }
-    }, 450);
+    }, 300);
     return () => { clearTimeout(t); ac.abort(); setLoading(false); };
   }, [q]);
 
@@ -29,12 +30,17 @@ export default function PlacePicker({ value, onChange, placeholder, kind, autoFo
   }, []);
 
   const local = searchLocal(q);
-  const results = [...local, ...remote.filter((r) => !local.some((l) => Math.abs(l.lat - r.lat) < 0.001))].slice(0, 8);
-  const choose = (p) => { onChange(p); setQ(''); setOpen(false); };
+  const results = [...local, ...remote.filter((r) => r.google || !local.some((l) => Math.abs(l.lat - r.lat) < 0.001))].slice(0, 8);
+  const choose = async (p) => {
+    setOpen(false); setQ('');
+    if (p.google) {
+      try { onChange(await resolveGoogle(p)); } catch { /* keep previous value */ }
+    } else onChange(p);
+  };
 
   return (
     <div ref={wrap} style={{ position: 'relative' }}>
-      <div className="row" style={{ background: 'var(--bg-fill-2)', borderRadius: 14, padding: '0 14px', minHeight: 58, boxShadow: open ? 'inset 0 0 0 2px var(--blue)' : 'none' }}>
+      <div className="row" style={{ background: 'var(--bg-elevated)', border: '1px solid', borderColor: open ? 'var(--blue)' : 'var(--border)', borderRadius: 8, padding: '0 12px', minHeight: 54, boxShadow: open ? '0 0 0 3px var(--accent-soft)' : 'none' }}>
         <div style={{ width: 14, height: 14, flex: 'none', borderRadius: kind === 'pickup' ? '50%' : 4, background: kind === 'pickup' ? 'var(--green)' : 'var(--label)' }} />
         {value && !open ? (
           <button className="spacer" style={{ border: 0, background: 'none', textAlign: 'left', padding: '8px 0', cursor: 'text', minWidth: 0 }} onClick={() => setOpen(true)}>

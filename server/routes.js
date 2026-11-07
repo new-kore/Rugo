@@ -359,6 +359,28 @@ export function routes(app) {
     res.json(t);
   });
 
+  // Fleet notes on a truck (dispatch, or the truck's own driver).
+  app.post('/api/trucks/:id/notes', auth, role('dispatcher', 'driver'), (req, res) => {
+    const t = find('trucks', req.params.id);
+    if (!t || t.carrierId !== req.user.companyId || (req.user.role === 'driver' && req.user.truckId !== t.id)) return res.status(404).json({ error: 'Truck not found.' });
+    const text = String(req.body?.text || '').trim().slice(0, 2000);
+    if (!text) return res.status(400).json({ error: 'Write a note first.' });
+    const active = db.loads.find((l) => l.truckId === t.id && ACTIVE.includes(l.status));
+    t.notes = [...(t.notes || []), { id: id('nte'), text, by: req.user.name, role: req.user.role, t: Date.now(), loadRef: active?.ref || null }];
+    save();
+    publish('trucks', t);
+    res.json(t);
+  });
+
+  app.delete('/api/trucks/:id/notes/:noteId', auth, role('dispatcher'), (req, res) => {
+    const t = find('trucks', req.params.id);
+    if (!t || t.carrierId !== req.user.companyId) return res.status(404).json({ error: 'Truck not found.' });
+    t.notes = (t.notes || []).filter((n) => n.id !== req.params.noteId);
+    save();
+    publish('trucks', t);
+    res.json(t);
+  });
+
   app.patch('/api/settings', auth, role('dispatcher'), (req, res) => {
     const b = req.body || {};
     if (b.fuelPricePerL !== undefined) db.settings.fuelPricePerL = Number(b.fuelPricePerL);

@@ -61,6 +61,17 @@ This writes `dist-standalone/rugo.html`, a single page with the server logic bui
 ### Public web link (GitHub Pages)
 `npm run build:standalone` also writes `docs/index.html`, a complete web page. To publish it, go to GitHub → **Settings → Pages**. Under **Build and deployment**, choose **Deploy from a branch**, pick this branch and the **/docs** folder, then save. The demo is then at `https://<owner>.github.io/<repo>/`. On a normal web host the real street map loads; inside sandboxed pages it falls back to the offline map.
 
+### Google Maps
+With a Google Maps Platform API key, Rugo uses Google for the live map, real road routes and kilometres (Routes API), and address search (Places API).
+1. In Google Cloud Console, create a project, turn on billing, and enable **Maps JavaScript API**, **Routes API** and **Places API (New)**.
+2. Create an API key and restrict it to your site (HTTP referrer), e.g. `https://<owner>.github.io/*`.
+3. Use it in one of these ways:
+   - Paste it into **Settings → Maps** (saved in that browser).
+   - Build it into the page: `VITE_GOOGLE_MAPS_KEY=AIza… npm run build:standalone`.
+   - For the Node server, set `GOOGLE_MAPS_API_KEY` (used for routing and passed to browsers).
+
+Without a key, or where Google can't be reached, Rugo falls back to OpenStreetMap and its own route estimates.
+
 ### Demo simulation vs. real GPS
 In demo mode, trucks drive themselves along their route. A leg takes about 2–3 minutes, so you can follow a whole job from start to finish. When a driver turns on **Settings → Share my phone's GPS**, their phone's location is streamed instead, and the simulator leaves that truck alone. Dispatch can switch the simulator off in Settings.
 

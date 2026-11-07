@@ -42,9 +42,58 @@ function syntheticRoute(a, b) {
   return { points: pts, distanceKm: straight * 1.12, source: 'estimate' };
 }
 
-/** Driving route between two points. Tries the public OSRM router, falls back to an estimate. */
+/** Decode a Google encoded polyline. */
+export function decodePolyline(str) {
+  const pts = [];
+  let i = 0; let lat = 0; let lng = 0;
+  while (i < str.length) {
+    for (const k of [0, 1]) {
+      let shift = 0; let result = 0; let byte;
+      do { byte = str.charCodeAt(i++) - 63; result |= (byte & 0x1f) << shift; shift += 5; } while (byte >= 0x20);
+      const d = result & 1 ? ~(result >> 1) : result >> 1;
+      if (k === 0) lat += d; else lng += d;
+    }
+    pts.push({ lat: lat / 1e5, lng: lng / 1e5 });
+  }
+  return pts;
+}
+
+const googleKey = () => globalThis.RUGO_GOOGLE_KEY || globalThis.process?.env?.GOOGLE_MAPS_API_KEY || '';
+
+/** Truck route from the Google Routes API (needs a key with the Routes API enabled). */
+async function googleRoute(a, b, key) {
+  const res = await fetch('https://routes.googleapis.com/directions/v2:computeRoutes', {
+    method: 'POST',
+    signal: AbortSignal.timeout(6000),
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': key,
+      'X-Goog-FieldMask': 'routes.distanceMeters,routes.duration,routes.polyline.encodedPolyline',
+    },
+    body: JSON.stringify({
+      origin: { location: { latLng: { latitude: a.lat, longitude: a.lng } } },
+      destination: { location: { latLng: { latitude: b.lat, longitude: b.lng } } },
+      travelMode: 'DRIVE', routingPreference: 'TRAFFIC_AWARE', units: 'METRIC',
+    }),
+  });
+  if (!res.ok) throw new Error(`Routes API ${res.status}`);
+  const r = (await res.json()).routes?.[0];
+  if (!r) throw new Error('No route');
+  return {
+    points: thin(decodePolyline(r.polyline.encodedPolyline), 400),
+    distanceKm: r.distanceMeters / 1000,
+    durationH: parseFloat(r.duration) / 3600,
+    source: 'google',
+  };
+}
+
+/** Driving route between two points: Google (when a key is set), then the public OSRM router, then an estimate. */
 export async function route(a, b) {
   if (haversine(a, b) < 0.05) return { points: [a, b], distanceKm: 0, source: 'estimate' };
+  const key = googleKey();
+  if (key) {
+    try { return await googleRoute(a, b, key); } catch { /* fall through */ }
+  }
   if (typeof window === 'undefined' && globalThis.process?.env?.RUGO_OFFLINE_ROUTING !== '1') {
     try {
       const url = `https://router.project-osrm.org/route/v1/driving/${a.lng},${a.lat};${b.lng},${b.lat}?overview=simplified&geometries=geojson`;

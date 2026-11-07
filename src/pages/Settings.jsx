@@ -3,6 +3,7 @@ import Icon from '../components/Icon.jsx';
 import { PageHead, Segmented, Switch, Avatar, ConfirmButton } from '../components/ui.jsx';
 import { useStore } from '../lib/store.jsx';
 import { applyTheme } from '../lib/theme.js';
+import { getKey, saveKey, googleFailed } from '../lib/google.js';
 import { patch, post, standalone, resetDemo, setToken } from '../lib/api.js';
 
 function usePref(key, attr, def) {
@@ -23,6 +24,8 @@ export default function Settings() {
   const me = data.me;
   const s = data.settings;
   const [fuel, setFuel] = useState(s.fuelPricePerL);
+  const [gkey, setGkey] = useState(() => getKey());
+  const gOn = !!getKey() && !googleFailed();
 
   const saveSettings = async (body) => {
     try { const r = await patch('/settings', body); setData((d) => ({ ...d, settings: r })); toast({ title: 'Saved' }); } catch (e) { toast({ title: 'Not saved', body: e.message, tone: 'error' }); }
@@ -93,6 +96,25 @@ export default function Settings() {
           <div className="section-footer">Used to estimate fuel cost on jobs without a fuel receipt.</div>
         </>
       )}
+
+      <div className="section-header">Maps</div>
+      <div className="list">
+        <div className="list-row indent" style={{ alignItems: 'flex-start' }}>
+          <div className="icon-tile" style={{ background: gOn ? 'var(--green)' : 'var(--label-3)' }}><Icon name="map" size={16} /></div>
+          <div className="label stack-sm">
+            <div className="row between">
+              <span>Google Maps</span>
+              <span className={`pill ${gOn ? 'green' : 'gray'}`}>{gOn ? 'Connected' : getKey() ? 'Key not accepted' : 'Not connected'}</span>
+            </div>
+            <div className="footnote secondary">Paste a Google Maps Platform API key to use Google maps, real road routes and kilometres, and Google address search. The key is saved in this browser.</div>
+            <div className="row">
+              <input id="gmaps-key" className="input mono" style={{ fontSize: '0.85rem' }} placeholder="AIza…" value={gkey} onChange={(e) => setGkey(e.target.value)} />
+              <button className="btn primary" disabled={gkey.trim() === getKey()} onClick={() => { saveKey(gkey); window.location.reload(); }}>Save</button>
+              {getKey() && <button className="btn" onClick={() => { saveKey(''); window.location.reload(); }}>Remove</button>}
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div className="section-header">Pricing</div>
       <div className="list">

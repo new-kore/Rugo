@@ -1,6 +1,7 @@
 // App-wide data store: loads everything the user may see once, then stays live over Server-Sent Events.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { api, getToken, setToken, post, openStream } from './api.js';
+import { setServerKey } from './google.js';
 
 const Ctx = createContext(null);
 const COLS = ['companies', 'users', 'trucks', 'loads', 'fuelLogs', 'shifts'];
@@ -21,7 +22,9 @@ export function StoreProvider({ children }) {
 
   const load = useCallback(async () => {
     try {
-      setData(await api('/bootstrap'));
+      const d = await api('/bootstrap');
+      setServerKey(d.settings?.googleMapsKey);
+      setData(d);
     } catch (e) {
       if (e.status === 401) { setToken(''); setAuthed(false); setData(null); }
       else throw e;

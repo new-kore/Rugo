@@ -4,7 +4,7 @@ import { haversine, pathLength, pointAlong, route } from './geo.js';
 import { invoice, economics, DEFAULT_SETTINGS } from './pricing.js';
 import { ACTIVE, MOVING, PHOTO_SLOTS } from './constants.js';
 
-export const settings = () => ({ ...DEFAULT_SETTINGS, ...db.settings });
+export const settings = () => ({ ...DEFAULT_SETTINGS, ...db.settings, googleMapsKey: globalThis.process?.env?.GOOGLE_MAPS_BROWSER_KEY || globalThis.process?.env?.GOOGLE_MAPS_API_KEY || '' });
 const ARRIVAL_RADIUS_KM = 0.3;
 
 /* ----------------------------- visibility ----------------------------- */

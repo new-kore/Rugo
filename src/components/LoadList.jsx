@@ -203,3 +203,37 @@ export function SearchBox({ value, onChange, placeholder = 'Filter…' }) {
     </label>
   );
 }
+
+/**
+ * Where a truck on a job is heading, how far is left and when it should get there.
+ * Refreshes stale ETAs (e.g. a parked truck) from the remaining distance at the average speed.
+ */
+export function progressOf(load, avgSpeedKmh = 82) {
+  if (!load) return null;
+  const e = load.eta || {};
+  const now = Date.now();
+  const fresh = (at, km) => {
+    const est = now + (km / avgSpeedKmh) * 3.6e6;
+    return !at || at < now ? est : at;
+  };
+  switch (load.status) {
+    case 'accepted':
+    case 'en_route_pickup': {
+      const km = e.toPickupKm ?? 0;
+      return {
+        stage: 'To pickup', place: load.pickup, kmLeft: km, etaAt: fresh(e.pickupAt, km),
+        totalKmLeft: e.remainingKm ?? km + load.quote.distanceKm, deliveryAt: fresh(e.deliveryAt, e.remainingKm ?? km + load.quote.distanceKm),
+      };
+    }
+    case 'at_pickup':
+      return { stage: 'Loading', place: load.pickup, kmLeft: 0, etaAt: null, totalKmLeft: load.quote.distanceKm, deliveryAt: fresh(e.deliveryAt, load.quote.distanceKm) };
+    case 'in_transit': {
+      const km = e.remainingKm ?? load.quote.distanceKm;
+      return { stage: 'To delivery', place: load.dropoff, kmLeft: km, etaAt: fresh(e.deliveryAt, km), totalKmLeft: km, deliveryAt: fresh(e.deliveryAt, km) };
+    }
+    case 'at_delivery':
+      return { stage: 'Unloading', place: load.dropoff, kmLeft: 0, etaAt: null, totalKmLeft: 0, deliveryAt: null };
+    default:
+      return null;
+  }
+}

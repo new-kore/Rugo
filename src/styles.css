@@ -160,7 +160,7 @@ img { max-width: 100%; display: block; }
 .stack { display: flex; flex-direction: column; gap: 12px; }
 .stack-sm { display: flex; flex-direction: column; gap: 6px; }
 .spacer { flex: 1; }
-.sticky-top { position: sticky; top: 64px; }
+.sticky-top { position: sticky; top: 0; }
 @media (max-width: 860px) { .hide-mobile { display: none !important; } }
 .only-mobile { display: none; } @media (max-width: 860px) { .only-mobile { display: initial; } }
 

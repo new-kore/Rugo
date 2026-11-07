@@ -1,4 +1,5 @@
 // Runs Rugo's real server routes inside the browser, with a tiny Express-like router.
+import '../lib/google.js'; // publishes the Google key before demo routes are planned
 import { routes } from '../../server/routes.js';
 import { seed } from '../../server/seed.js';
 import { isFresh, resetDemo } from './memdb.js'; // server/db.js resolves to this file in the standalone build

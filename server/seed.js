@@ -103,6 +103,8 @@ export async function seed() {
     location: { lat: yard.lat + rnd(-0.004, 0.004), lng: yard.lng + rnd(-0.006, 0.006), heading: rnd(0, 360), speed: 0, updatedAt: Date.now() },
   }));
   drivers.forEach((d, i) => { d.truckId = trucks[i].id; });
+  trucks[0].notes = [{ id: id('nte'), text: 'Reefer unit serviced last week. Left mirror bracket is loose, book at next yard stop.', by: alex.name, role: 'dispatcher', t: Date.now() - 2 * D, loadRef: null }];
+  trucks[4].notes = [{ id: id('nte'), text: 'Service due soon. Keep on short runs until it is booked.', by: alex.name, role: 'dispatcher', t: Date.now() - 5 * H, loadRef: null }];
   db.trucks.push(...trucks);
 
   const mkLoad = (shipper, by, from, to, cargo, options, created, legToDrop) => {

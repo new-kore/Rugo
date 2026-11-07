@@ -50,3 +50,37 @@ export async function searchRemote(q, signal) {
     return [];
   }
 }
+
+/** Google Places (New) autocomplete. Returns [] when Google isn't connected. */
+export async function searchGoogle(q) {
+  if (q.trim().length < 3) return [];
+  const { getKey, googleFailed, loadGoogle } = await import('./google.js');
+  if (!getKey() || googleFailed()) return [];
+  try {
+    const maps = await loadGoogle();
+    const { AutocompleteSuggestion } = await maps.importLibrary('places');
+    const { suggestions } = await AutocompleteSuggestion.fetchAutocompleteSuggestions({ input: q, includedRegionCodes: ['ca', 'us'] });
+    return suggestions.filter((s) => s.placePrediction).slice(0, 6).map((s) => ({
+      name: s.placePrediction.mainText?.text || s.placePrediction.text.text,
+      address: s.placePrediction.secondaryText?.text || '',
+      city: '', region: '', google: s.placePrediction, remote: true,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/** Turn a Google suggestion into a full place with coordinates. */
+export async function resolveGoogle(p) {
+  const place = p.google.toPlace();
+  await place.fetchFields({ fields: ['displayName', 'formattedAddress', 'location', 'addressComponents'] });
+  const comp = (type, short) => place.addressComponents?.find((c) => c.types.includes(type))?.[short ? 'shortText' : 'longText'] || '';
+  const street = [comp('street_number'), comp('route')].filter(Boolean).join(' ');
+  return {
+    name: place.displayName || p.name,
+    address: street || place.formattedAddress?.split(',')[0] || p.name,
+    city: comp('locality') || comp('postal_town') || comp('sublocality') || comp('administrative_area_level_2'),
+    region: comp('administrative_area_level_1', true),
+    lat: place.location.lat(), lng: place.location.lng(),
+  };
+}
