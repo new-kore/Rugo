@@ -3,11 +3,11 @@
   --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Helvetica Neue', 'Segoe UI', Roboto, Arial, sans-serif;
   --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 
-  --bg: #f2f2f7;               /* systemGroupedBackground */
+  --bg: #ffffff;               /* white canvas (light mode) */
   --bg-elevated: #ffffff;      /* secondarySystemGroupedBackground */
   --bg-fill: rgba(118, 118, 128, 0.12);
   --bg-fill-2: rgba(118, 118, 128, 0.08);
-  --material: rgba(249, 249, 251, 0.78);
+  --material: rgba(255, 255, 255, 0.86);
   --material-thick: rgba(255, 255, 255, 0.9);
   --separator: rgba(60, 60, 67, 0.16);
   --label: #000000;
@@ -23,7 +23,7 @@
   --indigo: #5856d6;
   --teal: #30b0c7;
   --yellow: #ffcc00;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.06);
+  --shadow: 0 0 0 1px rgba(0, 0, 0, 0.07), 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.05);
   --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.14);
   --radius: 14px;
   --radius-lg: 20px;
@@ -371,9 +371,7 @@ table.table { width: 100%; border-collapse: collapse; font-size: 0.92rem; font-v
 .chart-tip { position: absolute; pointer-events: none; transform: translate(-50%, -110%); padding: 6px 10px; font-size: 0.8rem; white-space: nowrap; z-index: 5; }
 
 /* ------------------------------- login ---------------------------------- */
-.login { min-height: 100%; display: grid; place-items: center; padding: 32px 16px; background:
-  radial-gradient(1200px 600px at 20% -10%, color-mix(in srgb, var(--blue) 18%, transparent), transparent),
-  radial-gradient(900px 500px at 110% 110%, color-mix(in srgb, var(--indigo) 16%, transparent), transparent), var(--bg); }
+.login { min-height: 100%; display: grid; place-items: center; padding: 32px 16px; background: var(--bg); }
 .login-card { width: min(980px, 100%); }
 .role-tile { border: 0; text-align: left; cursor: pointer; padding: 22px; border-radius: 20px; background: var(--bg-elevated); box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 10px; transition: transform 0.15s, box-shadow 0.15s; min-height: 210px; }
 .role-tile:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
