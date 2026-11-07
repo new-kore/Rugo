@@ -126,9 +126,8 @@ export default function App() {
             <Icon name={current?.icon || 'box'} size={17} style={{ color: 'var(--label-2)' }} />
             <div className="crumb row" style={{ gap: 0, minWidth: 0 }}>{crumb}</div>
             <div className="spacer" />
-            <GlobalSearch />
-            <div className="spacer hide-mobile" />
             <span className={`pill hide-mobile ${online ? 'green live' : 'orange'}`} style={{ border: 0 }}><span className="dot" />{online ? 'Live' : 'Offline'}</span>
+            <GlobalSearch />
             <NotificationBell />
           </header>
           {page}
