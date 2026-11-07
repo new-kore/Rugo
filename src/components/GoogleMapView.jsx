@@ -110,7 +110,7 @@ export default function GoogleMapView({ trucks = [], places = [], route, track, 
     const { lines: lns, highlight: hl } = latest.current;
     if (r.lastLines !== lns) {
       r.lastLines = lns;
-      (r.lines || []).forEach((x) => { x.halo.setMap(null); x.line.setMap(null); });
+      (r.lines || []).forEach((x) => { x.halo.setMap(null); x.line.setMap(null); x.ends.forEach((m) => { m.map = null; }); });
       r.info = r.info || new maps.InfoWindow({ disableAutoPan: true });
       r.lines = (lns || []).filter((ln) => ln.points?.length).map((ln) => {
         const path = ln.points.map((p) => ({ lat: p.lat, lng: p.lng }));
@@ -121,7 +121,14 @@ export default function GoogleMapView({ trucks = [], places = [], route, track, 
           pl.addListener('mouseout', () => { latest.current.onLineHover?.(null); r.info.close(); });
           pl.addListener('click', () => latest.current.onLineClick?.(ln.id));
         });
-        return { id: ln.id, halo, line };
+        const end = (pt, kind) => {
+          const el = document.createElement('div');
+          el.style.transform = 'translateY(50%)';
+          el.innerHTML = `<div class="day-pin ${kind}" style="background:${ln.color}"></div>`;
+          return new Marker({ map, position: { lat: pt.lat, lng: pt.lng }, content: el, zIndex: 500 });
+        };
+        const ends = [end(path[0], 'pickup'), end(path[path.length - 1], 'dropoff')];
+        return { id: ln.id, halo, line, ends };
       });
     }
     (r.lines || []).forEach((x) => {

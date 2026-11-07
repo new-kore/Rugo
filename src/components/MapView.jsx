@@ -163,8 +163,10 @@ function LeafletMapView({ trucks = [], places = [], route, track, lines = [], hi
       const ll = ln.points.map((p) => [p.lat, p.lng]);
       const halo = L.polyline(ll, { color: '#fff', weight: 8, opacity: 0.9 });
       const line = L.polyline(ll, { color: ln.color, weight: 4, opacity: 0.95, lineCap: 'round' });
-      const a = L.circleMarker(ll[0], { radius: 5, color: '#fff', weight: 2, fillColor: ln.color, fillOpacity: 1 });
-      const b = L.circleMarker(ll[ll.length - 1], { radius: 5, color: '#fff', weight: 2, fillColor: '#1b1c1f', fillOpacity: 1 });
+      // Both ends in the day's colour: circle = pickup, square = delivery.
+      const pin = (kind) => L.divIcon({ className: '', iconSize: [16, 16], iconAnchor: [8, 8], html: `<div class="day-pin ${kind}" style="background:${ln.color}"></div>` });
+      const a = L.marker(ll[0], { icon: pin('pickup'), zIndexOffset: 500 });
+      const b = L.marker(ll[ll.length - 1], { icon: pin('dropoff'), zIndexOffset: 500 });
       const g = L.featureGroup([halo, line, a, b]).addTo(m);
       g.bindTooltip(ln.tooltip, { sticky: true, className: 'rugo-tip', direction: 'top', offset: [0, -8] });
       g.on('mouseover', () => onLineHover?.(ln.id));
@@ -182,6 +184,7 @@ function LeafletMapView({ trucks = [], places = [], route, track, lines = [], hi
       const dim = highlight && !on;
       g._line.setStyle({ weight: on ? 7 : 4, opacity: dim ? 0.25 : 0.95 });
       g._halo.setStyle({ weight: on ? 11 : 8, opacity: dim ? 0.3 : 0.9 });
+      g.eachLayer((x) => x.setOpacity?.(dim ? 0.3 : 1));
       if (on) g.bringToFront();
     }
   }, [highlight, lines]);
