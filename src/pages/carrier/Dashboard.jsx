@@ -138,12 +138,12 @@ export default function Dashboard() {
 
       <div className="dkpis">
         <KpiTile icon={<Icon name="truck" size={20} />} tone="green" k="Moving now" v={active.filter((l) => MOVING.includes(l.status)).length} d={`${active.filter((l) => AT_STOP.includes(l.status)).length} at a dock`} onClick={() => setFilter('moving')} />
-        <KpiTile icon={<Icon name="list" size={20} />} tone="orange" k="New loads waiting" v={board.length} d="on the load board" onClick={() => go('/board')} />
-        <KpiTile icon={<Icon name="warning" size={20} />} tone="red" k="Overdue pickups" v={overdue} d={`${attention.filter((a) => a.sev >= 2).length} urgent items`} alert={overdue > 0} onClick={() => setFilter('problems')} />
-        <KpiTile icon={<Icon name="checkCircle" size={20} />} tone="teal" k="Delivered today" v={deliveredToday.length} d={`${stops.filter((x) => !x.done).length} stops still to go`} />
-        <KpiTile icon={<Icon name="dollar" size={20} />} tone="indigo" k="Revenue today" v={money(revenueToday)} d={`${money(week.reduce((a, x) => a + x.value, 0))} this week`} onClick={() => go('/reports')} />
-        <KpiTile icon={<Icon name="people" size={20} />} tone="blue" k="Drivers on shift" v={`${onShift.length}/${drivers.length}`} d={`${drivers.filter((d) => !active.some((l) => l.driverId === d.id) && openShift(data, d.id)).length} free right now`} onClick={() => go('/drivers')} />
-        <KpiTile icon={<Icon name="message" size={20} />} tone="blue" k="Unread messages" v={unreadN} d="from drivers" alert={unreadN > 0} onClick={() => go('/messages')} />
+        <KpiTile icon={<Icon name="list" size={20} />} tone="orange" k="New loads" v={board.length} d="on the load board" onClick={() => go('/board')} />
+        <KpiTile icon={<Icon name="warning" size={20} />} tone="red" k="Overdue" v={overdue} d={`pickups · ${attention.filter((a) => a.sev >= 2).length} urgent`} alert={overdue > 0} onClick={() => setFilter('problems')} />
+        <KpiTile icon={<Icon name="checkCircle" size={20} />} tone="teal" k="Delivered" v={deliveredToday.length} d={`today · ${stops.filter((x) => !x.done).length} stops to go`} />
+        <KpiTile icon={<Icon name="dollar" size={20} />} tone="indigo" k="Revenue" v={money(revenueToday)} d={`today · ${money(week.reduce((a, x) => a + x.value, 0))} week`} onClick={() => go('/reports')} />
+        <KpiTile icon={<Icon name="people" size={20} />} tone="blue" k="On shift" v={`${onShift.length}/${drivers.length}`} d={`drivers · ${drivers.filter((d) => !active.some((l) => l.driverId === d.id) && openShift(data, d.id)).length} free`} onClick={() => go('/drivers')} />
+        <KpiTile icon={<Icon name="message" size={20} />} tone="blue" k="Messages" v={unreadN} d="unread from drivers" alert={unreadN > 0} onClick={() => go('/messages')} />
       </div>
 
       <div className="dash-main">
