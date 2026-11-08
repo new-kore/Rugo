@@ -19,7 +19,7 @@ export function publicUser(u, viewer) {
   if (sameCompany) {
     Object.assign(base, {
       email: u.email, payType: u.payType, hourlyRate: u.hourlyRate, perKmRate: u.perKmRate,
-      hireDate: u.hireDate, locationSource: u.locationSource, schedule: u.schedule, timeOff: u.timeOff || [], licenseExpiry: u.licenseExpiry, licenseNumber: u.licenseNumber, hos: u.hos || null,
+      hireDate: u.hireDate, locationSource: u.locationSource, schedule: u.schedule, timeOff: u.timeOff || [], licenseExpiry: u.licenseExpiry, licenseNumber: u.licenseNumber, hos: u.hos || null, hosEvents: u.hosEvents || [],
       // Documents are records for dispatch; a driver sees their own.
       documents: viewer.role === 'dispatcher' || viewer.id === u.id ? (u.documents || []) : undefined,
     });

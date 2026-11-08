@@ -11,6 +11,8 @@ import { DriverSheet, scheduleText } from './carrier/Drivers.jsx';
 import { daySchedule, shiftHours, driverAlerts } from '../lib/drivers.js';
 import { Sheet, Field, ActionButton, Switch } from '../components/ui.jsx';
 import { post } from '../lib/api.js';
+import { useMatches, aiOn } from '../lib/ai.js';
+import { Reasons } from '../components/MatchList.jsx';
 import { haversine } from '../lib/geo.js';
 import { useStore, useIndex, useNow } from '../lib/store.jsx';
 import { go } from '../lib/router.js';
@@ -478,7 +480,14 @@ function AddRouteSheet({ day, onClose, onDone }) {
     const off = (d.timeOff || []).some((o) => o.from <= from && o.to >= from);
     return { d, t, km0, free: !busy.has(d.id), shift, off };
   }).sort((a, b) => (b.free - a.free) || (a.off - b.off) || ((b.t?.equipment === f.equipment) - (a.t?.equipment === f.equipment)) || ((a.km0 ?? 1e9) - (b.km0 ?? 1e9)));
-  const chosen = driverId || drivers.find((x) => x.free && x.t && !x.off)?.d.id || drivers.find((x) => x.t)?.d.id || '';
+  const ai = aiOn(data.settings);
+  const draft = useMemo(() => (ai && pickup && dropoff ? {
+    pickup, dropoff, pickupWindow: { from, to: Math.max(from, to) }, cargo: { equipment: f.equipment },
+    quote: { distanceKm: dist, driveHours: driveH, carrierPayout: Number(f.rate) || rateSuggest || 0 },
+  } : null), [ai, pickup, dropoff, from, to, f.equipment, dist, driveH, f.rate, rateSuggest]);
+  const matches = useMatches(draft, { allowBusy: from > Date.now() + 12 * H });
+  const bestMatch = matches.find((r) => r.eligible);
+  const chosen = driverId || bestMatch?.driver.id || drivers.find((x) => x.free && x.t && !x.off)?.d.id || drivers.find((x) => x.t)?.d.id || '';
   const chosenRow = drivers.find((x) => x.d.id === chosen);
   const chosenTruck = truckId || idx.users[chosen]?.truckId || '';
   const inUseTrailers = new Set(data.loads.filter((l) => ['accepted', 'en_route_pickup', 'at_pickup', 'in_transit', 'at_delivery'].includes(l.status) && l.trailerId).map((l) => l.trailerId));
@@ -585,6 +594,19 @@ function AddRouteSheet({ day, onClose, onDone }) {
                   ))}
                 </select>
               </Field>
+              {matches.length > 0 && (
+                <div className="stack-sm">
+                  <div className="footnote secondary row" style={{ gap: 4 }}><Icon name="sparkles" size={13} style={{ color: 'var(--blue)' }} />AI dispatch picks</div>
+                  <div className="row wrap" style={{ gap: 6 }}>
+                    {matches.filter((r) => r.eligible).slice(0, 3).map((r) => (
+                      <button key={r.driver.id} type="button" className={`btn small ${chosen === r.driver.id ? 'primary' : ''}`} style={{ gap: 6 }} title={r.reasons.map((x) => x.text).join(' · ')} onClick={() => { setDriverId(r.driver.id); setTruckId(''); }}>
+                        <span className="num" style={{ fontWeight: 600 }}>{r.score}</span>{r.driver.name}
+                      </button>
+                    ))}
+                  </div>
+                  {matches.find((r) => r.driver.id === chosen) && <Reasons r={matches.find((r) => r.driver.id === chosen)} max={6} />}
+                </div>
+              )}
               {chosenRow && (chosenRow.off || !chosenRow.shift) && <div className="footnote orange">{chosenRow.d.name} is {chosenRow.off ? 'on time off' : 'not scheduled to work'} that day.</div>}
               <div className="ar-row2">
                 <Field label="Truck">

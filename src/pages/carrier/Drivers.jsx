@@ -6,6 +6,8 @@ import { useStore, useIndex, isActive } from '../../lib/store.jsx';
 import { money, money2, num, date } from '../../lib/format.js';
 import { post, patch, del } from '../../lib/api.js';
 import { compressImage } from '../../lib/image.js';
+import { Tabs } from '../../components/LoadList.jsx';
+import { ScorecardView, ScorecardTable } from './Scorecard.jsx';
 import { hosStatus, hm, clockTone, hosLeft } from '../../lib/hos.js';
 import { DAYS, weekSchedule, shiftHours, weeklyHours, scheduleText, expiry, driverAlerts } from '../../lib/drivers.js';
 import { scanLicence } from '../../lib/licenceScan.js';
@@ -57,6 +59,8 @@ export default function Drivers() {
     window.addEventListener('rugo:open-driver', on);
     return () => window.removeEventListener('rugo:open-driver', on);
   }, []);
+  const [view, setView] = useState('roster');
+  const [editTab, setEditTab] = useState('profile');
   const drivers = data.users.filter((u) => u.role === 'driver');
   const editing = edit?.__open ? idx.users[edit.__open] : edit;
   const hasHos = drivers.some((d) => d.hos);
@@ -78,6 +82,8 @@ export default function Drivers() {
           <button className="btn small" onClick={() => setEdit(attention[0].d)}>Review</button>
         </div>
       )}
+      <Tabs value={view} onChange={setView} options={[{ value: 'roster', label: 'Roster' }, { value: 'scores', label: 'Scorecards' }]} />
+      {view === 'scores' ? <ScorecardTable onOpen={(d) => { setEditTab('score'); setEdit(d); }} /> : (
       <div className="card table-wrap">
         <table className="table">
           <thead><tr><th>Driver</th><th>Status</th>{hasHos && <th>Hours left (ELD)</th>}<th>Truck</th><th>Pay</th><th>Schedule</th><th>Licence</th><th className="r">Hours (7d)</th><th className="r">km (7d)</th><th className="r">Earned (7d)</th><th>Records</th><th /></tr></thead>
@@ -120,7 +126,8 @@ export default function Drivers() {
           </tbody>
         </table>
       </div>
-      {editing && <DriverSheet driver={editing} onClose={() => setEdit(null)} />}
+      )}
+      {editing && <DriverSheet key={`${editing.id || 'new'}-${editTab}`} driver={editing} initialTab={editTab} onClose={() => { setEdit(null); setEditTab('profile'); }} />}
     </div>
   );
 }
@@ -143,13 +150,13 @@ const PRESETS = [
 ];
 const fromPreset = (p) => Object.fromEntries([0, 1, 2, 3, 4, 5, 6].map((d) => [d, p.week[d] ? { start: p.week[d][0], end: p.week[d][1] } : null]));
 
-export function DriverSheet({ driver, onClose }) {
+export function DriverSheet({ driver, onClose, initialTab = 'profile' }) {
   const { data, upsert, toast } = useStore();
   const idx = useIndex();
   const [current, setCurrent] = useState(driver);
   const isNew = !current.id;
   const live = current.id ? idx.users[current.id] || current : current;
-  const [tab, setTab] = useState('profile');
+  const [tab, setTab] = useState(initialTab);
   const domain = (data.me.email || '').split('@')[1] || 'example.com';
   const takenTrucks = new Set(data.users.filter((u) => u.role === 'driver' && u.id !== current.id && u.truckId).map((u) => u.truckId));
   const freeTruck = data.trucks.find((t) => !takenTrucks.has(t.id));
@@ -213,7 +220,7 @@ export function DriverSheet({ driver, onClose }) {
   const alerts = isNew ? [] : driverAlerts(live);
   const truck = idx.trucks[f.truckId];
   const onJob = !isNew && data.loads.some((l) => ['accepted', 'en_route_pickup', 'at_pickup', 'in_transit', 'at_delivery'].includes(l.status) && (l.driverId === live.id || (l.teamDriverIds || []).includes(live.id)));
-  const tabs = [['profile', 'Profile'], ['pay', 'Pay'], ['schedule', 'Schedule'], ['timeoff', 'Time off'], ['records', 'Records']];
+  const tabs = [['profile', 'Profile'], ['score', 'Scorecard'], ['pay', 'Pay'], ['schedule', 'Schedule'], ['timeoff', 'Time off'], ['records', 'Records']];
 
   return (
     <Sheet title={isNew ? 'New driver' : 'Driver'} onClose={onClose} wide>
@@ -246,7 +253,7 @@ export function DriverSheet({ driver, onClose }) {
 
         <nav className="dsheet-tabs" role="tablist">
           {tabs.map(([k, label]) => (
-            <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)} disabled={isNew && k === 'records'}>
+            <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)} disabled={isNew && (k === 'records' || k === 'score')}>
               {label}{k === 'records' && alerts.length > 0 && <i className="dot-alert" />}
             </button>
           ))}
@@ -329,6 +336,7 @@ export function DriverSheet({ driver, onClose }) {
             </div>
           )}
 
+          {tab === 'score' && !isNew && <ScorecardView driver={live} />}
           {tab === 'timeoff' && <TimeOff value={f.timeOff || []} onChange={(timeOff) => setF((x) => ({ ...x, timeOff }))} />}
 
           {tab === 'records' && !isNew && <Documents driver={live} onLicenceExpiry={(t) => setF((x) => ({ ...x, licenseExpiry: toLocalDate(t) }))} />}

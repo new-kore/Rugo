@@ -176,12 +176,19 @@ export async function seed() {
     const dwellD = rnd(0.4, i % 6 === 2 ? 2.9 : 1.4);
     load.metrics = { deadheadKm: +deadhead.toFixed(1), loadedKm: +loaded.toFixed(1), driveHours: (deadhead + loaded) / rnd(74, 86), dwellHours: { pickup: dwellP, delivery: dwellD } };
     const t0 = created + rnd(0.2, 0.6) * H;
+    // Each driver has habits, so scorecards differ: [minutes late vs appointment, minutes to start after dispatch, unpaid-looking idle hours].
+    const habit = [[-80, 6, 0.3], [-8, 22, 0.9], [18, 14, 0.5], [-45, 4, 0.2], [40, 48, 1.6], [2, 11, 0.6]][di];
     load.acceptedAt = t0;
-    load.startedAt = t0 + 0.3 * H;
+    load.startedAt = t0 + Math.max(2, habit[1] + rnd(-4, 10)) / 60 * H;
     load.arrivedPickupAt = load.startedAt + (deadhead / 80) * H;
     load.departedPickupAt = load.arrivedPickupAt + dwellP * H;
     load.arrivedDeliveryAt = load.departedPickupAt + (loaded / 80) * H;
     load.deliveredAt = load.arrivedDeliveryAt + dwellD * H;
+    // Appointments set around the driver's habit: arrival = window close + deviation.
+    const devP = habit[0] + rnd(-25, 25);
+    load.pickupWindow = { from: load.arrivedPickupAt - devP * 60000 - H, to: load.arrivedPickupAt - devP * 60000 };
+    const devD = habit[0] * 0.8 + rnd(-30, 30);
+    load.deliveryWindow = { from: load.arrivedDeliveryAt - devD * 60000 - H, to: load.arrivedDeliveryAt - devD * 60000 };
     load.status = 'delivered';
     load.timeline.push(
       { status: 'accepted', t: t0, by: alex.name, note: `Velocity Freight Lines accepted · ${driver.name}, unit ${truck.unit}` },
@@ -202,7 +209,7 @@ export async function seed() {
     load.invoice = invoice(load, s);
     load.invoice.issuedAt = load.deliveredAt;
     load.invoice.paid = i < 11;
-    if (i % 3 !== 2) load.rating = { stars: damaged ? 4 : 5, comment: damaged ? 'Handled the damage report well.' : 'On time, great communication.', t: load.deliveredAt + H };
+    if (i % 3 !== 2) load.rating = { stars: damaged ? 4 : habit[0] > 30 ? 3 : habit[0] > 10 ? 4 : 5, comment: damaged ? 'Handled the damage report well.' : 'On time, great communication.', t: load.deliveredAt + H };
     load.updatedAt = load.deliveredAt;
 
     // Fuel stop on the way, linked to the job.
@@ -220,7 +227,7 @@ export async function seed() {
     db.loads.push(load);
 
     // Shift for that day.
-    db.shifts.push({ id: id('shf'), driverId: driver.id, carrierId: velocity.id, start: load.startedAt - 0.5 * H, end: load.deliveredAt + 0.4 * H, loadId: load.id, auto: true });
+    db.shifts.push({ id: id('shf'), driverId: driver.id, carrierId: velocity.id, start: load.startedAt - habit[2] * H, end: load.deliveredAt + 0.4 * H, loadId: load.id, auto: true });
   });
 
   /* ---------------- live loads ---------------- */

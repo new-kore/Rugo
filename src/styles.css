@@ -825,3 +825,6 @@ table.table { width: 100%; border-collapse: collapse; font-size: 0.93rem; font-v
 .ar-cost > div > span:first-child { color: var(--label-2); }
 .ar-cost .tot { border-top: 1px solid var(--separator); padding-top: 4px; font-weight: 600; }
 .ar-cost .tot span:first-child { color: var(--label); }
+
+/* scorecard legend swatch */
+.sw { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; vertical-align: 0; }

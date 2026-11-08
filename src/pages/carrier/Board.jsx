@@ -7,10 +7,14 @@ import { useStore, useIndex, isActive } from '../../lib/store.jsx';
 import { money, money2, km, ago, dayLabel } from '../../lib/format.js';
 import { haversine } from '../../lib/geo.js';
 import { go } from '../../lib/router.js';
+import { post } from '../../lib/api.js';
+import { useMatches, aiOn } from '../../lib/ai.js';
+import { ScoreBadge } from '../../components/MatchList.jsx';
 
 export default function Board() {
   const { data } = useStore();
   const idx = useIndex();
+  const ai = aiOn(data.settings);
   const [sort, setSort] = useState('pay');
   const [accept, setAccept] = useState(null);
   const [hover, setHover] = useState(null);
@@ -36,6 +40,18 @@ export default function Board() {
       <PageHead title="Load board" sub={`${rows.length} loads waiting · ${freeTrucks.length} trucks available`}>
         <Segmented value={sort} onChange={setSort} options={[{ value: 'pay', label: 'Best $/km' }, { value: 'near', label: 'Closest' }, { value: 'new', label: 'Newest' }]} />
       </PageHead>
+      {ai && (
+        <div className="card pad row" style={{ marginBottom: 12, gap: 10 }}>
+          <Icon name="sparkles" size={18} style={{ color: 'var(--blue)' }} />
+          <div className="spacer subhead">
+            <b>AI dispatch is {data.settings.dispatchMode === 'auto' ? 'on autopilot' : 'suggesting'}.</b>{' '}
+            <span className="secondary">{data.settings.dispatchMode === 'auto'
+              ? `Loads paying ${money2(data.settings.autoMinPerKm)}/km+ with a driver match of ${data.settings.autoMinScore}+ are accepted automatically.`
+              : 'Each load shows the best driver. One tap accepts and dispatches.'}</span>
+          </div>
+          <button className="btn small" onClick={() => go('/settings')}>Settings</button>
+        </div>
+      )}
       <div className="split" style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)' }}>
         <div className="stack">
           {rows.length === 0 && <div className="card"><Empty icon="list" title="The board is clear">New pickup requests appear here instantly.</Empty></div>}
@@ -66,7 +82,7 @@ export default function Board() {
               <div className="row">
                 <div className="footnote secondary spacer truncate">{idx.companies[l.shipperId]?.name} · {l.cargo.description}{!match ? ' · no matching trailer free' : ''}</div>
                 <button className="btn small" onClick={() => go(`/loads/${l.id}`)}>Details</button>
-                <button className="btn primary small" onClick={() => setAccept(l)} disabled={!freeTrucks.length}><Icon name="check" size={16} stroke={2.6} />Accept</button>
+                {ai ? <BoardMatch load={l} onMore={() => setAccept(l)} /> : <button className="btn primary small" onClick={() => setAccept(l)} disabled={!freeTrucks.length}><Icon name="check" size={16} stroke={2.6} />Accept</button>}
               </div>
             </div>
           ))}
@@ -80,6 +96,27 @@ export default function Board() {
         </div>
       </div>
       {accept && <AcceptSheet load={accept} onClose={() => setAccept(null)} />}
+    </div>
+  );
+}
+
+/** Best driver for a board load, with one-tap accept. */
+function BoardMatch({ load, onMore }) {
+  const { toast, upsert } = useStore();
+  const best = useMatches(load).find((r) => r.eligible);
+  if (!best) return <button className="btn small" onClick={onMore}>No free driver — review</button>;
+  const take = async () => {
+    try {
+      const r = await post(`/loads/${load.id}/accept`, { driverId: best.driver.id, truckId: best.truck.id });
+      upsert('loads', r);
+      toast({ title: `${load.ref} accepted`, body: `${best.driver.name} (match ${best.score}/100) has been notified.` });
+    } catch (e) { toast({ title: 'Couldn’t accept', body: e.message, tone: 'error' }); }
+  };
+  return (
+    <div className="row" style={{ gap: 6 }}>
+      <ScoreBadge score={best.score} size={30} />
+      <button className="btn small" onClick={onMore} title="See all ranked drivers">Compare</button>
+      <button className="btn primary small" onClick={take}><Icon name="sparkles" size={14} />Send {best.driver.name.split(' ')[0]}</button>
     </div>
   );
 }

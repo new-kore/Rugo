@@ -156,6 +156,7 @@ export async function syncIntegration(i) {
       const prevFlag = u.hos?.flag || null;
       u.hos = { ...d.hos, provider: i.provider, providerName: providerMeta(i.provider)?.name, extId: d.extId, at: now, vehicleName: d.vehicleExtId ? vehicleName[d.vehicleExtId] || null : null, truckId: truckId || null };
       u.hos.flag = hosFlag(u.hos);
+      if (u.hos.flag === 'violation' && prevFlag !== 'violation') u.hosEvents = [...(u.hosEvents || []), { t: now, kind: 'violation' }].slice(-50);
       if (u.hos.flag && u.hos.flag !== prevFlag) {
         const body = u.hos.flag === 'violation' ? 'is driving past an hours-of-service limit.' : u.hos.flag === 'low' ? `has ${u.hos.driveLeftMin} min of driving left.` : 'needs a 30-minute break soon.';
         notify((v) => v.role === 'dispatcher' && v.companyId === i.carrierId, { title: u.hos.flag === 'violation' ? 'HOS violation' : 'Hours running low', body: `${u.name} ${body}`, tone: u.hos.flag === 'violation' ? 'error' : undefined });

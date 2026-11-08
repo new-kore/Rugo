@@ -22,6 +22,9 @@ export const DEFAULT_SETTINGS = {
   avgSpeedKmh: 82,
   overheadPerKm: 0.92, // truck payment, insurance, maintenance, tires, permits
   simulation: true,
+  dispatchMode: 'suggest', // off | suggest | auto
+  autoMinScore: 75, // auto-dispatch only matches at least this good
+  autoMinPerKm: 2.2, // and only loads paying at least this per km
 };
 
 const r2 = (n) => Math.round(n * 100) / 100;

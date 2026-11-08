@@ -94,6 +94,33 @@ export default function Settings() {
             </div>
           </div>
           <div className="section-footer">Used to estimate fuel cost on jobs without a fuel receipt.</div>
+
+          <div className="section-header">AI dispatch</div>
+          <div className="list">
+            <div className="list-row indent">
+              <div className="icon-tile" style={{ background: 'var(--indigo)' }}><Icon name="sparkles" size={18} /></div>
+              <div className="label">
+                <div>Driver matching</div>
+                <div className="footnote secondary">{{ off: 'You pick drivers yourself.', suggest: 'Ranks drivers on every load; you confirm.', auto: 'Accepts good board loads and assigns the best driver automatically.' }[s.dispatchMode || 'suggest']}</div>
+              </div>
+              <Segmented value={s.dispatchMode || 'suggest'} onChange={(v) => saveSettings({ dispatchMode: v })} options={[{ value: 'off', label: 'Off' }, { value: 'suggest', label: 'Suggest' }, { value: 'auto', label: 'Auto' }]} />
+            </div>
+            {s.dispatchMode === 'auto' && (
+              <>
+                <div className="list-row indent">
+                  <div className="label">Minimum driver match</div>
+                  <input className="inline-input num" style={{ width: 70 }} type="number" min="0" max="100" defaultValue={s.autoMinScore} onBlur={(e) => saveSettings({ autoMinScore: e.target.value })} aria-label="Minimum match score" />
+                  <span className="footnote secondary">/ 100</span>
+                </div>
+                <div className="list-row indent">
+                  <div className="label">Minimum pay</div>
+                  <input className="inline-input num" style={{ width: 70 }} type="number" step="0.05" min="0" defaultValue={s.autoMinPerKm} onBlur={(e) => saveSettings({ autoMinPerKm: e.target.value })} aria-label="Minimum pay per km" />
+                  <span className="footnote secondary">$ / km</span>
+                </div>
+              </>
+            )}
+          </div>
+          <div className="section-footer">Match score weighs distance to pickup (25), timing & schedule (20), cost to run (20), lane history (15), hours left (10) and the driver’s scorecard (10).</div>
         </>
       )}
 

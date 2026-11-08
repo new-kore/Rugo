@@ -8,6 +8,7 @@ import {
   gpsUpdate, clockIn, clockOut, nextRef, newLoadShell, publicUser, updateEta, trailerInUse,
 } from './fleet.js';
 import { PROVIDERS, providerMeta } from './eld/providers.js';
+import { rankDrivers, matchSummary } from './dispatch.js';
 import { eldFor, publicIntegration, cleanCreds, testConnection, connect, disconnect, setMaps, syncIntegration, syncSoon, importUnlinked } from './eld/sync.js';
 
 /** Weekly schedule: { 0..6: { start: 'HH:MM', end: 'HH:MM' } | null }. Accepts the older { days, start, end } shape too. */
@@ -140,6 +141,7 @@ export function routes(app) {
     db.loads.push(load);
     save();
     publish('loads', load);
+    if (await autoDispatch(load)) return res.json(load);
     notify((v) => v.role === 'dispatcher', { title: 'New load on the board', body: `${load.ref}: ${pickup.city} → ${dropoff.city} · $${load.quote.carrierPayout.toFixed(0)}`, loadId: load.id });
     res.json(load);
   });
@@ -697,6 +699,9 @@ export function routes(app) {
 
   app.patch('/api/settings', auth, role('dispatcher'), (req, res) => {
     const b = req.body || {};
+    if (['off', 'suggest', 'auto'].includes(b.dispatchMode)) db.settings.dispatchMode = b.dispatchMode;
+    if (b.autoMinScore !== undefined) db.settings.autoMinScore = Math.max(0, Math.min(100, Number(b.autoMinScore) || 0));
+    if (b.autoMinPerKm !== undefined) db.settings.autoMinPerKm = Math.max(0, Number(b.autoMinPerKm) || 0);
     if (b.fuelPricePerL !== undefined) db.settings.fuelPricePerL = Number(b.fuelPricePerL);
     if (b.simulation !== undefined) db.settings.simulation = !!b.simulation;
     save();
@@ -705,6 +710,33 @@ export function routes(app) {
 
 }
 
-// Keep ETAs fresh for accepted loads that haven't started moving.
-const t = setInterval(() => { for (const l of db.loads.filter((x) => x.status === 'accepted')) updateEta(l); }, 30000);
+/** AI dispatch in auto mode: accept a board load for the carrier's best-matching free driver. */
+export async function autoDispatch(load) {
+  const s = settings();
+  if (s.dispatchMode !== 'auto' || load.status !== 'requested') return null;
+  if (load.quote.carrierPayout / Math.max(1, load.quote.distanceKm) < s.autoMinPerKm) return null;
+  for (const carrier of db.companies.filter((c) => c.type === 'carrier')) {
+    const own = (col, key) => db[col].filter((x) => x[key] === carrier.id);
+    const ctx = { drivers: own('users', 'companyId').filter((u) => u.role === 'driver'), trucks: own('trucks', 'carrierId'), loads: own('loads', 'carrierId'), shifts: own('shifts', 'carrierId'), fuelLogs: own('fuelLogs', 'carrierId'), settings: s };
+    const best = rankDrivers(load, ctx).find((r) => r.eligible && r.eqOk && r.score >= s.autoMinScore);
+    const by = db.users.find((u) => u.companyId === carrier.id && u.role === 'dispatcher');
+    if (!best || !by) continue;
+    await accept(load, by, best.driver, best.truck);
+    load.autoDispatch = { score: best.score, summary: matchSummary(best), at: Date.now() };
+    const last = load.timeline[load.timeline.length - 1];
+    last.note = `${last.note} · auto-dispatched by Rugo AI (match ${best.score}/100)`;
+    publish('loads', load);
+    notify((v) => v.role === 'dispatcher' && v.companyId === carrier.id, { title: `AI dispatch took ${load.ref}`, body: `${best.driver.name} · match ${best.score}/100 · ${load.pickup.city} → ${load.dropoff.city}`, loadId: load.id });
+    return best;
+  }
+  return null;
+}
+
+// Keep ETAs fresh for accepted loads that haven't started moving; retry auto-dispatch on waiting board loads.
+const t = setInterval(async () => {
+  for (const l of db.loads.filter((x) => x.status === 'accepted')) updateEta(l);
+  for (const l of db.loads.filter((x) => x.status === 'requested' && Date.now() - x.createdAt < 2 * 864e5)) {
+    try { await autoDispatch(l); } catch (e) { console.error('auto-dispatch', e); }
+  }
+}, 30000);
 t.unref?.();

@@ -1,5 +1,7 @@
 // Load list card, accept/dispatch sheet and invoice view shared across roles.
 import { hm, hosLeft } from '../lib/hos.js';
+import { useMatches, aiOn } from '../lib/ai.js';
+import MatchList, { ScoreBadge } from './MatchList.jsx';
 import { useMemo, useState } from 'react';
 import Icon from './Icon.jsx';
 import { StatusPill, Tracker, RouteLine, Sheet, Avatar, ActionButton } from './ui.jsx';
@@ -58,7 +60,9 @@ export function AcceptSheet({ load, onClose }) {
       return { d, t, dist, free: !busy.has(d.id) && d.status !== 'off_duty', match: t?.equipment === load.cargo.equipment };
     })
     .sort((a, b) => (b.free - a.free) || (b.match - a.match) || ((a.dist ?? 1e9) - (b.dist ?? 1e9))), [data.users, idx.trucks, load]);
-  const [pick, setPick] = useState(options.find((o) => o.free && o.t)?.d.id);
+  const ai = aiOn(data.settings);
+  const matches = useMatches(ai ? load : null);
+  const [pick, setPick] = useState(ai ? matches.find((r) => r.eligible)?.driver.id : options.find((o) => o.free && o.t)?.d.id);
   const chosen = options.find((o) => o.d.id === pick);
 
   const accept = async () => {
@@ -77,7 +81,9 @@ export function AcceptSheet({ load, onClose }) {
           <RouteLine pickup={load.pickup} dropoff={load.dropoff} compact />
           <div className="footnote secondary">{km(load.quote.distanceKm)} · {money2(load.quote.carrierPayout / load.quote.distanceKm)}/km · {data.meta.equipment[load.cargo.equipment].label}</div>
         </div>
-        <div className="section-header" style={{ margin: '8px 4px 0' }}>Who will drive?</div>
+        <div className="section-header" style={{ margin: '8px 4px 0' }}>{ai ? 'AI dispatch — best drivers for this load' : 'Who will drive?'}</div>
+        {ai && <div className="footnote secondary" style={{ margin: '-4px 4px 0' }}>Ranked by distance, availability, hours left, cost, lane history and on-time record.</div>}
+        {ai ? <MatchList rows={matches} pick={pick} onPick={setPick} equipmentLabel={(e) => data.meta.equipment[e]?.label} /> : (
         <div className="list">
           {options.map((o, i) => (
             <button key={o.d.id} className="list-row indent" disabled={!o.free || !o.t} style={{ opacity: o.free && o.t ? 1 : 0.45 }} onClick={() => setPick(o.d.id)}>
@@ -100,6 +106,7 @@ export function AcceptSheet({ load, onClose }) {
             </button>
           ))}
         </div>
+        )}
         <ActionButton className="btn primary xl" disabled={!chosen?.t} onClick={accept}>
           <Icon name="check" size={22} stroke={2.4} />Accept & dispatch {chosen ? chosen.d.name.split(' ')[0] : ''}
         </ActionButton>
@@ -122,6 +129,10 @@ export function DriverPicker({ load, mode, onPick, onClose }) {
     const dist = t?.location && target ? haversine(t.location, target) * 1.2 : null;
     return { d, t, dist, free: !busy.has(d.id) && d.status !== 'off_duty' };
   }).sort((a, b) => (b.free - a.free) || ((a.dist ?? 1e9) - (b.dist ?? 1e9)));
+  const ai = aiOn(data.settings);
+  const matches = useMatches(ai && mode !== 'add' ? load : null, { allowBusy: !loaded });
+  const scoreOf = Object.fromEntries(matches.map((m) => [m.driver.id, m]));
+  if (ai && matches.length) rows.sort((a, b) => (b.free - a.free) || ((scoreOf[b.d.id]?.score ?? 0) - (scoreOf[a.d.id]?.score ?? 0)));
   const title = mode === 'add' ? 'Add a team driver' : 'Replace driver';
   const hint = mode === 'add'
     ? 'The team driver shares the same truck. Both are paid for the job.'
@@ -134,9 +145,10 @@ export function DriverPicker({ load, mode, onPick, onClose }) {
           {rows.map(({ d, t, dist, free }) => (
             <button key={d.id} className="list-row" disabled={!free || busyId} style={{ opacity: free ? 1 : 0.45 }}
               onClick={async () => { setBusyId(d.id); try { await onPick(d); } catch (e) { toast({ title: 'Couldn’t change driver', body: e.message, tone: 'error' }); } finally { setBusyId(null); } }}>
+              {scoreOf[d.id] && <ScoreBadge score={scoreOf[d.id].eligible ? scoreOf[d.id].score : 0} size={32} />}
               <Avatar user={d} />
               <div className="label">
-                <div className="headline">{d.name}</div>
+                <div className="headline">{d.name}{scoreOf[d.id]?.best && free && <span className="pill green" style={{ marginLeft: 6 }}>Best match</span>}</div>
                 <div className="footnote secondary truncate">
                   {t ? `Unit ${t.unit}` : 'No truck'}{dist != null ? ` · ${km(dist)} ${loaded ? 'from the truck' : 'from pickup'}` : ''}{!free ? ' · busy' : ''}{d.hos ? ` · ${hm(hosLeft(d.hos))} driving left (${d.hos.providerName})` : ''}
                 </div>

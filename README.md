@@ -105,6 +105,36 @@ Notes:
 - **Testing against mocks:** set `RUGO_ELD_<PROVIDER>_URL` (e.g. `RUGO_ELD_SAMSARA_URL`) and `RUGO_ELD_ALLOW_LOCAL=1`.
 - **Sync interval:** change it with `RUGO_ELD_SYNC_MS`.
 
+### AI dispatch & driver scorecards
+**AI dispatch.** `server/dispatch.js` ranks drivers for any load and gives each one a match score out of 100. The score is built from these weighted parts:
+- **Distance to pickup (25):** measured from where the driver will actually start. If they're on a job, that's the next drop.
+- **Timing and schedule (20):** whether they can make the pickup window, and whether it falls inside their shift.
+- **Cost to run (20):** driver pay, fuel and truck cost, including the empty kilometres.
+- **Lane history (15):** how often they've run this lane before.
+- **Hours left (10):** ELD clocks, when an ELD is connected.
+- **Scorecard (10):** their recent performance.
+
+Some drivers can't be picked at all: no truck, licence expired, time off, out of hours, or busy. A trailer-type mismatch costs 20 points.
+
+Choose the mode in **Settings → AI dispatch**:
+- **Off:** you pick drivers yourself.
+- **Suggest (default):**
+  - every board load shows its best driver, with one-tap "Send";
+  - the Accept, Replace driver and Add route screens list drivers ranked, with the reasons for each score.
+- **Auto:** board loads that pay at least the minimum $/km and have a driver at or above the minimum match score are accepted and assigned automatically. This happens when the load arrives, and Rugo re-checks waiting loads every 30 s.
+
+**Scorecards.** `server/scorecard.js` builds a scorecard per driver, shown on **Drivers → Scorecards** and in each driver's **Scorecard** tab. Choose 30 days, 90 days or 12 months. It covers:
+- **Workload:** loads delivered and loads per week.
+- **Punctuality:** on-time, early and late pickups and deliveries, measured against the appointment window, with average minutes late or early.
+- **Responsiveness:** time from dispatch to the driver tapping Start.
+- **Time:** paid hours, driving hours, paid time not moving and what it costs, and average time at the docks.
+- **Money:** revenue, cost (driver pay and fuel), profit, margin and revenue per km.
+- **Fuel:** fuel economy compared with the fleet, and the share of fill-ups with a receipt.
+- **Quality & safety:** customer ratings, damage reports, HOS violations, photo and signature completeness, and cancellations.
+- **Lanes:** the lanes they run most.
+
+Each driver also gets a weighted score with a grade (A–F), a rank, a trend versus the previous period, and plain-language "Doing well" and "Work on" notes.
+
 ### Maps & routing
 - Map tiles come from CARTO/OpenStreetMap and change with light and dark mode.
 - Road routes come from the public OSRM router. If it can't be reached, Rugo uses an estimated route with a road factor. Set `RUGO_OFFLINE_ROUTING=1` to always use the estimate.
@@ -119,6 +149,8 @@ server/            Node + Express API (no database server needed)
   index.js         REST routes, auth, uploads, SSE stream
   fleet.js         load lifecycle, rules, geofencing, ETA, realtime fan-out, simulator
   pricing.js       rate card, quotes, invoices, job economics
+  dispatch.js      AI dispatch: driver ranking for a load
+  scorecard.js     driver scorecards
   eld/             ELD connectors (samsara, motive, geotab, isaac, sandbox) + sync engine
   geo.js           distance, bearing, OSRM routing with offline fallback
   db.js            durable JSON store (atomic writes) in ./data
