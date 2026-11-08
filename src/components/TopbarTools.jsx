@@ -234,7 +234,7 @@ export function NotificationBell() {
             <span className="headline">Notifications</span>
             <button className="btn plain small" onClick={markAll} disabled={!unread}>Mark all read</button>
           </div>
-          <div style={{ maxHeight: 440, overflowY: 'auto' }}>
+          <div className="bell-list">
             {items.length === 0 && <div className="pop-empty">You’re all caught up.</div>}
             {items.map((n) => (
               <button key={n.id} className={`pop-item notif ${n.t > seen ? 'unread' : ''}`} onClick={() => openItem(n)}>
