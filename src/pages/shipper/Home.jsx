@@ -65,7 +65,7 @@ export default function ShipperHome() {
         <KpiTile icon={<Icon name="flag" size={20} />} tone="teal" k="Arriving today" v={arrivingToday} d="by ETA" />
         <KpiTile icon={<Icon name="search" size={20} />} tone="orange" k="Finding a carrier" v={loads.filter((l) => l.status === 'requested').length} d="waiting for acceptance" />
         <KpiTile icon={<Icon name="checkCircle" size={20} />} tone="indigo" k="Delivered this month" v={deliveredMonth.length} d={onTime == null ? '—' : `${onTime}% on time (30 days)`} />
-        <KpiTile icon={<Icon name="dollar" size={20} />} tone="blue" k="Spend this month" v={money(spendMonth)} d={`${money(unpaid.reduce((a, l) => a + l.invoice.total, 0))} unpaid`} onClick={() => go('/billing')} />
+        <KpiTile icon={<Icon name="dollar" size={20} />} tone="yellow" k="Spend this month" v={money(spendMonth)} d={`${money(unpaid.reduce((a, l) => a + l.invoice.total, 0))} unpaid`} onClick={() => go('/billing')} />
       </div>
 
       <div className="dash-main">

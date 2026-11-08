@@ -141,8 +141,8 @@ export default function Dashboard() {
         <KpiTile icon={<Icon name="list" size={20} />} tone="orange" k="New loads" v={board.length} d="on the load board" onClick={() => go('/board')} />
         <KpiTile icon={<Icon name="warning" size={20} />} tone="red" k="Overdue" v={overdue} d={`pickups · ${attention.filter((a) => a.sev >= 2).length} urgent`} alert={overdue > 0} onClick={() => setFilter('problems')} />
         <KpiTile icon={<Icon name="checkCircle" size={20} />} tone="teal" k="Delivered" v={deliveredToday.length} d={`today · ${stops.filter((x) => !x.done).length} stops to go`} />
-        <KpiTile icon={<Icon name="dollar" size={20} />} tone="indigo" k="Revenue" v={money(revenueToday)} d={`today · ${money(week.reduce((a, x) => a + x.value, 0))} week`} onClick={() => go('/reports')} />
-        <KpiTile icon={<Icon name="people" size={20} />} tone="blue" k="On shift" v={`${onShift.length}/${drivers.length}`} d={`drivers · ${drivers.filter((d) => !active.some((l) => l.driverId === d.id) && openShift(data, d.id)).length} free`} onClick={() => go('/drivers')} />
+        <KpiTile icon={<Icon name="dollar" size={20} />} tone="yellow" k="Revenue" v={money(revenueToday)} d={`today · ${money(week.reduce((a, x) => a + x.value, 0))} week`} onClick={() => go('/reports')} />
+        <KpiTile icon={<Icon name="people" size={20} />} tone="purple" k="On shift" v={`${onShift.length}/${drivers.length}`} d={`drivers · ${drivers.filter((d) => !active.some((l) => l.driverId === d.id) && openShift(data, d.id)).length} free`} onClick={() => go('/drivers')} />
         <KpiTile icon={<Icon name="message" size={20} />} tone="blue" k="Messages" v={unreadN} d="unread from drivers" alert={unreadN > 0} onClick={() => go('/messages')} />
       </div>
 
@@ -167,7 +167,7 @@ export default function Dashboard() {
             {attention.length === 0 && <div className="empty-mini"><Icon name="checkCircle" size={28} style={{ color: 'var(--green)' }} /><div>All clear — nothing needs you right now.</div></div>}
             {attention.map((a) => (
               <button key={a.id} className={`attn ${a.tone}`} onClick={() => go(a.load ? `/loads/${a.load.id}` : a.driver ? '/drivers' : a.truck ? '/inventory' : a.to || '/board')}>
-                <div className="attn-icon"><Icon name={a.icon} size={16} /></div>
+                <div className="attn-icon gloss"><Icon name={a.icon} size={16} /></div>
                 <div style={{ minWidth: 0 }}><div className="subhead" style={{ fontWeight: 600 }}>{a.title}</div><div className="footnote secondary">{a.body}</div></div>
               </button>
             ))}

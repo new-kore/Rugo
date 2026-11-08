@@ -147,7 +147,7 @@ export default function DriverToday() {
           <div className="dash-card-head" style={{ padding: 0, border: 0 }}><Icon name="checkCircle" size={16} style={{ color: 'var(--blue)' }} /><span className="headline">To do</span></div>
           {todo.length === 0 ? <div className="empty-mini"><Icon name="checkCircle" size={26} style={{ color: 'var(--green)' }} />You’re all caught up.</div> : todo.map((x, i) => (
             <button key={i} className={`attn ${x.tone}`} onClick={() => (x.action === 'clock' ? clock() : go(x.to))}>
-              <div className="attn-icon"><Icon name={x.icon} size={16} /></div><div className="subhead" style={{ fontWeight: 600, textAlign: 'left' }}>{x.text}</div>
+              <div className="attn-icon gloss"><Icon name={x.icon} size={16} /></div><div className="subhead" style={{ fontWeight: 600, textAlign: 'left' }}>{x.text}</div>
             </button>
           ))}
         </div>
