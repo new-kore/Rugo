@@ -97,21 +97,21 @@ export default function Integrations() {
         <>
           {changing && <button className="btn plain" style={{ marginBottom: 8 }} onClick={() => setChanging(false)}><Icon name="chevronLeft" size={15} />Back to {meta?.name}</button>}
           <div className="section-header" style={{ marginTop: 0 }}>ELD & hours of service</div>
-          <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: 12 }}>
+          <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gridAutoRows: '1fr', gap: 12 }}>
             {providers.map((p) => (
-              <div key={p.id} className="card pad-lg stack-sm">
-                <div className="row" style={{ gap: 12 }}>
+              <div key={p.id} className="card pad-lg provider-card">
+                <div className="row" style={{ gap: 12, alignItems: 'flex-start' }}>
                   <Logo p={p} />
                   <div className="spacer">
                     <div className="headline">{p.name}</div>
                     <div className="footnote secondary">{p.sandbox ? 'Try it with test data' : `HOS clocks${p.positions ? ' · live GPS' : ''}${p.webhook ? ' · webhooks' : ''}`}</div>
                   </div>
                 </div>
-                <div className="row wrap" style={{ gap: 6, minHeight: 22 }}>
+                <div className="row wrap" style={{ gap: 6 }}>
                   {p.beta && <span className="pill orange">Partner API</span>}
                   {!p.sandbox && <span className="pill gray">Canada & US certified</span>}
                 </div>
-                <button className="btn primary" onClick={() => setConnecting(p)}>{eld?.provider === p.id ? 'Reconnect' : 'Connect'}</button>
+                <button className="btn primary provider-connect" onClick={() => setConnecting(p)}>{eld?.provider === p.id ? 'Reconnect' : 'Connect'}</button>
               </div>
             ))}
           </div>

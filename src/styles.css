@@ -1112,3 +1112,7 @@ img, svg, video { max-width: 100%; }
 .gloss svg { position: relative; z-index: 1; stroke-width: 2.3; filter: drop-shadow(0 1px 1px rgba(0,0,0,.22)); }
 .attn .attn-icon { --c: var(--blue); }
 .attn.red .attn-icon { --c: var(--red); } .attn.orange .attn-icon { --c: var(--orange); } .attn.blue .attn-icon { --c: var(--blue); }
+
+/* Integration cards: equal height, Connect button pinned to the bottom of every card. */
+.provider-card { display: flex; flex-direction: column; gap: 10px; height: 100%; }
+.provider-card .provider-connect { margin-top: auto; width: 100%; }
