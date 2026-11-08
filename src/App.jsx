@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useStore, isActive } from './lib/store.jsx';
-import { useRoute, go, match } from './lib/router.js';
+import { useRoute, go, match, viewTransitions } from './lib/router.js';
 import Icon from './components/Icon.jsx';
 import { Toasts } from './components/ui.jsx';
 import { GlobalSearch, NotificationBell } from './components/TopbarTools.jsx';
@@ -130,7 +130,7 @@ export default function App() {
             <span className={`pill hide-mobile ${online ? 'green live' : 'orange'}`} style={{ border: 0 }}><span className="dot" />{online ? 'Live' : 'Offline'}</span>
             <NotificationBell />
           </header>
-          {page}
+          <div key={path} className={`page-anim ${viewTransitions ? '' : 'fade'}`}>{page}</div>
         </div>
       </main>
       <nav className="tabbar">

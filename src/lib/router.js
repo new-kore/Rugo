@@ -1,11 +1,26 @@
 // Minimal hash router: #/path/segments
 import { useEffect, useState } from 'react';
+import { flushSync } from 'react-dom';
+
+// Cross-fade between pages with the View Transitions API where the browser has it.
+export const viewTransitions = typeof document !== 'undefined' && 'startViewTransition' in document;
+const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const parse = () => (window.location.hash.replace(/^#/, '') || '/').split('?')[0];
 export function useRoute() {
   const [path, setPath] = useState(parse);
   useEffect(() => {
-    const on = () => { setPath(parse()); window.scrollTo(0, 0); };
+    const on = () => {
+      const next = parse();
+      const apply = () => { setPath(next); window.scrollTo(0, 0); };
+      if (viewTransitions && !reduced()) {
+        const root = document.documentElement;
+        root.classList.add('vt');
+        const t = document.startViewTransition(() => flushSync(apply));
+        t.finished.finally(() => root.classList.remove('vt'));
+      }
+      else apply();
+    };
     window.addEventListener('hashchange', on);
     return () => window.removeEventListener('hashchange', on);
   }, []);
