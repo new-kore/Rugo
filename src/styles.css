@@ -1122,3 +1122,18 @@ img, svg, video { max-width: 100%; }
 .dstep-l { font-size: 0.68rem; font-weight: 600; opacity: 0.75; line-height: 1.15; }
 .dstep.on .dstep-l { opacity: 1; }
 .gas-btn { border: 0; text-align: left; font: inherit; color: inherit; width: 100%; }
+
+/* load notes */
+.notes { gap: 10px; }
+.note { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; background: var(--bg-elevated); }
+.note.mine { background: color-mix(in srgb, var(--blue) 5%, var(--bg-elevated)); }
+.note.pinned { background: color-mix(in srgb, var(--orange) 7%, var(--bg-elevated)); border-color: color-mix(in srgb, var(--orange) 30%, var(--border)); }
+.note-head { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; margin-bottom: 4px; }
+.note-head .tertiary { margin-left: auto; }
+.note-text { font-size: 0.95rem; line-height: 1.4; white-space: pre-wrap; word-break: break-word; }
+.note-badge { font-size: 0.68rem; font-weight: 600; padding: 1px 7px; border-radius: 99px; background: var(--bg-fill-2); color: var(--label-2); }
+.note-badge.dispatcher { background: color-mix(in srgb, var(--indigo) 14%, transparent); color: var(--indigo); }
+.note-badge.driver { background: color-mix(in srgb, var(--green) 16%, transparent); color: var(--green-text); }
+.note-add { display: flex; flex-direction: column; gap: 8px; }
+.note-add textarea { resize: vertical; }
+.note-add .btn { align-self: flex-end; }

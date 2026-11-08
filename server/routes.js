@@ -322,16 +322,18 @@ export function routes(app) {
     res.json(load);
   });
 
-  app.post('/api/loads/:id/messages', auth, (req, res) => {
+  // Load notes: shared between the carrier's office and the driver(s) on the load.
+  app.post('/api/loads/:id/messages', auth, role('dispatcher', 'driver'), (req, res) => {
     const load = getLoad(req, res); if (!load) return;
-    const text = String(req.body.text || '').trim().slice(0, 1000);
-    if (!text) return res.status(400).json({ error: 'Message is empty.' });
+    if (req.user.role === 'dispatcher' && load.carrierId !== req.user.companyId) return res.status(403).json({ error: 'Only the carrier on this load can add notes.' });
+    const text = String(req.body.text || '').trim().slice(0, 2000);
+    if (!text) return res.status(400).json({ error: 'Write a note first.' });
     const msg = { id: id('msg'), userId: req.user.id, name: req.user.name, role: req.user.role, text, t: Date.now() };
     load.messages.push(msg);
     save();
     publish('loads', load);
-    notify((v) => v.id !== req.user.id && (v.companyId === load.shipperId || v.companyId === load.carrierId || v.id === load.driverId),
-      { title: `Message · ${load.ref}`, body: `${req.user.name}: ${text}`, loadId: load.id });
+    notify((v) => v.id !== req.user.id && ((v.role === 'dispatcher' && v.companyId === load.carrierId) || v.id === load.driverId || (load.teamDriverIds || []).includes(v.id)),
+      { title: `Note · ${load.ref}`, body: `${req.user.name}: ${text}`, loadId: load.id });
     res.json(msg);
   });
 

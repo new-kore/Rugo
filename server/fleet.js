@@ -70,7 +70,7 @@ export function view(viewer, col, item) {
     const out = { ...item };
     delete out.sim;
     delete out.simDetour;
-    if (viewer.role === 'shipper') delete out.economics;
+    if (viewer.role === 'shipper') { delete out.economics; out.messages = []; } // notes are internal to the carrier
     if (viewer.role !== 'shipper' && item.status === 'requested' && item.carrierId !== viewer.companyId) {
       // Carriers browsing the board only see the payout, not the shipper's invoice.
       out.quote = { ...item.quote, lines: undefined, tax: undefined, total: undefined, subtotal: undefined };

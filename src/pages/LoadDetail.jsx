@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import Icon from '../components/Icon.jsx';
 import MapView from '../components/MapView.jsx';
-import Chat from '../components/Chat.jsx';
+import LoadNotes from '../components/LoadNotes.jsx';
 import { PhotoCompare } from '../components/Inspection.jsx';
 import { StatusPill, Tracker, RouteLine, Avatar, ActionButton, ConfirmButton, Empty, STATUS_STYLE, StickyCol } from '../components/ui.jsx';
 import { AcceptSheet, CargoFacts, PriceBreakdown, Economics, InvoiceDoc, DriverPicker, TaskDetails } from '../components/LoadBits.jsx';
@@ -147,10 +147,10 @@ export default function LoadDetail({ id }) {
 
           {role === 'shipper' && load.status === 'delivered' && <Rating load={load} />}
 
-          {load.status !== 'requested' && (
+          {load.status !== 'requested' && role !== 'shipper' && (
             <div className="card pad-lg stack">
-              <div className="title3">Messages</div>
-              <Chat load={load} />
+              <div className="row between"><div className="title3">Notes</div><span className="footnote secondary">Office & driver</span></div>
+              <LoadNotes load={load} />
             </div>
           )}
         </StickyCol>

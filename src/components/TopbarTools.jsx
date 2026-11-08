@@ -188,7 +188,7 @@ function useNotifications() {
       }
       for (const m of l.messages) {
         if (m.userId === me.id) continue;
-        items.push({ id: m.id, t: m.t, title: `Message from ${m.name}`, body: m.text, load: l, kind: 'message' });
+        items.push({ id: m.id, t: m.t, title: `Note from ${m.name} · ${l.ref}`, body: m.text, load: l, kind: 'note' });
       }
     }
     // Licences and records expiring within 30 days (dispatch sees everyone; a driver sees their own).

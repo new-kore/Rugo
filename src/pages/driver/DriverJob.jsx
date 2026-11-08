@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Icon from '../../components/Icon.jsx';
 import MapView from '../../components/MapView.jsx';
-import Chat from '../../components/Chat.jsx';
+import LoadNotes from '../../components/LoadNotes.jsx';
 import { PhotoChecklist, SignaturePad } from '../../components/Inspection.jsx';
 import { RouteLine, ActionButton, Empty, Tracker, StatusPill } from '../../components/ui.jsx';
 import { CargoFacts, TaskDetails } from '../../components/LoadBits.jsx';
@@ -128,9 +128,9 @@ export default function DriverJob({ loadId }) {
         <RouteLine pickup={load.pickup} dropoff={load.dropoff} pickupNote={load.pickup.phone} dropoffNote={load.dropoff.phone} />
         <div className="row" style={{ gap: 8 }}>
           <a className="btn small" href={`tel:${target?.phone || ''}`}><Icon name="phone" size={16} />Call {leg === 'toPickup' ? 'pickup' : 'receiver'}</a>
-          <button className="btn small" onClick={() => setChat(!chat)}><Icon name="message" size={16} />Messages{load.messages.length ? ` (${load.messages.length})` : ''}</button>
+          <button className="btn small" onClick={() => setChat(!chat)}><Icon name="doc" size={16} />Notes{(load.messages.length + (load.notes ? 1 : 0)) ? ` (${load.messages.length + (load.notes ? 1 : 0)})` : ''}</button>
         </div>
-        {chat && <Chat load={load} />}
+        {chat && <LoadNotes load={load} compact />}
       </div>
 
       {load.status === 'accepted' && (
