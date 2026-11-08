@@ -5,7 +5,7 @@ import MapView from '../../components/MapView.jsx';
 import Chat from '../../components/Chat.jsx';
 import { PhotoChecklist, SignaturePad } from '../../components/Inspection.jsx';
 import { RouteLine, ActionButton, Empty, Tracker, StatusPill } from '../../components/ui.jsx';
-import { CargoFacts } from '../../components/LoadBits.jsx';
+import { CargoFacts, TaskDetails } from '../../components/LoadBits.jsx';
 import { useStore, useIndex, isActive, useNow } from '../../lib/store.jsx';
 import { post } from '../../lib/api.js';
 import { navUrl } from '../../lib/geo.js';
@@ -121,7 +121,14 @@ export default function DriverJob({ loadId }) {
           <div className="title3">What you’re hauling</div>
           <div className="subhead">{load.cargo.description}</div>
           <CargoFacts load={load} />
-          {load.notes && <div className="card pad" style={{ background: 'color-mix(in srgb, var(--orange) 12%, transparent)', boxShadow: 'none' }}><b>Note from shipper:</b> {load.notes}</div>}
+          <TaskDetails load={load} />
+        </div>
+      )}
+
+      {load.status !== 'accepted' && (load.instructions?.length > 0) && (
+        <div className="card pad-lg stack-sm" style={{ marginBottom: 16 }}>
+          <div className="title3">Task steps</div>
+          <ol className="task-steps">{load.instructions.map((x, i) => <li key={i}>{x}</li>)}</ol>
         </div>
       )}
 

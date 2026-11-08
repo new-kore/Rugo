@@ -716,3 +716,9 @@ table.table { width: 100%; border-collapse: collapse; font-size: 0.93rem; font-v
 
 .sticky-col { position: sticky; align-self: start; }
 @media (max-width: 1100px) { .sticky-col { position: static; } }
+
+.route-form { display: flex; flex-direction: column; gap: 18px; }
+.route-form section { display: flex; flex-direction: column; gap: 10px; }
+.route-form h4 { margin: 0; font-size: 0.82rem; font-weight: 600; color: var(--label-2); text-transform: uppercase; letter-spacing: 0.04em; }
+.route-stop { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-fill-2); }
+.task-steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; font-size: 0.95rem; }

@@ -176,7 +176,7 @@ export async function accept(load, carrierUser, driver, truck) {
   touch(load);
   publish('users', driver);
   publish('trucks', truck);
-  notify((v) => v.companyId === load.shipperId, { title: 'Carrier found', body: `${load.ref} accepted — ${driver.name} is assigned.`, loadId: load.id });
+  if (load.shipperId !== load.carrierId) notify((v) => v.companyId === load.shipperId, { title: 'Carrier found', body: `${load.ref} accepted — ${driver.name} is assigned.`, loadId: load.id });
   notify((v) => v.id === driver.id, { title: 'New job assigned', body: `${load.ref}: ${load.pickup.city} → ${load.dropoff.city}`, loadId: load.id });
 }
 

@@ -150,6 +150,31 @@ export function DriverPicker({ load, mode, onPick, onClose }) {
   );
 }
 
+/** Route details added by dispatch: customer, stop contacts and notes, appointment, step list. */
+export function TaskDetails({ load }) {
+  const steps = load.instructions || [];
+  const stop = (label, p) => (p.contact || p.phone || p.dockNote) && (
+    <div><div className="footnote secondary">{label}</div><div className="subhead">{[p.contact, p.phone].filter(Boolean).join(' · ')}{p.dockNote ? <span className="secondary"> — {p.dockNote}</span> : null}</div></div>
+  );
+  const has = load.customer || steps.length || load.deliveryWindow || load.pickup.dockNote || load.dropoff.dockNote || load.notes;
+  if (!has) return null;
+  return (
+    <div className="stack-sm">
+      {load.customer && <div><div className="footnote secondary">Customer</div><div className="subhead">{load.customer}</div></div>}
+      {stop('Pickup contact', load.pickup)}
+      {stop('Delivery contact', load.dropoff)}
+      {load.deliveryWindow && <div><div className="footnote secondary">Delivery appointment</div><div className="subhead">{dayLabel(load.deliveryWindow.from)}</div></div>}
+      {steps.length > 0 && (
+        <div>
+          <div className="footnote secondary" style={{ marginBottom: 4 }}>Steps</div>
+          <ol className="task-steps">{steps.map((x, i) => <li key={i}>{x}</li>)}</ol>
+        </div>
+      )}
+      {load.notes && <div><div className="footnote secondary">Notes</div><div className="subhead">{load.notes}</div></div>}
+    </div>
+  );
+}
+
 export function CargoFacts({ load }) {
   const { data } = useStore();
   const c = load.cargo;

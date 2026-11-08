@@ -80,10 +80,17 @@ export function routes(app) {
     res.json({ quote: quote({ distanceKm: r.distanceKm, cargo, options }, settings()), route: r });
   });
 
-  app.post('/api/loads', auth, role('shipper'), async (req, res) => {
-    const { pickup, dropoff, cargo = {}, options = {}, pickupWindow, deliveryWindow, notes, poNumber } = req.body || {};
+  app.post('/api/loads', auth, role('shipper', 'dispatcher'), async (req, res) => {
+    const { pickup, dropoff, cargo = {}, options = {}, pickupWindow, deliveryWindow, notes, poNumber, driverId, customer, teamDriverId, truckId, rate, instructions } = req.body || {};
     if (!validPlace(pickup) || !validPlace(dropoff)) return res.status(400).json({ error: 'Choose a pickup and a destination.' });
     if (!EQUIPMENT[cargo.equipment]) return res.status(400).json({ error: 'Choose a trailer type.' });
+    // Dispatch adding its own route: assign straight to one of its drivers (never posted on the board).
+    const own = req.user.role === 'dispatcher';
+    const ownDriver = own && find('users', driverId);
+    const ownTruck = ownDriver && find('trucks', (truckId && find('trucks', truckId)?.carrierId === req.user.companyId) ? truckId : ownDriver.truckId);
+    if (own && (!ownDriver || ownDriver.companyId !== req.user.companyId || ownDriver.role !== 'driver')) return res.status(400).json({ error: 'Choose a driver for this route.' });
+    if (own && !ownTruck) return res.status(400).json({ error: `${ownDriver.name} has no truck. Assign one in Drivers & trucks.` });
+    if (own && driverBusy(ownDriver.id) && !(pickupWindow?.from > Date.now() + 12 * 3.6e6)) return res.status(409).json({ error: `${ownDriver.name} is on another job right now.` });
     const r = await route(pickup, dropoff);
     const load = {
       id: id('lod'), ref: nextRef(), status: 'requested', createdAt: Date.now(), updatedAt: Date.now(),
@@ -101,6 +108,17 @@ export function routes(app) {
       ...newLoadShell(),
     };
     load.legs.toDropoff = r;
+    if (own) {
+      load.customer = customer || '';
+      load.instructions = Array.isArray(instructions) ? instructions.map(String).filter((x) => x.trim()).slice(0, 20) : [];
+      if (Number(rate) > 0) { load.quote.carrierPayout = Math.round(Number(rate) * 100) / 100; load.quote.customRate = true; }
+      const team = teamDriverId && teamDriverId !== ownDriver.id && find('users', teamDriverId);
+      if (team && team.companyId === req.user.companyId && team.role === 'driver') { load.teamDriverIds = [team.id]; team.status = 'on_job'; publish('users', team); }
+      addTimeline(load, 'requested', req.user, `Route added by dispatch${customer ? ` for ${customer}` : ''}`);
+      db.loads.push(load);
+      await accept(load, req.user, ownDriver, ownTruck);
+      return res.json(load);
+    }
     addTimeline(load, 'requested', req.user, 'Pickup requested');
     db.loads.push(load);
     save();

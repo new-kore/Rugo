@@ -6,6 +6,10 @@ import { Segmented, Avatar } from '../components/ui.jsx';
 import { StatusIcon, EQ_COLOR } from '../components/LoadList.jsx';
 import CalendarMap from './CalendarMap.jsx';
 import MapView from '../components/MapView.jsx';
+import PlacePicker from '../components/PlacePicker.jsx';
+import { Sheet, Field, ActionButton, Switch } from '../components/ui.jsx';
+import { post } from '../lib/api.js';
+import { haversine } from '../lib/geo.js';
 import { useStore, useIndex, useNow } from '../lib/store.jsx';
 import { go } from '../lib/router.js';
 import { time, placeShort, km, duration } from '../lib/format.js';
@@ -77,10 +81,13 @@ function RailSection({ title, open, onToggle, action, children }) {
 /** A load as a calendar event: pickup to delivery (actual, ETA or planned). */
 function tripOf(l) {
   if (l.status === 'cancelled') return null;
-  const start = l.departedPickupAt || l.arrivedPickupAt || (['accepted', 'en_route_pickup'].includes(l.status) && l.eta?.pickupAt) || l.pickupWindow?.from;
+  const eta = ['accepted', 'en_route_pickup'].includes(l.status) && l.eta?.pickupAt;
+  const start = l.departedPickupAt || l.arrivedPickupAt || (l.status === 'accepted' && l.pickupWindow?.from > (eta || 0) ? l.pickupWindow.from : eta) || l.pickupWindow?.from;
   if (!start) return null;
   let end = l.deliveredAt || (l.status !== 'requested' && l.eta?.deliveryAt) || start + ((l.quote?.driveHours || 3) + 1) * H;
-  if (end < start + 0.5 * H) end = start + 0.5 * H;
+  // A scheduled trip lasts at least its drive time plus loading.
+  const minDur = l.deliveredAt ? 0.5 * H : ((l.quote?.driveHours || 1) + 0.75) * H;
+  if (end < start + minDur) end = start + minDur;
   return { id: l.id, load: l, start, end, planned: !l.deliveredAt };
 }
 
@@ -118,6 +125,7 @@ export default function Calendar() {
   const [hidden, setHidden] = useState(() => new Set());
   const [pop, setPop] = useState(null);
   const [who, setWho] = useState('');
+  const [adding, setAdding] = useState(false);
   const [secOpen, setSecOpen] = useState({ mine: true, other: true });
   const toggle = (id) => setHidden((h) => { const n = new Set(h); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const showHolidays = !hidden.has('holidays');
@@ -180,8 +188,8 @@ export default function Calendar() {
     <div className="gcal">
       <aside className="gcal-rail">
         {role !== 'driver' && (
-          <button className="gcal-create" onClick={() => go(role === 'shipper' ? '/new' : '/')}>
-            <Icon name="plus" size={20} stroke={2.2} />{role === 'shipper' ? 'Request pickup' : 'Find loads'}
+          <button className="gcal-create" onClick={() => (role === 'shipper' ? go('/new') : setAdding(true))}>
+            <Icon name="plus" size={20} stroke={2.2} />{role === 'shipper' ? 'Request pickup' : 'Add route'}
           </button>
         )}
         <MiniMonth cursor={cursor} view={view} days={days} trips={trips} onPick={(d) => { setCursor(d); if (view === 'month') setView('day'); }} />
@@ -217,6 +225,7 @@ export default function Calendar() {
       </section>
 
       {pop && <EventCard pop={pop} idx={idx} data={data} onClose={() => setPop(null)} />}
+      {adding && <AddRouteSheet day={cursor} onClose={() => setAdding(false)} onDone={(l) => { setAdding(false); setCursor(startOfDay(l.pickupWindow.from)); if (view === 'map' || view === 'month') setView('day'); }} />}
     </div>
   );
 }
@@ -404,5 +413,168 @@ function EventCard({ pop, idx, data, onClose }) {
       <div className="ev-row">{d ? <><Avatar user={d} size="sm" /><span>{d.name}{tr ? ` · Unit ${tr.unit}` : ''}</span></> : <><Icon name="person" size={16} /><span className="orange">No driver yet</span></>}</div>
       <div className="ev-actions"><button className="btn primary" onClick={() => go(`/loads/${l.id}`)}>Open load</button></div>
     </div>
+  );
+}
+
+/** Dispatch adds its own route: stops, timing, team, freight, rate and step-by-step instructions. */
+function AddRouteSheet({ day, onClose, onDone }) {
+  const { data, toast, upsert } = useStore();
+  const idx = useIndex();
+  const pad = (n) => String(n).padStart(2, '0');
+  const local = (t) => { const d = new Date(t); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+  const initialFrom = (() => { const d = new Date(day); if (sameDay(day, Date.now())) d.setHours(new Date().getHours() + 1, 0, 0, 0); else d.setHours(8, 0, 0, 0); return d.getTime(); })();
+
+  const [pickup, setPickup] = useState(null);
+  const [dropoff, setDropoff] = useState(null);
+  const [pc, setPc] = useState({ contact: '', phone: '', note: '' });
+  const [dc, setDc] = useState({ contact: '', phone: '', note: '' });
+  const [from, setFrom] = useState(local(initialFrom));
+  const [to, setTo] = useState(local(initialFrom + 2 * H));
+  const [appt, setAppt] = useState('');
+  const [f, setF] = useState({ equipment: 'dry_van', description: '', weightKg: '', pallets: '', tempC: 3, hazmat: false, valueCad: '', poNumber: '', customer: '', rate: '' });
+  const [opts, setOpts] = useState({ liftgate: false, expedite: false });
+  const [steps, setSteps] = useState(['']);
+  const [notes, setNotes] = useState('');
+  const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
+
+  const dist = pickup && dropoff ? haversine(pickup, dropoff) * 1.2 : null;
+  const driveH = dist ? dist / data.settings.avgSpeedKmh : 0;
+  const estArrival = dist ? new Date(from).getTime() + (driveH + 0.75) * H : null;
+  const busy = new Set(data.loads.filter((l) => ['accepted', 'en_route_pickup', 'at_pickup', 'in_transit', 'at_delivery'].includes(l.status)).flatMap((l) => [l.driverId, ...(l.teamDriverIds || [])]));
+  const drivers = data.users.filter((u) => u.role === 'driver').map((d) => {
+    const t = idx.trucks[d.truckId];
+    const km0 = pickup && t?.location ? haversine(t.location, pickup) * 1.2 : null;
+    return { d, t, km0, free: !busy.has(d.id) };
+  }).sort((a, b) => (b.free - a.free) || ((b.t?.equipment === f.equipment) - (a.t?.equipment === f.equipment)) || ((a.km0 ?? 1e9) - (b.km0 ?? 1e9)));
+  const [driverId, setDriverId] = useState('');
+  const [teamId, setTeamId] = useState('');
+  const [truckId, setTruckId] = useState('');
+  const chosen = driverId || drivers.find((x) => x.free && x.t)?.d.id || '';
+  const chosenTruck = truckId || idx.users[chosen]?.truckId || '';
+  const rateSuggest = dist ? Math.round((data.meta.equipment[f.equipment].base + dist * data.meta.equipment[f.equipment].perKm * (1 + data.settings.fuelSurchargePct)) * (1 - data.settings.platformFeePct)) : null;
+
+  const save = async () => {
+    const pf = new Date(from).getTime();
+    const load = await post('/loads', {
+      pickup: { ...pickup, contact: pc.contact || pickup.contact || '', phone: pc.phone || pickup.phone || '', dockNote: pc.note },
+      dropoff: { ...dropoff, contact: dc.contact || dropoff.contact || '', phone: dc.phone || dropoff.phone || '', dockNote: dc.note },
+      pickupWindow: { from: pf, to: Math.max(pf, new Date(to).getTime() || pf) },
+      deliveryWindow: appt ? { from: new Date(appt).getTime(), to: new Date(appt).getTime() + H } : null,
+      cargo: {
+        equipment: f.equipment, description: f.description || 'General freight', weightKg: f.weightKg, pallets: f.pallets,
+        tempC: f.equipment === 'reefer' ? Number(f.tempC) : null, hazmat: f.hazmat, valueCad: f.valueCad,
+      },
+      options: opts, poNumber: f.poNumber, customer: f.customer, rate: f.rate,
+      driverId: chosen, teamDriverId: teamId || undefined, truckId: chosenTruck,
+      instructions: steps, notes,
+    });
+    upsert('loads', load);
+    toast({ title: 'Route added', body: `${load.ref} · ${idx.users[chosen]?.name} · ${new Date(pf).toLocaleString('en-CA', { weekday: 'short', hour: 'numeric', minute: '2-digit' })}` });
+    onDone(load);
+  };
+
+  const Stop = ({ kind, value, onChange, c, setC }) => (
+    <div className="route-stop">
+      <PlacePicker kind={kind} value={value} onChange={onChange} placeholder={kind === 'pickup' ? 'Pick up from — warehouse, street or city' : 'Deliver to'} autoFocus={kind === 'pickup'} />
+      <div className="grid grid-3" style={{ gap: 8 }}>
+        <input className="input" placeholder="Contact name" value={c.contact} onChange={(e) => setC({ ...c, contact: e.target.value })} />
+        <input className="input" placeholder="Phone" value={c.phone} onChange={(e) => setC({ ...c, phone: e.target.value })} />
+        <input className="input" placeholder="Dock / gate note" value={c.note} onChange={(e) => setC({ ...c, note: e.target.value })} />
+      </div>
+    </div>
+  );
+
+  return (
+    <Sheet title="Add route" onClose={onClose} wide>
+      <div className="route-form">
+        <section>
+          <h4>Stops</h4>
+          {Stop({ kind: 'pickup', value: pickup, onChange: setPickup, c: pc, setC: setPc })}
+          {Stop({ kind: 'dropoff', value: dropoff, onChange: setDropoff, c: dc, setC: setDc })}
+          {dist && <div className="footnote secondary">About <b>{km(dist)}</b> · {duration(driveH)} driving · arrives around <b>{new Date(estArrival).toLocaleString('en-CA', { weekday: 'short', hour: 'numeric', minute: '2-digit' })}</b></div>}
+        </section>
+
+        <section>
+          <h4>Timing</h4>
+          <div className="grid grid-3">
+            <Field label="Pickup window — from"><input className="input" type="datetime-local" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
+            <Field label="Pickup window — to"><input className="input" type="datetime-local" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
+            <Field label="Delivery appointment (optional)"><input className="input" type="datetime-local" value={appt} onChange={(e) => setAppt(e.target.value)} /></Field>
+          </div>
+        </section>
+
+        <section>
+          <h4>Driver & truck</h4>
+          <div className="grid grid-3">
+            <Field label="Driver">
+              <select className="select" value={chosen} onChange={(e) => { setDriverId(e.target.value); setTruckId(''); }}>
+                {drivers.map(({ d, t, km0, free }) => (
+                  <option key={d.id} value={d.id} disabled={!t}>{d.name}{t ? ` · Unit ${t.unit}` : ' · no truck'}{km0 != null ? ` · ${Math.round(km0)} km away` : ''}{!free ? ' · on a job' : ''}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Team driver (optional)">
+              <select className="select" value={teamId} onChange={(e) => setTeamId(e.target.value)}>
+                <option value="">None</option>
+                {drivers.filter(({ d }) => d.id !== chosen).map(({ d, free }) => <option key={d.id} value={d.id} disabled={!free}>{d.name}{!free ? ' · on a job' : ''}</option>)}
+              </select>
+            </Field>
+            <Field label="Truck">
+              <select className="select" value={chosenTruck} onChange={(e) => setTruckId(e.target.value)}>
+                {data.trucks.map((t) => <option key={t.id} value={t.id}>Unit {t.unit} · {data.meta.equipment[t.equipment]?.label}</option>)}
+              </select>
+            </Field>
+          </div>
+          {idx.trucks[chosenTruck] && idx.trucks[chosenTruck].equipment !== f.equipment && <div className="footnote orange">Unit {idx.trucks[chosenTruck].unit} pulls a {data.meta.equipment[idx.trucks[chosenTruck].equipment]?.label}, not a {data.meta.equipment[f.equipment].label}.</div>}
+        </section>
+
+        <section>
+          <h4>Freight</h4>
+          <div className="grid grid-3">
+            <Field label="Trailer">
+              <select className="select" value={f.equipment} onChange={set('equipment')}>
+                {Object.entries(data.meta.equipment).map(([k, e]) => <option key={k} value={k}>{e.label}</option>)}
+              </select>
+            </Field>
+            <Field label="What is it?"><input className="input" value={f.description} onChange={set('description')} placeholder="e.g. Steel coils" /></Field>
+            <Field label="Customer"><input className="input" value={f.customer} onChange={set('customer')} placeholder="Who is it for?" /></Field>
+            <Field label="Weight (kg)"><input className="input" type="number" value={f.weightKg} onChange={set('weightKg')} /></Field>
+            <Field label="Pallets"><input className="input" type="number" value={f.pallets} onChange={set('pallets')} /></Field>
+            <Field label="PO / reference"><input className="input" value={f.poNumber} onChange={set('poNumber')} /></Field>
+            {f.equipment === 'reefer' && <Field label="Keep at (°C)"><input className="input" type="number" value={f.tempC} onChange={set('tempC')} /></Field>}
+            <Field label="Declared value ($)"><input className="input" type="number" value={f.valueCad} onChange={set('valueCad')} /></Field>
+            <Field label={`Rate you're paid ($)${rateSuggest ? ` · suggested ${rateSuggest.toLocaleString()}` : ''}`}><input className="input" type="number" value={f.rate} onChange={set('rate')} placeholder={rateSuggest ? String(rateSuggest) : ''} /></Field>
+          </div>
+          <div className="row wrap" style={{ gap: 18 }}>
+            <label className="row" style={{ gap: 8 }}><Switch checked={f.hazmat} onChange={(v) => setF((x) => ({ ...x, hazmat: v }))} label="Hazmat" />Hazmat</label>
+            <label className="row" style={{ gap: 8 }}><Switch checked={opts.liftgate} onChange={(v) => setOpts((o) => ({ ...o, liftgate: v }))} label="Liftgate" />Liftgate needed</label>
+            <label className="row" style={{ gap: 8 }}><Switch checked={opts.expedite} onChange={(v) => setOpts((o) => ({ ...o, expedite: v }))} label="Expedite" />Expedited</label>
+          </div>
+        </section>
+
+        <section>
+          <h4>Task details for the driver</h4>
+          <div className="stack-sm">
+            {steps.map((st, i) => (
+              <div key={i} className="row">
+                <span className="step-num" style={{ width: 22, height: 22, fontSize: '0.75rem' }}>{i + 1}</span>
+                <input className="input" value={st} placeholder={['Check in at the gate and show the PO', 'Count pallets with the shipper', 'Strap and tarp the load'][i] || 'Next step'}
+                  onChange={(e) => setSteps((x) => x.map((y, k) => (k === i ? e.target.value : y)))} />
+                {steps.length > 1 && <button className="icon-btn" aria-label="Remove step" onClick={() => setSteps((x) => x.filter((_, k) => k !== i))}><Icon name="close" size={14} /></button>}
+              </div>
+            ))}
+            <button className="btn small" style={{ alignSelf: 'flex-start' }} onClick={() => setSteps((x) => [...x, ''])}><Icon name="plus" size={14} stroke={2.4} />Add step</button>
+          </div>
+          <Field label="Notes"><textarea className="textarea" style={{ minHeight: 64 }} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Anything else the driver should know" /></Field>
+        </section>
+
+        <div className="row" style={{ justifyContent: 'flex-end', gap: 8, position: 'sticky', bottom: 0, background: 'var(--bg)', padding: '12px 0 2px' }}>
+          <button className="btn" onClick={onClose}>Cancel</button>
+          <ActionButton className="btn primary large" disabled={!pickup || !dropoff || !chosen || !from} onClick={save}>
+            <Icon name="plus" size={16} stroke={2.4} />Add route
+          </ActionButton>
+        </div>
+      </div>
+    </Sheet>
   );
 }

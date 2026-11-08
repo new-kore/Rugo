@@ -4,7 +4,7 @@ import MapView from '../components/MapView.jsx';
 import Chat from '../components/Chat.jsx';
 import { PhotoCompare } from '../components/Inspection.jsx';
 import { StatusPill, Tracker, RouteLine, Avatar, ActionButton, ConfirmButton, Empty, STATUS_STYLE, StickyCol } from '../components/ui.jsx';
-import { AcceptSheet, CargoFacts, PriceBreakdown, Economics, InvoiceDoc, DriverPicker } from '../components/LoadBits.jsx';
+import { AcceptSheet, CargoFacts, PriceBreakdown, Economics, InvoiceDoc, DriverPicker, TaskDetails } from '../components/LoadBits.jsx';
 import { useStore, useIndex, useNow, isActive } from '../lib/store.jsx';
 import { money, money2, km, time, dayLabel, duration, ago, placeShort } from '../lib/format.js';
 import { post } from '../lib/api.js';
@@ -128,7 +128,7 @@ export default function LoadDetail({ id }) {
           <div className="card pad-lg stack">
             <div className="title3">Freight</div>
             <CargoFacts load={load} />
-            {load.notes && <div className="subhead secondary">“{load.notes}”</div>}
+            <TaskDetails load={load} />
             <div className="footnote tertiary">Shipper: {shipper?.name}</div>
           </div>
 
