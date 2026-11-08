@@ -4,6 +4,7 @@ import { haversine, pathLength, pointAlong, route } from './geo.js';
 import { invoice, economics, DEFAULT_SETTINGS } from './pricing.js';
 import { ACTIVE, MOVING, PHOTO_SLOTS } from './constants.js';
 import { distanceToPath, offRouteKm } from './routecheck.js';
+import { threadVisible, canSeeChat } from './chat.js';
 
 export const settings = () => ({ ...DEFAULT_SETTINGS, ...db.settings, googleMapsKey: globalThis.process?.env?.GOOGLE_MAPS_BROWSER_KEY || globalThis.process?.env?.GOOGLE_MAPS_API_KEY || '' });
 const ARRIVAL_RADIUS_KM = 0.3;
@@ -46,6 +47,10 @@ export function canSee(viewer, col, item) {
       return false;
     case 'companies':
       return true;
+    case 'threads':
+      return threadVisible(viewer, item);
+    case 'chat':
+      return canSeeChat(viewer, item);
     case 'trailers':
       if (item.carrierId === c) return true;
       if (viewer.role === 'shipper') return db.loads.some((l) => l.shipperId === c && l.trailerId === item.id && ACTIVE.includes(l.status));
@@ -89,6 +94,8 @@ export function snapshot(viewer) {
     loads: pick('loads'),
     fuelLogs: pick('fuelLogs'),
     shifts: pick('shifts'),
+    threads: pick('threads'),
+    chat: pick('chat').slice(-1500),
   };
 }
 

@@ -7,6 +7,7 @@ import { money, money2, num, date } from '../../lib/format.js';
 import { post, patch, del } from '../../lib/api.js';
 import { compressImage } from '../../lib/image.js';
 import { Tabs } from '../../components/LoadList.jsx';
+import { messageDriver } from '../../lib/chat.js';
 import { ScorecardView, ScorecardTable } from './Scorecard.jsx';
 import { hosStatus, hm, clockTone, hosLeft } from '../../lib/hos.js';
 import { DAYS, weekSchedule, shiftHours, weeklyHours, scheduleText, expiry, driverAlerts } from '../../lib/drivers.js';
@@ -43,6 +44,17 @@ export function EmailButton({ email, small = true, label = 'Email' }) {
       onClick={(e) => { e.stopPropagation(); navigator.clipboard?.writeText(email).then(() => toast({ title: 'Email copied', body: email })).catch(() => {}); }}>
       <Icon name="message" size={14} />{label}
     </a>
+  );
+}
+
+/** Open the in-app chat with a driver. */
+export function ChatButton({ driverId, small = true, onOpen }) {
+  const { toast } = useStore();
+  return (
+    <button className={`btn ${small ? 'small' : ''}`} title="Message in Rugo"
+      onClick={async (e) => { e.stopPropagation(); try { await messageDriver(driverId); onOpen?.(); } catch (err) { toast({ title: 'Couldn’t open chat', body: err.message, tone: 'error' }); } }}>
+      <Icon name="send" size={14} />Chat
+    </button>
   );
 }
 
@@ -112,6 +124,7 @@ export default function Drivers() {
                   </td>
                   <td onClick={(e) => e.stopPropagation()}>
                     <div className="row" style={{ gap: 6, justifyContent: 'flex-end' }}>
+                      <ChatButton driverId={d.id} />
                       <EmailButton email={d.email} />
                       <ConfirmButton className="btn small danger" confirmLabel="Delete?" aria-label={`Delete ${d.name}`} disabled={onJob.has(d.id)}
                         title={onJob.has(d.id) ? 'On a job — replace them on the load first' : undefined}
@@ -239,6 +252,7 @@ export function DriverSheet({ driver, onClose, initialTab = 'profile' }) {
           </div>
           {!isNew && <div className="row" style={{ gap: 6 }}>
             {live.phone && <a className="btn small" href={`tel:${live.phone}`}><Icon name="phone" size={14} />Call</a>}
+            {!isNew && <ChatButton driverId={live.id} small={false} onOpen={onClose} />}
             <EmailButton email={live.email} />
           </div>}
         </header>

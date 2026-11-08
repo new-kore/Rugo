@@ -25,6 +25,8 @@ import DriverJob from './pages/driver/DriverJob.jsx';
 import DriverGps from './components/DriverGps.jsx';
 import DriverFuel from './pages/driver/DriverFuel.jsx';
 import Integrations from './pages/carrier/Integrations.jsx';
+import Messages from './pages/Messages.jsx';
+import { unread } from './lib/chat.js';
 import DriverHours from './pages/driver/DriverHours.jsx';
 
 const NAV = {
@@ -40,6 +42,7 @@ const NAV = {
     { path: '/', label: 'Load board', icon: 'list', page: Board, badge: (d) => d.loads.filter((l) => l.status === 'requested').length },
     { path: '/dispatch', label: 'Jobs', icon: 'route', page: Dispatch, badge: (d) => d.loads.filter(isActive).length, quiet: true },
     { path: '/calendar', label: 'Calendar', icon: 'calendar', page: CalendarPage },
+    { path: '/messages', label: 'Messages', icon: 'message', page: Messages, badge: (d) => unread(d) },
     { path: '/fleet', label: 'Live fleet', icon: 'map', page: Fleet, section: 'Fleet' },
     { path: '/drivers', label: 'Drivers', icon: 'people', page: Drivers, section: 'Fleet' },
     { path: '/inventory', label: 'Inventory', icon: 'truck', page: Inventory, section: 'Fleet' },
@@ -50,6 +53,7 @@ const NAV = {
   ],
   driver: [
     { path: '/', label: 'My job', icon: 'truck', page: DriverJob },
+    { path: '/messages', label: 'Messages', icon: 'message', page: Messages, badge: (d) => unread(d) },
     { path: '/calendar', label: 'Calendar', icon: 'calendar', page: CalendarPage, section: 'Workspace' },
     { path: '/fuel', label: 'Fuel', icon: 'fuel', page: DriverFuel, section: 'Workspace' },
     { path: '/hours', label: 'Hours & pay', icon: 'clock', page: DriverHours, section: 'Workspace' },
@@ -135,7 +139,7 @@ export default function App() {
         </div>
       </main>
       <nav className="tabbar">
-        {mobileNav.slice(0, 5).map((n) => {
+        {mobileNav.slice(0, 6).map((n) => {
           const b = n.badge?.(data);
           return (
             <button key={n.path} className={`tab ${activePath === n.path ? 'active' : ''}`} onClick={() => go(n.path)}>

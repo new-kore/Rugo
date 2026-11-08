@@ -4,6 +4,7 @@ import { route, pathLength, pointAlong, haversine } from './geo.js';
 import { quote, invoice, economics, DEFAULT_SETTINGS } from './pricing.js';
 import { PHOTO_SLOTS } from './constants.js';
 import { newLoadShell, updateEta } from './fleet.js';
+import { driverThread, postMessage } from './chat.js';
 
 const P = {
   mississauga: { name: 'Northwind DC — Mississauga', address: '6855 Airport Rd', city: 'Mississauga', region: 'ON', lat: 43.6905, lng: -79.6215, contact: 'Receiving desk', phone: '905-555-0142' },
@@ -303,6 +304,36 @@ export async function seed() {
     const t = trailers.find((x) => x.equipment === l.cargo.equipment && x.status !== 'shop' && (!active || !db.loads.some((o) => o !== l && o.trailerId === x.id && ['accepted', 'en_route_pickup', 'at_pickup', 'in_transit', 'at_delivery'].includes(o.status))));
     if (t) l.trailerId = t.id;
   }
+
+  /* ---------------- internal chat ---------------- */
+  const ago = (min) => Date.now() - min * 60000;
+  const [marcus, sofia, jeanluc, aisha, tom, wei] = drivers;
+  const say = (thread, who, text, min, extra = {}) => postMessage(thread, who, { text, at: ago(min), ...extra });
+  const mLoad = db.loads.find((l) => l.driverId === marcus.id && l.status === 'in_transit');
+  let t = driverThread(marcus);
+  say(t, alex, 'Morning Marcus — RG load to Ottawa is yours. Dock 4 at FreshCo, ask for the receiver.', 190, { loadId: mLoad?.id });
+  say(t, marcus, 'Got it. Rolling in 10.', 186, { quick: true });
+  say(t, marcus, 'Construction on the 401 near Belleville, taking Hwy 2 for a bit.', 25);
+  say(t, alex, 'Thanks for the heads-up 👍 Let me know if you’ll miss the window.', 22);
+  t = driverThread(sofia);
+  say(t, sofia, 'Shipper in Hamilton is slow, still waiting on a door.', 95);
+  say(t, alex, 'I called them — door 12 in 15 min. Detention clock is running so log it.', 90);
+  t = driverThread(tom);
+  say(t, alex, 'Tom, please send an update when you can.', 300);
+  say(t, alex, 'Also remember photos on all four sides at pickup.', 298);
+  for (const d of [jeanluc, aisha, wei]) driverThread(d);
+  driverThread(aisha).reads[aisha.id] = Date.now();
+  const all = { id: id('thr'), companyId: velocity.id, kind: 'announce', name: 'All drivers', memberIds: [], createdBy: alex.id, createdAt: ago(60 * 24 * 7), lastAt: 0, lastText: '', reads: {} };
+  db.threads.push(all);
+  say(all, alex, 'Reminder: every fuel fill-up needs a photo of the receipt in the app. No receipt, no log.', 60 * 26);
+  say(all, alex, 'Snow forecast for Northern Ontario Thursday — chains in the truck if you’re heading to Sudbury.', 60 * 5);
+  const reefer = { id: id('thr'), companyId: velocity.id, kind: 'group', name: 'Reefer team', memberIds: [sofia.id, wei.id], createdBy: alex.id, createdAt: ago(60 * 48), lastAt: 0, lastText: '', reads: {} };
+  db.threads.push(reefer);
+  say(reefer, alex, 'Pre-cool to setpoint before backing in, and photo the reefer display at pickup.', 60 * 30);
+  say(reefer, wei, 'Will do. Unit 106 reefer showing a defrost code, can shop look at it Friday?', 60 * 29);
+  say(reefer, alex, 'Booked for Friday 7 am.', 60 * 28);
+  // Drivers have read the older messages.
+  for (const th of db.threads) for (const d of drivers) if (th.lastAt < ago(120)) th.reads[d.id] = th.lastAt;
   save();
 }
 

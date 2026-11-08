@@ -10,7 +10,7 @@ const FILE = path.join(DATA_DIR, 'db.json');
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const empty = () => ({
-  companies: [], users: [], sessions: [], trucks: [], trailers: [], loads: [], fuelLogs: [], shifts: [], integrations: [], settings: {},
+  companies: [], users: [], sessions: [], trucks: [], trailers: [], loads: [], fuelLogs: [], shifts: [], integrations: [], threads: [], chat: [], settings: {},
 });
 
 export const isFresh = !fs.existsSync(FILE);

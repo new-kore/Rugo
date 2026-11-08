@@ -4,7 +4,7 @@ import { api, getToken, setToken, post, openStream } from './api.js';
 import { setServerKey } from './google.js';
 
 const Ctx = createContext(null);
-const COLS = ['companies', 'users', 'trucks', 'trailers', 'loads', 'fuelLogs', 'shifts'];
+const COLS = ['companies', 'users', 'trucks', 'trailers', 'loads', 'fuelLogs', 'shifts', 'threads', 'chat'];
 
 export function StoreProvider({ children }) {
   const [data, setData] = useState(null);

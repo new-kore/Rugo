@@ -1,4 +1,5 @@
 // Live fleet: map + every truck with kilometres left and arrival time; click a truck for its full file.
+import { messageDriver } from '../../lib/chat.js';
 import { OffRouteBanner } from '../../components/PlanVsActual.jsx';
 import { useEffect, useMemo, useState } from 'react';
 import Icon from '../../components/Icon.jsx';
@@ -126,6 +127,7 @@ function TruckFile({ truck: t, job, onClose }) {
         <button className="btn plain" onClick={onClose}><Icon name="chevronLeft" size={16} />All trucks</button>
         <div className="spacer" />
         {job && <button className="btn small" onClick={() => go(`/loads/${job.id}`)}>Open {job.ref}</button>}
+        {t.driverId && <button className="btn small" onClick={() => messageDriver(t.driverId)}><Icon name="send" size={14} />Chat</button>}
       </div>
 
       <div className="card pad-lg stack">

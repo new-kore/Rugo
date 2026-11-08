@@ -143,9 +143,9 @@ export function Toasts() {
   return (
     <div className="toasts" aria-live="polite">
       {toasts.map((t) => (
-        <div key={t.id} className="toast glass" onClick={() => { dismiss(t.id); if (t.loadId) go(`/loads/${t.loadId}`); }}>
+        <div key={t.id} className="toast glass" onClick={() => { dismiss(t.id); if (t.threadId) go(`/messages?t=${t.threadId}`); else if (t.loadId) go(`/loads/${t.loadId}`); }}>
           <div className="icon-tile" style={{ background: t.tone === 'warn' ? 'var(--orange)' : t.tone === 'error' ? 'var(--red)' : 'var(--blue)' }}>
-            <Icon name={t.tone === 'error' || t.tone === 'warn' ? 'warning' : 'bolt'} size={20} />
+            <Icon name={t.tone === 'error' || t.tone === 'warn' ? 'warning' : t.threadId ? 'message' : 'bolt'} size={20} />
           </div>
           <div style={{ minWidth: 0 }}>
             <div className="headline">{t.title}</div>

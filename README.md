@@ -161,6 +161,20 @@ Each driver also gets a weighted score with a grade (A–F), a rank, a trend ver
 
 **Scorecards** gain three metrics: average drive time versus projected, trips that were way off, and the number of route changes.
 
+### Internal chat
+Use **Messages** (sidebar, or the tab bar in the driver app) for the office and its drivers.
+- **Conversations:**
+  - every driver has a private conversation with the office, and any dispatcher can answer it;
+  - **group chats** for the drivers you pick;
+  - **announcement channels** go to every driver, and only the office can post in them.
+- **Live delivery:** messages arrive instantly (SSE) and show a pop-up that opens the conversation.
+- **Unread counts** appear on the nav item and on each conversation.
+- **Read receipts:** "Seen by Marcus", or "Seen by 3 of 5 drivers" in groups.
+- **Attachments:** photos (from the camera on phones) and a link to a load.
+- **Quick replies** in one tap, such as "On my way", "Running late" and "At the dock".
+- **Calling:** the office can call the driver, and drivers can call the office.
+- **Starting a chat:** the Chat button on Drivers, in each driver's details, and in Live fleet opens that driver's conversation.
+
 ### Maps & routing
 - Map tiles come from CARTO/OpenStreetMap and change with light and dark mode.
 - Road routes come from the public OSRM router. If it can't be reached, Rugo uses an estimated route with a road factor. Set `RUGO_OFFLINE_ROUTING=1` to always use the estimate.
@@ -177,6 +191,7 @@ server/            Node + Express API (no database server needed)
   pricing.js       rate card, quotes, invoices, job economics
   dispatch.js      AI dispatch: driver ranking for a load
   scorecard.js     driver scorecards
+  chat.js          internal chat: threads, messages, visibility
   eld/             ELD connectors (samsara, motive, geotab, isaac, sandbox) + sync engine
   geo.js           distance, bearing, OSRM routing with offline fallback
   db.js            durable JSON store (atomic writes) in ./data

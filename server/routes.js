@@ -9,6 +9,7 @@ import {
 } from './fleet.js';
 import { PROVIDERS, providerMeta } from './eld/providers.js';
 import { rankDrivers, matchSummary } from './dispatch.js';
+import { chatRoutes, driverThread } from './chat.js';
 import { eldFor, publicIntegration, cleanCreds, testConnection, connect, disconnect, setMaps, syncIntegration, syncSoon, importUnlinked } from './eld/sync.js';
 
 /** Weekly schedule: { 0..6: { start: 'HH:MM', end: 'HH:MM' } | null }. Accepts the older { days, start, end } shape too. */
@@ -445,6 +446,7 @@ export function routes(app) {
     if (tk && tk.carrierId === u.companyId) { tk.driverId = u.id; publish('trucks', tk); } else u.truckId = null;
     save();
     publish('users', u);
+    driverThread(u);
     return u;
   }
 
@@ -663,6 +665,8 @@ export function routes(app) {
     publish('loads', load);
     res.json(load);
   });
+
+  chatRoutes(app, auth, role);
 
   /* ------------------------- ELD / hours of service ------------------------ */
 

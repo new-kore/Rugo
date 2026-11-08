@@ -1,6 +1,6 @@
 // Browser replacement for server/db.js: same API, data kept in memory and (best effort) in localStorage.
-const KEY = 'rugo.demo.db.v4';
-const empty = () => ({ companies: [], users: [], sessions: [], trucks: [], trailers: [], loads: [], fuelLogs: [], shifts: [], integrations: [], settings: {} });
+const KEY = 'rugo.demo.db.v5';
+const empty = () => ({ companies: [], users: [], sessions: [], trucks: [], trailers: [], loads: [], fuelLogs: [], shifts: [], integrations: [], threads: [], chat: [], settings: {} });
 
 let saved = null;
 try { saved = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch { saved = null; }
