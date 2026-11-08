@@ -189,6 +189,18 @@ Rugo works in Safari and Chrome on iPhone, Android, iPad and Android tablets. It
   - the calendar opens in Day view.
 - **Home-screen app:** add it with **Share → Add to Home Screen** (iPhone/iPad) or **⋮ → Add to Home screen / Install app** (Android). It then opens full-screen with the Rugo icon.
 
+### Driver steps on a job
+A driver taps one big button at each step. A step tracker shows At pickup → Loading → On the road → Delivered → Off-loaded → Ended.
+1. **I'm at the pickup.** This also happens automatically by geofence.
+2. **Loading.** Tap when the dock starts loading. The time waited at the dock is recorded for detention.
+3. **Loaded — start trip.** Needs the pickup photos.
+4. **Gas stop** (any time while driving). It pauses the trip, and the truck shows as stopped. The driver logs the fill-up with a receipt photo right there, and saving it puts them back on the road.
+5. **Delivered — I'm at the customer.** This also happens automatically by geofence.
+6. **Off-loaded.** Needs the delivery photos and the damage answer.
+7. **End job.** Needs the receiver's signature. It closes the load, sends proof of delivery and ends the load's shift.
+
+Each step is added to the load's timeline. Loading, gas stops and off-loading also notify the office, and the customer is told about loading and off-loading.
+
 ### Dashboards
 Each kind of user lands on a live dashboard:
 - **Office (carrier):**

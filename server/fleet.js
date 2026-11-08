@@ -223,16 +223,18 @@ export async function advance(load, to, actor, extra = {}) {
     const missing = missingSlots(load, 'pickup');
     if (missing.length) return `Please take these photos first: ${missing.join(', ')}.`;
     load.departedPickupAt = now;
+    if (!load.loadingStartedAt) load.loadingStartedAt = load.arrivedPickupAt || now;
     load.metrics.dwellHours.pickup = (now - (load.arrivedPickupAt || now)) / 3.6e6;
     if (extra.odometer) load.odometer.start = Number(extra.odometer);
     load.sim = { leg: 'toDropoff', cursorKm: 0, creditedKm: 0, source: 'sim' };
     if (truck) Object.assign(truck.location, { lat: load.pickup.lat, lng: load.pickup.lng });
   }
-  if (to === 'at_delivery') load.arrivedDeliveryAt = now;
+  if (to === 'at_delivery') { load.arrivedDeliveryAt = now; endStop(load, now); }
   if (to === 'delivered') {
     const missing = missingSlots(load, 'delivery');
     if (missing.length) return `Please take these photos first: ${missing.join(', ')}.`;
     if (!load.signature) return 'The receiver needs to sign first.';
+    if (!load.offloadedAt) load.offloadedAt = now;
     if (extra.odometer) load.odometer.end = Number(extra.odometer);
     load.deliveredAt = now;
     load.metrics.dwellHours.delivery = (now - (load.arrivedDeliveryAt || now)) / 3.6e6;
@@ -389,6 +391,7 @@ async function checkGeofence(load, truck, actor) {
 async function tick() {
   if (!settings().simulation) return;
   for (const load of db.loads.filter((l) => MOVING.includes(l.status))) {
+    if (load.activeStop) continue; // parked at a gas stop
     const truck = find('trucks', load.truckId);
     if (!truck || (truck.gpsAt && Date.now() - truck.gpsAt < (truck.eld ? 180000 : 60000))) continue; // real GPS/ELD wins
     const legKey = load.status === 'en_route_pickup' ? 'toPickup' : 'toDropoff';
@@ -438,4 +441,60 @@ export function newLoadShell() {
     odometer: { start: null, end: null },
     damage: null, signature: null, rating: null, invoice: null, economics: null, eta: null,
   };
+}
+
+/* ------------------------- in-between driver steps ------------------------- */
+
+function endStop(load, now = Date.now()) {
+  if (!load.activeStop) return;
+  load.stops = [...(load.stops || []), { ...load.activeStop, end: now }];
+  load.activeStop = null;
+}
+
+/**
+ * Steps inside a stage that don't change the load's status:
+ * loading_start (at pickup), fuel_start / fuel_end (on the road), offloaded (at delivery).
+ */
+export function loadEvent(load, type, actor, extra = {}) {
+  const now = Date.now();
+  const note = (text) => addTimeline(load, load.status, actor, text);
+  const office = (v) => v.role === 'dispatcher' && v.companyId === load.carrierId;
+  switch (type) {
+    case 'loading_start':
+      if (load.status !== 'at_pickup') return 'You can start loading once you’re at the pickup.';
+      if (load.loadingStartedAt) return null;
+      load.loadingStartedAt = now;
+      note(`Loading started${load.arrivedPickupAt ? ` · waited ${Math.round((now - load.arrivedPickupAt) / 60000)} min at the dock` : ''}`);
+      notify((v) => office(v) || v.companyId === load.shipperId, { title: 'Loading started', body: `${load.ref} is being loaded at ${load.pickup.city}.`, loadId: load.id });
+      break;
+    case 'fuel_start':
+      if (!['en_route_pickup', 'in_transit'].includes(load.status)) return 'Gas stops can be logged while driving.';
+      if (load.activeStop) return null;
+      load.activeStop = { kind: 'fuel', start: now };
+      note('Gas stop');
+      notify(office, { title: 'Gas stop', body: `${find('users', load.driverId)?.name || 'Driver'} stopped for fuel on ${load.ref}.`, loadId: load.id });
+      break;
+    case 'fuel_end':
+      if (!load.activeStop) return null;
+      if (extra.fuelLogId) load.activeStop.fuelLogId = extra.fuelLogId;
+      note(`Back on the road after ${Math.max(1, Math.round((now - load.activeStop.start) / 60000))} min`);
+      endStop(load, now);
+      break;
+    case 'offloaded': {
+      if (load.status !== 'at_delivery') return 'You can mark it off-loaded once you’re at the delivery.';
+      const missing = missingSlots(load, 'delivery');
+      if (missing.length) return `Please take these photos first: ${missing.join(', ')}.`;
+      if (!load.damage) return 'Answer the damage question first.';
+      if (load.offloadedAt) return null;
+      load.offloadedAt = now;
+      note('Off-loaded');
+      notify((v) => office(v) || v.companyId === load.shipperId, { title: 'Off-loaded', body: `${load.ref} has been unloaded at ${load.dropoff.city}.`, loadId: load.id });
+      break;
+    }
+    default:
+      return 'Unknown step.';
+  }
+  touch(load);
+  publish('loads', load);
+  return null;
 }

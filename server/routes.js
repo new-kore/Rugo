@@ -5,7 +5,7 @@ import { quote, EQUIPMENT } from './pricing.js';
 import { STATUSES, PHOTO_SLOTS, DAMAGE_SLOT, ACTIVE } from './constants.js';
 import {
   settings, snapshot, subscribe, publish, publishRemove, notify, accept, advance, addTimeline,
-  gpsUpdate, clockIn, clockOut, nextRef, newLoadShell, publicUser, updateEta, trailerInUse,
+  gpsUpdate, clockIn, clockOut, loadEvent, nextRef, newLoadShell, publicUser, updateEta, trailerInUse,
 } from './fleet.js';
 import { PROVIDERS, providerMeta } from './eld/providers.js';
 import { rankDrivers, matchSummary } from './dispatch.js';
@@ -174,6 +174,13 @@ export function routes(app) {
     if (!truck || truck.carrierId !== req.user.companyId) return res.status(400).json({ error: 'Choose one of your trucks.' });
     if (driverBusy(driver.id)) return res.status(409).json({ error: `${driver.name} is already on a job.` });
     await accept(load, req.user, driver, truck);
+    res.json(load);
+  });
+
+  app.post('/api/loads/:id/event', auth, role('driver', 'dispatcher'), (req, res) => {
+    const load = getLoad(req, res); if (!load) return;
+    const err = loadEvent(load, req.body?.type, req.user, { fuelLogId: req.body?.fuelLogId });
+    if (err) return res.status(400).json({ error: err });
     res.json(load);
   });
 

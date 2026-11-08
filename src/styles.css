@@ -1109,3 +1109,16 @@ img, svg, video { max-width: 100%; }
 /* Integration cards: equal height, Connect button pinned to the bottom of every card. */
 .provider-card { display: flex; flex-direction: column; gap: 10px; height: 100%; }
 .provider-card .provider-connect { margin-top: auto; width: 100%; }
+
+/* driver step indicator */
+.dsteps { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
+.dstep { display: flex; flex-direction: column; align-items: center; gap: 4px; position: relative; text-align: center; }
+.dstep::before { content: ''; position: absolute; top: 9px; left: -50%; right: 50%; height: 2px; background: rgba(255,255,255,.3); }
+.dstep:first-child::before { display: none; }
+.dstep.done::before, .dstep.on::before { background: #fff; }
+.dstep-dot { position: relative; z-index: 1; width: 20px; height: 20px; border-radius: 50%; border: 2px solid rgba(255,255,255,.55); background: transparent; display: grid; place-items: center; color: var(--blue); }
+.dstep.done .dstep-dot { background: #fff; border-color: #fff; }
+.dstep.on .dstep-dot { background: #fff; border-color: #fff; box-shadow: 0 0 0 4px rgba(255,255,255,.3); }
+.dstep-l { font-size: 0.68rem; font-weight: 600; opacity: 0.75; line-height: 1.15; }
+.dstep.on .dstep-l { opacity: 1; }
+.gas-btn { border: 0; text-align: left; font: inherit; color: inherit; width: 100%; }

@@ -6,20 +6,40 @@ import Chat from '../../components/Chat.jsx';
 import { PhotoChecklist, SignaturePad } from '../../components/Inspection.jsx';
 import { RouteLine, ActionButton, Empty, Tracker, StatusPill } from '../../components/ui.jsx';
 import { CargoFacts, TaskDetails } from '../../components/LoadBits.jsx';
+import FuelForm from '../../components/FuelForm.jsx';
 import { useStore, useIndex, isActive, useNow } from '../../lib/store.jsx';
 import { post } from '../../lib/api.js';
 import { navUrl } from '../../lib/geo.js';
 import { km, time, dayLabel, money, duration, placeShort } from '../../lib/format.js';
 import { go } from '../../lib/router.js';
 
-const HERO = {
-  accepted: { tone: '', title: 'You have a new job', button: 'Start driving to pickup', icon: 'navigate', next: 'en_route_pickup' },
-  en_route_pickup: { tone: '', title: 'Drive to the pickup', button: 'I’m at the pickup', icon: 'pin', next: 'at_pickup' },
-  at_pickup: { tone: 'orange', title: 'Inspect & load', button: 'Load is on — start delivery', icon: 'truck', next: 'in_transit' },
-  in_transit: { tone: '', title: 'Drive to the destination', button: 'I’ve arrived', icon: 'flag', next: 'at_delivery' },
-  at_delivery: { tone: 'orange', title: 'Unload & get signature', button: 'Complete delivery', icon: 'checkCircle', next: 'delivered' },
-  delivered: { tone: 'green', title: 'Delivered — great job!', icon: 'checkCircle' },
-};
+// The driver's steps, in order. Some are load statuses, some are steps inside a status.
+const STEPS = [
+  { key: 'pickup', label: 'At pickup' }, { key: 'loading', label: 'Loading' }, { key: 'road', label: 'On the road' },
+  { key: 'delivered', label: 'Delivered' }, { key: 'offloaded', label: 'Off-loaded' }, { key: 'ended', label: 'Ended' },
+];
+function stepOf(l) {
+  if (l.status === 'delivered') return 'ended';
+  if (l.status === 'at_delivery') return l.offloadedAt ? 'offloaded' : 'delivered';
+  if (l.status === 'in_transit') return 'road';
+  if (l.status === 'at_pickup') return l.loadingStartedAt ? 'loading' : 'pickup';
+  return null;
+}
+
+function DriverSteps({ load }) {
+  const cur = stepOf(load);
+  const i = STEPS.findIndex((x) => x.key === cur);
+  return (
+    <div className="dsteps">
+      {STEPS.map((x, k) => (
+        <div key={x.key} className={`dstep ${k < i ? 'done' : ''} ${k === i ? 'on' : ''}`}>
+          <span className="dstep-dot">{k < i ? <Icon name="check" size={11} stroke={3} /> : null}</span>
+          <span className="dstep-l">{x.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function DriverJob({ loadId }) {
   const { data, upsert, toast } = useStore();
@@ -36,27 +56,40 @@ export default function DriverJob({ loadId }) {
   const places = useMemo(() => (target ? [{ ...target, kind: leg === 'toPickup' ? 'pickup' : 'dropoff', label: target.name }] : []), [target, leg]);
 
   if (!load) return <NoJob />;
-  const h = HERO[load.status];
-  if (!h) return <div className="page"><Empty title="This job was cancelled" /></div>;
+  if (load.status === 'cancelled' || load.status === 'requested') return <div className="page"><Empty title="This job was cancelled" /></div>;
 
   const pickupDone = data.meta.photoSlots.filter((s) => s.required).every((s) => load.photos.pickup.some((p) => p.slot === s.key));
   const deliveryDone = data.meta.photoSlots.filter((s) => s.required).every((s) => load.photos.delivery.some((p) => p.slot === s.key));
-  const ready = load.status === 'at_pickup' ? pickupDone : load.status === 'at_delivery' ? deliveryDone && !!load.signature && !!load.damage : true;
-  const blocker = load.status === 'at_pickup' && !pickupDone ? 'Take all the photos first'
-    : load.status === 'at_delivery' && !deliveryDone ? 'Take all the photos first'
-      : load.status === 'at_delivery' && !load.damage ? 'Answer the damage question'
-        : load.status === 'at_delivery' && !load.signature ? 'Get the receiver’s signature' : null;
-
-  const advance = async () => {
-    const r = await post(`/loads/${load.id}/status`, { status: h.next, odometer: odo || undefined });
-    upsert('loads', r);
-    setOdo('');
-    if (h.next === 'delivered') {
-      toast({ title: 'Delivery complete', body: `${load.ref} closed. Proof of delivery sent to the shipper.`, tone: 'ok' });
-      go(`/loads/${load.id}`);
-    }
+  const status = (to) => async () => {
+    const r = await post(`/loads/${load.id}/status`, { status: to, odometer: odo || undefined });
+    upsert('loads', r); setOdo('');
+    if (to === 'delivered') { toast({ title: 'Job ended', body: `${load.ref} closed. Proof of delivery sent to the customer.`, tone: 'ok' }); go(`/loads/${load.id}`); }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+  const event = (type, extra) => async () => {
+    try { upsert('loads', await post(`/loads/${load.id}/event`, { type, ...extra })); } catch (e) { toast({ title: 'Couldn’t save', body: e.message, tone: 'error' }); }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+  const at = (t) => (t ? time(t) : '');
+  const h = (() => {
+    switch (load.status) {
+      case 'accepted': return { title: 'You have a new job', button: 'Start driving to pickup', icon: 'navigate', run: status('en_route_pickup') };
+      case 'en_route_pickup': return load.activeStop
+        ? { tone: 'orange', title: 'Gas stop', sub: `Stopped at ${at(load.activeStop.start)}`, button: 'Back on the road', icon: 'navigate', run: event('fuel_end') }
+        : { title: 'Drive to the pickup', button: 'I’m at the pickup', icon: 'pin', run: status('at_pickup') };
+      case 'at_pickup': return load.loadingStartedAt
+        ? { tone: 'orange', title: 'Loading', sub: `Started ${at(load.loadingStartedAt)} · take the photos while you load`, button: 'Loaded — start trip', icon: 'truck', run: status('in_transit'), blocker: !pickupDone && 'Take all the photos first' }
+        : { tone: 'orange', title: 'You’re at the pickup', sub: `Arrived ${at(load.arrivedPickupAt)} · press Loading when they start loading you`, button: 'Loading', icon: 'box', run: event('loading_start') };
+      case 'in_transit': return load.activeStop
+        ? { tone: 'orange', title: 'Gas stop', sub: `Stopped at ${at(load.activeStop.start)} · log your fill-up below`, button: 'Back on the road', icon: 'navigate', run: event('fuel_end') }
+        : { title: 'Drive to the customer', button: 'Delivered — I’m at the customer', icon: 'flag', run: status('at_delivery') };
+      case 'at_delivery': return load.offloadedAt
+        ? { tone: 'orange', title: 'Off-loaded — get the signature', sub: `Unloaded at ${at(load.offloadedAt)}`, button: 'End job', icon: 'checkCircle', run: status('delivered'), green: true, blocker: !load.signature && 'Get the receiver’s signature' }
+        : { tone: 'orange', title: 'Delivered — off-load the trailer', sub: `Arrived ${at(load.arrivedDeliveryAt)} · take the photos as you unload`, button: 'Off-loaded', icon: 'box', run: event('offloaded'), blocker: !deliveryDone ? 'Take all the photos first' : !load.damage ? 'Answer the damage question' : null };
+      default: return { tone: 'green', title: 'Job ended — great work!' };
+    }
+  })();
+  const ready = !h.blocker;
 
   const moving = ['en_route_pickup', 'in_transit'].includes(load.status);
   const etaAt = leg === 'toPickup' ? load.eta?.pickupAt : load.eta?.deliveryAt;
@@ -70,10 +103,11 @@ export default function DriverJob({ loadId }) {
           <span className="pill" style={{ background: 'rgba(255,255,255,.22)', color: '#fff' }}>{data.meta.statuses.find((s) => s.key === load.status)?.short}</span>
         </div>
         <div className="title1" style={{ marginTop: 8 }}>{h.title}</div>
-        {moving && <div className="title3" style={{ fontWeight: 500, marginTop: 4 }}>{km(remaining)} · arrive ~{time(etaAt)}</div>}
+        {moving && !load.activeStop && <div className="title3" style={{ fontWeight: 500, marginTop: 4 }}>{km(remaining)} · arrive ~{time(etaAt)}</div>}
         {load.status === 'accepted' && <div className="subhead secondary" style={{ marginTop: 4 }}>Pickup {dayLabel(load.pickupWindow.from)} · {placeShort(load.pickup)}</div>}
         {load.status === 'delivered' && <div className="subhead secondary" style={{ marginTop: 4 }}>{km(load.metrics.loadedKm, 1)} driven · signed by {load.signature?.name}</div>}
-        <div style={{ marginTop: 14 }}><Tracker status={load.status} /></div>
+        {h.sub && <div className="subhead" style={{ marginTop: 4, opacity: 0.9 }}>{h.sub}</div>}
+        <div style={{ marginTop: 14 }}>{stepOf(load) ? <DriverSteps load={load} /> : <Tracker status={load.status} />}</div>
       </div>
 
       {load.status !== 'delivered' && (
@@ -115,7 +149,7 @@ export default function DriverJob({ loadId }) {
         </div>
       )}
 
-      {load.status === 'at_pickup' && (
+      {load.status === 'at_pickup' && load.loadingStartedAt && (
         <>
           <StepHead n={1} done={pickupDone} title="Take photos of the trailer and load" sub="These protect you if anything is damaged later." />
           <div style={{ marginBottom: 20 }}><PhotoChecklist load={load} phase="pickup" /></div>
@@ -124,21 +158,36 @@ export default function DriverJob({ loadId }) {
         </>
       )}
 
-      {load.status === 'at_delivery' && (
+      {load.status === 'at_delivery' && !load.offloadedAt && (
         <>
           <StepHead n={1} done={deliveryDone && !!load.damage} title="Take the same photos again" sub="We compare them with the pickup photos." />
           <div style={{ marginBottom: 20 }}><PhotoChecklist load={load} phase="delivery" /></div>
-          <StepHead n={2} done={!!load.signature} title="Receiver signs here" />
+        </>
+      )}
+
+      {load.status === 'at_delivery' && load.offloadedAt && (
+        <>
+          <StepHead n={1} done={!!load.signature} title="Receiver signs here" />
           <div style={{ marginBottom: 20 }}><SignaturePad load={load} /></div>
-          <StepHead n={3} done={!!odo} title="Odometer reading (optional)" />
+          <StepHead n={2} done={!!odo} title="Odometer reading (optional)" />
           <input className="input" style={{ marginBottom: 20, fontSize: '1.3rem', height: 58 }} type="number" inputMode="numeric" placeholder={Math.round(truck?.odometerKm || 0).toString()} value={odo} onChange={(e) => setOdo(e.target.value)} />
         </>
+      )}
+
+      {moving && load.activeStop && (
+        <div className="card pad-lg stack" style={{ marginBottom: 16 }}>
+          <div className="title3">Log your fill-up</div>
+          <div className="footnote secondary">Take a photo of the receipt. Saving it puts you back on the road.</div>
+          <FuelForm truckId={load.truckId} onDone={(f) => event('fuel_end', { fuelLogId: f.id })()} />
+        </div>
       )}
 
       {moving && (
         <div className="grid grid-2" style={{ marginBottom: 16 }}>
           <div className="card stat"><div className="k">Kilometres this job</div><div className="v">{km(load.metrics.deadheadKm + load.metrics.loadedKm, 1)}</div><div className="d">Tracked by GPS</div></div>
-          <button className="card stat clickable" style={{ border: 0, textAlign: 'left' }} onClick={() => go('/fuel')}><div className="k"><Icon name="fuel" size={16} style={{ color: 'var(--orange)' }} />Fuel stop?</div><div className="v blue" style={{ fontSize: '1.2rem' }}>Log fuel</div><div className="d">Adds to this job</div></button>
+          {!load.activeStop
+            ? <ActionButton className="card stat clickable gas-btn" onClick={event('fuel_start')}><div className="k"><Icon name="fuel" size={16} style={{ color: 'var(--orange)' }} />Need fuel?</div><div className="v" style={{ fontSize: '1.2rem', color: 'var(--orange)' }}>Gas stop</div><div className="d">Pauses the trip and logs your fill-up</div></ActionButton>
+            : <div className="card stat"><div className="k"><Icon name="fuel" size={16} style={{ color: 'var(--orange)' }} />On a gas stop</div><div className="v" style={{ fontSize: '1.2rem' }}>Since {time(load.activeStop.start)}</div><div className="d">{(load.stops || []).length} earlier stop{(load.stops || []).length === 1 ? '' : 's'} this job</div></div>}
         </div>
       )}
 
@@ -150,16 +199,16 @@ export default function DriverJob({ loadId }) {
             <div><div className="k">Job time</div><div className="v">{duration(load.economics?.hours)}</div></div>
             <div><div className="k">You earned</div><div className="v green">{money(load.economics?.driverPay)}</div></div>
           </div>
-          <button className="btn xl" onClick={() => go('/')}>Back to my jobs</button>
+          <button className="btn xl" onClick={() => go('/')}>Back to today</button>
         </div>
       ) : (
         <div style={{ position: 'sticky', bottom: 'calc(var(--tabbar) + env(safe-area-inset-bottom) + 10px)', zIndex: 20 }}>
-          <ActionButton className={`btn xl ${load.status === 'at_delivery' ? 'green' : 'primary'}`} disabled={!ready} onClick={advance} style={{ boxShadow: 'var(--shadow-lg)' }}>
-            <Icon name={h.icon} size={24} stroke={2.2} />{blocker || h.button}
+          <ActionButton className={`btn xl ${h.green ? 'green' : 'primary'}`} disabled={!ready} onClick={h.run} style={{ boxShadow: 'var(--shadow-lg)' }}>
+            <Icon name={h.icon} size={24} stroke={2.2} />{h.blocker || h.button}
           </ActionButton>
         </div>
       )}
-      {moving && <div className="footnote tertiary" style={{ textAlign: 'center', marginTop: 10 }}>Arrival is detected automatically when you reach the gate.</div>}
+      {moving && !load.activeStop && <div className="footnote tertiary" style={{ textAlign: 'center', marginTop: 10 }}>Arrival is detected automatically when you reach the gate.</div>}
     </div>
   );
 }
