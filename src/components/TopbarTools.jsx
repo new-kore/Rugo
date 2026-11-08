@@ -99,7 +99,7 @@ export function GlobalSearch() {
     const pages = [
       ['Request a pickup', '/new', 'shipper'], ['Billing & invoices', '/billing', 'shipper'], ['Load board', '/', 'dispatcher'],
       ['Live fleet', '/fleet', 'dispatcher'], ['Fuel log', '/fuel', 'dispatcher'], ['Reports', '/reports', 'dispatcher'],
-      ['Drivers', '/drivers', 'dispatcher'], ['Inventory — trucks & trailers', '/inventory', 'dispatcher'], ['Log fuel', '/fuel', 'driver'], ['Hours & pay', '/hours', 'driver'], ['Calendar', '/calendar', '*'], ['Settings', '/settings', '*'],
+      ['Drivers', '/drivers', 'dispatcher'], ['Inventory — trucks & trailers', '/inventory', 'dispatcher'], ['Integrations — ELD & hours of service', '/integrations', 'dispatcher'], ['Log fuel', '/fuel', 'driver'], ['Hours & pay', '/hours', 'driver'], ['Calendar', '/calendar', '*'], ['Settings', '/settings', '*'],
     ];
     pages.filter(([n, , r]) => (r === '*' || r === role) && n.toLowerCase().includes(s)).forEach(([n, p]) => out.push({
       group: 'Go to', key: p + n, icon: <Icon name="chevron" size={14} />, title: n, sub: '', go: () => go(p),
@@ -194,7 +194,7 @@ function useNotifications() {
     // Licences and records expiring within 30 days (dispatch sees everyone; a driver sees their own).
     for (const u of data.users.filter((x) => x.role === 'driver' && (me.role === 'dispatcher' || x.id === me.id))) {
       for (const al of driverAlerts(u)) {
-        items.push({ id: al.id, t: Math.min(Date.now(), al.at - 30 * 864e5), title: `${al.label} ${al.level === 'expired' ? 'expired' : 'expiring'}`, body: `${u.name} — ${al.text.toLowerCase()}`, driver: u, kind: 'expiry', warn: true, pin: true });
+        items.push({ id: al.id, t: al.kind === 'hos' ? al.at : Math.min(Date.now(), al.at - 30 * 864e5), title: al.kind === 'hos' ? (al.level === 'expired' ? 'HOS violation' : 'Hours running low') : `${al.label} ${al.level === 'expired' ? 'expired' : 'expiring'}`, body: `${u.name} — ${al.text.toLowerCase()}`, driver: u, kind: 'expiry', warn: true, pin: true });
       }
     }
     for (const tr of data.trucks) {

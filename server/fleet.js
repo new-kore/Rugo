@@ -19,7 +19,7 @@ export function publicUser(u, viewer) {
   if (sameCompany) {
     Object.assign(base, {
       email: u.email, payType: u.payType, hourlyRate: u.hourlyRate, perKmRate: u.perKmRate,
-      hireDate: u.hireDate, locationSource: u.locationSource, schedule: u.schedule, timeOff: u.timeOff || [], licenseExpiry: u.licenseExpiry, licenseNumber: u.licenseNumber,
+      hireDate: u.hireDate, locationSource: u.locationSource, schedule: u.schedule, timeOff: u.timeOff || [], licenseExpiry: u.licenseExpiry, licenseNumber: u.licenseNumber, hos: u.hos || null,
       // Documents are records for dispatch; a driver sees their own.
       documents: viewer.role === 'dispatcher' || viewer.id === u.id ? (u.documents || []) : undefined,
     });
@@ -297,7 +297,7 @@ function recordMovement(load, truck, pos, kmDelta, hoursDelta, speedKmh) {
 }
 
 /** Location pushed from the driver's phone. */
-export async function gpsUpdate(driver, { lat, lng, speed, heading }) {
+export async function gpsUpdate(driver, { lat, lng, speed, heading }, source = 'gps') {
   const truck = find('trucks', driver.truckId);
   if (!truck) return;
   const prev = truck.location;
@@ -308,10 +308,20 @@ export async function gpsUpdate(driver, { lat, lng, speed, heading }) {
   if (km > 50) km = 0; // GPS jump — ignore distance
   const hours = prev?.updatedAt ? Math.min((now - prev.updatedAt) / 3.6e6, 0.1) : 0;
   truck.gpsAt = now;
-  if (load?.sim) load.sim.source = 'gps';
+  if (load?.sim) load.sim.source = source;
   const moving = load && MOVING.includes(load.status);
   recordMovement(moving ? load : null, truck, pos, moving ? km : 0, moving ? hours : 0, speed != null ? speed * 3.6 : km / Math.max(hours, 1e-6));
   if (moving) await checkGeofence(load, truck, driver);
+}
+
+/** Position reported by the truck's ELD / telematics unit. */
+export async function eldPosition(truck, { lat, lng, speedKph, heading }) {
+  const driver = db.users.find((u) => u.role === 'driver' && u.truckId === truck.id);
+  if (driver) return gpsUpdate(driver, { lat, lng, speed: speedKph != null ? speedKph / 3.6 : null, heading }, 'eld');
+  truck.location = { lat, lng, heading: heading ?? truck.location?.heading ?? 0, speed: speedKph ?? 0, updatedAt: Date.now() };
+  truck.gpsAt = Date.now();
+  publish('trucks', truck);
+  save();
 }
 
 async function checkGeofence(load, truck, actor) {
@@ -326,7 +336,7 @@ async function tick() {
   if (!settings().simulation) return;
   for (const load of db.loads.filter((l) => MOVING.includes(l.status))) {
     const truck = find('trucks', load.truckId);
-    if (!truck || (truck.gpsAt && Date.now() - truck.gpsAt < 60000)) continue;
+    if (!truck || (truck.gpsAt && Date.now() - truck.gpsAt < (truck.eld ? 180000 : 60000))) continue; // real GPS/ELD wins
     const legKey = load.status === 'en_route_pickup' ? 'toPickup' : 'toDropoff';
     const leg = load.legs[legKey];
     if (!leg?.points?.length) continue;

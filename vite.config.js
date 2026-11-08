@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: [
       { find: '@backend', replacement: path.resolve(mode === 'standalone' ? 'src/standalone/backend.js' : 'src/standalone/remote.js') },
-      ...(mode === 'standalone' ? [{ find: /^\.\/db\.js$/, replacement: path.resolve('src/standalone/memdb.js') }] : []),
+      ...(mode === 'standalone' ? [{ find: /^\.\.?\/db\.js$/, replacement: path.resolve('src/standalone/memdb.js') }] : []),
     ],
   },
   plugins: [react()],

@@ -3,7 +3,8 @@ import Icon from '../../components/Icon.jsx';
 import { PageHead, Stat, ActionButton } from '../../components/ui.jsx';
 import { useStore, useNow } from '../../lib/store.jsx';
 import { post } from '../../lib/api.js';
-import { money, money2, duration, time, date, km } from '../../lib/format.js';
+import { money, money2, duration, time, date, km, ago } from '../../lib/format.js';
+import { hosStatus, hm, clockTone, hosStale } from '../../lib/hos.js';
 
 const DRIVE_LIMIT = 13;
 const DUTY_LIMIT = 14;
@@ -54,10 +55,12 @@ export default function DriverHours() {
           {open ? 'Clock out' : 'Clock in'}
         </ActionButton>
       </div>
-      <div className="grid grid-2">
-        <Meter label="Driving" used={driveToday} limit={DRIVE_LIMIT} />
-        <Meter label="On duty" used={dutyToday} limit={DUTY_LIMIT} />
-      </div>
+      {me.hos ? <EldClocks h={me.hos} /> : (
+        <div className="grid grid-2">
+          <Meter label="Driving" used={driveToday} limit={DRIVE_LIMIT} />
+          <Meter label="On duty" used={dutyToday} limit={DUTY_LIMIT} />
+        </div>
+      )}
       <div className="grid grid-3" style={{ marginTop: 16 }}>
         <Stat icon="clock" k="Hours (7 days)" v={duration(dutyWeek).replace(' min', 'm')} />
         <Stat icon="route" tone="indigo" k="km (7 days)" v={Math.round(kmWeek).toLocaleString()} />
@@ -78,7 +81,39 @@ export default function DriverHours() {
           );
         })}
       </div>
-      <div className="section-footer">Hours of service follow Canada’s federal rules: up to 13 hours of driving and 14 hours on duty per day.</div>
+      <div className="section-footer">{me.hos ? `Hours of service come from ${me.hos.providerName}, your official electronic logbook. Change your duty status in the ${me.hos.providerName} app.` : 'Estimated from your shifts — not an official log.'} Canada’s federal rules: up to 13 hours of driving and 14 hours on duty per day.</div>
     </div>
+  );
+}
+
+/** Official clocks from the truck's ELD. */
+function EldClocks({ h }) {
+  const st = hosStatus(h);
+  const box = (label, min, limit, warn) => {
+    const tone = clockTone(min, warn);
+    const pct = limit && min !== null && min !== undefined ? Math.min(100, Math.max(0, 100 - (min / limit) * 100)) : 0;
+    return (
+      <div className="card pad-lg stack-sm">
+        <span className="headline">{label}</span>
+        <div className={`title1 num ${tone === 'gray' ? '' : tone}`}>{hm(min)}</div>
+        <div className={`progress ${tone === 'red' ? 'red' : tone === 'orange' ? 'orange' : 'green'}`} style={{ height: 10 }}><div style={{ width: `${pct}%` }} /></div>
+      </div>
+    );
+  };
+  return (
+    <>
+      <div className="row between" style={{ marginBottom: 10 }}>
+        <span className={`pill ${st.tone}`}><span className="dot" />{st.label}</span>
+        <span className={`footnote ${hosStale(h) ? 'orange' : 'secondary'}`}><Icon name="shield" size={13} /> Official log · {h.providerName} · {ago(h.at)}</span>
+      </div>
+      {h.flag === 'violation' && <div className="card pad" style={{ marginBottom: 12, background: 'var(--red)', color: '#fff' }}><b>Stop driving.</b> You’re past an hours-of-service limit.</div>}
+      {h.flag === 'low' && <div className="card pad" style={{ marginBottom: 12, background: 'var(--orange)', color: '#fff' }}><b>Under an hour of driving left.</b> Plan where you’ll stop.</div>}
+      <div className="grid grid-2">
+        {box('Driving left', h.driveLeftMin, 13 * 60, 60)}
+        {box('On-duty left', h.shiftLeftMin, 14 * 60, 60)}
+        {box('Cycle left', h.cycleLeftMin, 70 * 60, 300)}
+        {box('Break due in', h.breakLeftMin, 8 * 60, 30)}
+      </div>
+    </>
   );
 }

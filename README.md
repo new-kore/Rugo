@@ -75,6 +75,36 @@ Without a key, or where Google can't be reached, Rugo falls back to OpenStreetMa
 ### Demo simulation vs. real GPS
 In demo mode, trucks drive themselves along their route. A leg takes about 2–3 minutes, so you can follow a whole job from start to finish. When a driver turns on **Settings → Share my phone's GPS**, their phone's location is streamed instead, and the simulator leaves that truck alone. Dispatch can switch the simulator off in Settings.
 
+### ELD / hours of service (Samsara, Motive, Geotab, Isaac)
+Rugo doesn't replace a certified ELD. It reads from the one a fleet already uses. Dispatch connects it in **Integrations** with these credentials:
+
+| Provider | Credentials | Where to get them |
+|---|---|---|
+| Samsara | API token (read: Vehicles, Drivers, ELD Hours of Service, Vehicle Statistics). Region: NA or EU. | Samsara → Settings → API Tokens |
+| Motive | API key | Motive Fleet Dashboard → Admin → API Keys |
+| Geotab | Server, database, user, password (use a read-only service user) | MyGeotab → Users |
+| Isaac Instruments | API URL + key | Your Isaac account manager (partner API) |
+| Sandbox | none | Test data built from your own drivers and trucks |
+
+What Rugo does with them:
+- **Linking:** it links ELD vehicles to Rugo trucks automatically (by VIN, plate or unit number) and ELD drivers to Rugo drivers (by email, licence number or name). Any link can be changed, and unlinked records can be added as new trucks or drivers in one click.
+- **Sync (every 60 s, plus webhooks):** duty status; remaining drive, shift and cycle time; time until the next break; GPS position; odometer (Samsara only). Samsara and Motive can also push webhooks to the URL shown in Integrations, which triggers an immediate sync.
+- **Where the data shows up:**
+  - an HOS table in Integrations;
+  - an "Hours left (ELD)" column on Drivers;
+  - official clocks on the driver's Hours screen;
+  - hours left in the driver picker;
+  - alerts in the bell and as toasts (under 1 h of driving left, break due, or driving past a limit).
+- **Live positions:** ELD GPS positions drive the live map, km tracking and geofence arrivals, and the simulator leaves those trucks alone.
+- **Credential safety:** credentials stay on the server and are never sent to the browser. URLs you type in (the Geotab server and Isaac API URL) must use https and can't point to private networks.
+
+Browsers can't call ELD APIs directly, so real providers only work with the Node server. The one-file demo supports the Sandbox only.
+
+Notes:
+- **Isaac:** Isaac's partner API isn't public. `server/eld/isaac.js` uses common path and field names; check them against the docs Isaac gives you.
+- **Testing against mocks:** set `RUGO_ELD_<PROVIDER>_URL` (e.g. `RUGO_ELD_SAMSARA_URL`) and `RUGO_ELD_ALLOW_LOCAL=1`.
+- **Sync interval:** change it with `RUGO_ELD_SYNC_MS`.
+
 ### Maps & routing
 - Map tiles come from CARTO/OpenStreetMap and change with light and dark mode.
 - Road routes come from the public OSRM router. If it can't be reached, Rugo uses an estimated route with a road factor. Set `RUGO_OFFLINE_ROUTING=1` to always use the estimate.
@@ -89,6 +119,7 @@ server/            Node + Express API (no database server needed)
   index.js         REST routes, auth, uploads, SSE stream
   fleet.js         load lifecycle, rules, geofencing, ETA, realtime fan-out, simulator
   pricing.js       rate card, quotes, invoices, job economics
+  eld/             ELD connectors (samsara, motive, geotab, isaac, sandbox) + sync engine
   geo.js           distance, bearing, OSRM routing with offline fallback
   db.js            durable JSON store (atomic writes) in ./data
   seed.js          demo companies, fleet, live + historic loads

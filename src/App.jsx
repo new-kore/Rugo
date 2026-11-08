@@ -23,6 +23,7 @@ import Fuel from './pages/carrier/Fuel.jsx';
 import Reports from './pages/carrier/Reports.jsx';
 import DriverJob, { DriverGps } from './pages/driver/DriverJob.jsx';
 import DriverFuel from './pages/driver/DriverFuel.jsx';
+import Integrations from './pages/carrier/Integrations.jsx';
 import DriverHours from './pages/driver/DriverHours.jsx';
 
 const NAV = {
@@ -43,6 +44,7 @@ const NAV = {
     { path: '/inventory', label: 'Inventory', icon: 'truck', page: Inventory, section: 'Fleet' },
     { path: '/fuel', label: 'Fuel', icon: 'fuel', page: Fuel, section: 'Fleet' },
     { path: '/reports', label: 'Reports', icon: 'chart', page: Reports, section: 'Fleet' },
+    { path: '/integrations', label: 'Integrations', icon: 'plug', page: Integrations, section: 'Fleet', desktopOnly: true },
     { path: '/settings', label: 'Settings', icon: 'gear', page: Settings, section: 'Workspace', mobileOnly: true },
   ],
   driver: [

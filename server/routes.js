@@ -7,6 +7,8 @@ import {
   settings, snapshot, subscribe, publish, publishRemove, notify, accept, advance, addTimeline,
   gpsUpdate, clockIn, clockOut, nextRef, newLoadShell, publicUser, updateEta, trailerInUse,
 } from './fleet.js';
+import { PROVIDERS, providerMeta } from './eld/providers.js';
+import { eldFor, publicIntegration, cleanCreds, testConnection, connect, disconnect, setMaps, syncIntegration, syncSoon, importUnlinked } from './eld/sync.js';
 
 /** Weekly schedule: { 0..6: { start: 'HH:MM', end: 'HH:MM' } | null }. Accepts the older { days, start, end } shape too. */
 const HM = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -401,24 +403,28 @@ export function routes(app) {
 
   const COLORS = ['#FF9500', '#34C759', '#5856D6', '#FF2D55', '#00C7BE', '#AF52DE', '#FF3B30', '#007AFF'];
 
-  app.post('/api/drivers', auth, role('dispatcher'), (req, res) => {
-    const b = req.body || {};
-    if (!b.name || !b.email) return res.status(400).json({ error: 'Name and email are required.' });
-    if (db.users.some((u) => u.email.toLowerCase() === b.email.toLowerCase())) return res.status(409).json({ error: 'That email is already used.' });
+  function makeDriver(b, companyId) {
     const u = {
-      id: id('usr'), companyId: req.user.companyId, role: 'driver', name: b.name, email: b.email, phone: b.phone || '',
+      id: id('usr'), companyId, role: 'driver', name: b.name, email: b.email, phone: b.phone || '',
       password: hashPassword(b.password || 'demo'), color: COLORS[db.users.length % COLORS.length], status: 'available',
       payType: b.payType === 'per_km' ? 'per_km' : 'hourly', hourlyRate: Number(b.hourlyRate) || 32, perKmRate: Number(b.perKmRate) || 0.62,
       truckId: b.truckId || null, licenseClass: b.licenseClass || 'AZ', hireDate: Date.now(), rating: null, locationSource: 'sim',
-    schedule: normSchedule(b.schedule || { days: [1, 2, 3, 4, 5], start: '07:00', end: '17:00' }), timeOff: [], documents: [], licenseNumber: b.licenseNumber || '',
-    licenseExpiry: b.licenseExpiry ? Number(b.licenseExpiry) : null,
+      schedule: normSchedule(b.schedule || { days: [1, 2, 3, 4, 5], start: '07:00', end: '17:00' }), timeOff: [], documents: [], licenseNumber: b.licenseNumber || '',
+      licenseExpiry: b.licenseExpiry ? Number(b.licenseExpiry) : null,
     };
     db.users.push(u);
     const tk = u.truckId && find('trucks', u.truckId);
     if (tk && tk.carrierId === u.companyId) { tk.driverId = u.id; publish('trucks', tk); } else u.truckId = null;
     save();
     publish('users', u);
-    res.json(publicUser(u, req.user));
+    return u;
+  }
+
+  app.post('/api/drivers', auth, role('dispatcher'), (req, res) => {
+    const b = req.body || {};
+    if (!b.name || !b.email) return res.status(400).json({ error: 'Name and email are required.' });
+    if (db.users.some((u) => u.email.toLowerCase() === b.email.toLowerCase())) return res.status(409).json({ error: 'That email is already used.' });
+    res.json(publicUser(makeDriver(b, req.user.companyId), req.user));
   });
 
   app.patch('/api/drivers/:id', auth, role('dispatcher'), (req, res) => {
@@ -445,12 +451,10 @@ export function routes(app) {
     res.json(publicUser(u, req.user));
   });
 
-  app.post('/api/trucks', auth, role('dispatcher'), (req, res) => {
-    const b = req.body || {};
-    if (!b.unit) return res.status(400).json({ error: 'Unit number is required.' });
-    const home = db.companies.find((c) => c.id === req.user.companyId)?.yard;
+  function makeTruck(b, companyId) {
+    const home = db.companies.find((c) => c.id === companyId)?.yard;
     const t = {
-      id: id('trk'), carrierId: req.user.companyId, unit: b.unit, make: b.make || '', model: b.model || '', year: Number(b.year) || 2024,
+      id: id('trk'), carrierId: companyId, unit: String(b.unit), make: b.make || '', model: b.model || '', year: Number(b.year) || 2024,
       plate: b.plate || '', vin: b.vin || '', equipment: EQUIPMENT[b.equipment] ? b.equipment : 'dry_van',
       odometerKm: Number(b.odometerKm) || 0, fuelLPer100: Number(b.fuelLPer100) || 36, tankL: Number(b.tankL) || 900,
       driverId: null, location: home ? { ...home, heading: 0, speed: 0, updatedAt: Date.now() } : null,
@@ -459,7 +463,13 @@ export function routes(app) {
     db.trucks.push(t);
     save();
     publish('trucks', t);
-    res.json(t);
+    return t;
+  }
+
+  app.post('/api/trucks', auth, role('dispatcher'), (req, res) => {
+    const b = req.body || {};
+    if (!b.unit) return res.status(400).json({ error: 'Unit number is required.' });
+    res.json(makeTruck(b, req.user.companyId));
   });
 
   app.patch('/api/trucks/:id', auth, role('dispatcher'), (req, res) => {
@@ -624,6 +634,65 @@ export function routes(app) {
     save();
     publish('loads', load);
     res.json(load);
+  });
+
+  /* ------------------------- ELD / hours of service ------------------------ */
+
+  const eldErr = (res, e) => res.status(e.code === 'config' ? 400 : 502).json({ error: e.message || 'The ELD provider couldn’t be reached.' });
+
+  app.get('/api/integrations', auth, role('dispatcher'), (req, res) => {
+    res.json({ providers: PROVIDERS, eld: publicIntegration(eldFor(req.user.companyId)) });
+  });
+
+  app.post('/api/integrations/eld/test', auth, role('dispatcher'), async (req, res) => {
+    const { provider, creds } = req.body || {};
+    if (!providerMeta(provider)) return res.status(400).json({ error: 'Pick an ELD provider.' });
+    const prev = eldFor(req.user.companyId);
+    const merged = cleanCreds(provider, { ...(prev?.provider === provider ? prev.creds : {}), ...Object.fromEntries(Object.entries(creds || {}).filter(([, v]) => v !== '' && v != null)) });
+    try { res.json({ ok: true, ...(await testConnection(provider, merged, req.user.companyId)) }); } catch (e) { eldErr(res, e); }
+  });
+
+  app.post('/api/integrations/eld', auth, role('dispatcher'), async (req, res) => {
+    const { provider, creds } = req.body || {};
+    if (!providerMeta(provider)) return res.status(400).json({ error: 'Pick an ELD provider.' });
+    try { const { integration } = await connect(provider, creds, req.user.companyId); res.json(publicIntegration(integration)); } catch (e) { eldErr(res, e); }
+  });
+
+  app.post('/api/integrations/eld/sync', auth, role('dispatcher'), async (req, res) => {
+    const i = eldFor(req.user.companyId);
+    if (!i) return res.status(404).json({ error: 'No ELD connected.' });
+    res.json(publicIntegration(await syncIntegration(i)));
+  });
+
+  app.patch('/api/integrations/eld', auth, role('dispatcher'), async (req, res) => {
+    const i = eldFor(req.user.companyId);
+    if (!i) return res.status(404).json({ error: 'No ELD connected.' });
+    const b = req.body || {};
+    if (b.enabled !== undefined) i.enabled = !!b.enabled;
+    if (b.vehicleMap || b.driverMap) setMaps(i, b);
+    save();
+    res.json(publicIntegration(await syncIntegration(i)));
+  });
+
+  app.post('/api/integrations/eld/import', auth, role('dispatcher'), async (req, res) => {
+    const i = eldFor(req.user.companyId);
+    if (!i) return res.status(404).json({ error: 'No ELD connected.' });
+    const created = importUnlinked(i, req.body || {}, makeTruck, makeDriver);
+    await syncIntegration(i);
+    res.json({ created, eld: publicIntegration(i) });
+  });
+
+  app.delete('/api/integrations/eld', auth, role('dispatcher'), (req, res) => {
+    disconnect(req.user.companyId);
+    res.json({ ok: true });
+  });
+
+  // Provider webhooks (Samsara / Motive): any event for this account triggers a quick re-sync.
+  app.post('/api/webhooks/eld/:token', (req, res) => {
+    const i = db.integrations.find((x) => x.kind === 'eld' && x.webhookToken && x.webhookToken === req.params.token);
+    if (!i) return res.status(404).json({ error: 'Unknown webhook.' });
+    if (i.enabled) syncSoon(i);
+    res.json({ ok: true });
   });
 
   app.patch('/api/settings', auth, role('dispatcher'), (req, res) => {

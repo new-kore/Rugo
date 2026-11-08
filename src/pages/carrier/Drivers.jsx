@@ -6,6 +6,7 @@ import { useStore, useIndex, isActive } from '../../lib/store.jsx';
 import { money, money2, num, date } from '../../lib/format.js';
 import { post, patch, del } from '../../lib/api.js';
 import { compressImage } from '../../lib/image.js';
+import { hosStatus, hm, clockTone, hosLeft } from '../../lib/hos.js';
 import { DAYS, weekSchedule, shiftHours, weeklyHours, scheduleText, expiry, driverAlerts } from '../../lib/drivers.js';
 import { scanLicence } from '../../lib/licenceScan.js';
 
@@ -58,6 +59,7 @@ export default function Drivers() {
   }, []);
   const drivers = data.users.filter((u) => u.role === 'driver');
   const editing = edit?.__open ? idx.users[edit.__open] : edit;
+  const hasHos = drivers.some((d) => d.hos);
   const attention = drivers.flatMap((d) => driverAlerts(d).map((a) => ({ ...a, d })));
   const onJob = new Set(data.loads.filter(isActive).flatMap((l) => [l.driverId, ...(l.teamDriverIds || [])]));
 
@@ -71,14 +73,14 @@ export default function Drivers() {
           <Icon name="warning" size={18} />
           <div className="spacer">
             <div className="headline">{attention.length === 1 ? '1 record needs attention' : `${attention.length} records need attention`}</div>
-            <div className="footnote secondary">{attention.map((a) => `${a.d.name} — ${a.label.toLowerCase()} ${a.text.toLowerCase()}`).join(' · ')}</div>
+            <div className="footnote secondary">{attention.map((a) => (a.kind === 'hos' ? `${a.d.name} — ${a.text}` : `${a.d.name} — ${a.label.toLowerCase()} ${a.text.toLowerCase()}`)).join(' · ')}</div>
           </div>
           <button className="btn small" onClick={() => setEdit(attention[0].d)}>Review</button>
         </div>
       )}
       <div className="card table-wrap">
         <table className="table">
-          <thead><tr><th>Driver</th><th>Status</th><th>Truck</th><th>Pay</th><th>Schedule</th><th>Licence</th><th className="r">Hours (7d)</th><th className="r">km (7d)</th><th className="r">Earned (7d)</th><th>Records</th><th /></tr></thead>
+          <thead><tr><th>Driver</th><th>Status</th>{hasHos && <th>Hours left (ELD)</th>}<th>Truck</th><th>Pay</th><th>Schedule</th><th>Licence</th><th className="r">Hours (7d)</th><th className="r">km (7d)</th><th className="r">Earned (7d)</th><th>Records</th><th /></tr></thead>
           <tbody>
             {drivers.map((d) => {
               const s = driverStats(d, data);
@@ -90,6 +92,7 @@ export default function Drivers() {
                 <tr key={d.id} className="click" onClick={() => setEdit(d)}>
                   <td><div className="row"><Avatar user={d} size="sm" /><div><div className="headline">{d.name}</div><div className="caption secondary">{d.phone} · Class {d.licenseClass}</div></div></div></td>
                   <td><span className={`pill ${st[0]}`}>{st[1]}</span></td>
+                  {hasHos && <td><HosCell h={d.hos} /></td>}
                   <td>{idx.trucks[d.truckId] ? `Unit ${idx.trucks[d.truckId].unit}` : '—'}</td>
                   <td>{d.payType === 'per_km' ? `${money2(d.perKmRate)}/km` : `${money2(d.hourlyRate)}/h`}</td>
                   <td className="footnote" style={{ whiteSpace: 'normal', maxWidth: 220 }}>{scheduleText(d.schedule)}</td>
@@ -465,6 +468,19 @@ function Documents({ driver, onLicenceExpiry }) {
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+/** Compact HOS summary from the ELD: limiting clock + duty status. */
+export function HosCell({ h }) {
+  if (!h) return <span className="secondary">—</span>;
+  const left = hosLeft(h);
+  const tone = h.flag === 'violation' ? 'red' : clockTone(left);
+  return (
+    <div title={`${h.providerName}: drive ${hm(h.driveLeftMin)} · shift ${hm(h.shiftLeftMin)} · cycle ${hm(h.cycleLeftMin)}`}>
+      <span className={`pill ${tone}`}><span className="dot" />{h.flag === 'violation' ? 'Violation' : hm(left)}</span>
+      <div className="caption secondary" style={{ marginTop: 2 }}>{hosStatus(h).label}</div>
     </div>
   );
 }

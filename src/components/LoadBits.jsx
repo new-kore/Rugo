@@ -1,4 +1,5 @@
 // Load list card, accept/dispatch sheet and invoice view shared across roles.
+import { hm, hosLeft } from '../lib/hos.js';
 import { useMemo, useState } from 'react';
 import Icon from './Icon.jsx';
 import { StatusPill, Tracker, RouteLine, Sheet, Avatar, ActionButton } from './ui.jsx';
@@ -137,7 +138,7 @@ export function DriverPicker({ load, mode, onPick, onClose }) {
               <div className="label">
                 <div className="headline">{d.name}</div>
                 <div className="footnote secondary truncate">
-                  {t ? `Unit ${t.unit}` : 'No truck'}{dist != null ? ` · ${km(dist)} ${loaded ? 'from the truck' : 'from pickup'}` : ''}{!free ? ' · busy' : ''}
+                  {t ? `Unit ${t.unit}` : 'No truck'}{dist != null ? ` · ${km(dist)} ${loaded ? 'from the truck' : 'from pickup'}` : ''}{!free ? ' · busy' : ''}{d.hos ? ` · ${hm(hosLeft(d.hos))} driving left (${d.hos.providerName})` : ''}
                 </div>
               </div>
               {busyId === d.id ? <span className="spinner" /> : <Icon name="chevron" size={15} className="chev" />}

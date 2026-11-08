@@ -46,6 +46,9 @@ export function driverAlerts(d) {
   const out = [];
   const lic = expiry(d.licenseExpiry);
   if (lic.level === 'expired' || lic.level === 'soon') out.push({ id: `exp:${d.id}:licence:${d.licenseExpiry}`, kind: 'licence', label: 'Driver’s licence', at: d.licenseExpiry, ...lic });
+  const h = d.hos;
+  if (h?.flag === 'violation') out.push({ id: `hos:${d.id}:violation:${Math.floor((h.at || 0) / 36e5)}`, kind: 'hos', label: 'Hours of service', level: 'expired', text: `Driving past an HOS limit (${h.providerName})`, at: h.at });
+  else if (h?.flag === 'low') out.push({ id: `hos:${d.id}:low:${Math.floor((h.at || 0) / 36e5)}`, kind: 'hos', label: 'Hours of service', level: 'soon', text: `${h.driveLeftMin} min of driving left`, at: h.at });
   for (const doc of d.documents || []) {
     if (doc.kind === 'licence') continue;
     const e = expiry(doc.expires);
