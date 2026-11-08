@@ -84,3 +84,34 @@ export async function resolveGoogle(p) {
     lat: place.location.lat(), lng: place.location.lng(),
   };
 }
+
+/**
+ * Use whatever the person typed as a one-off address. Locates it with Google (when connected),
+ * then OpenStreetMap, then the nearest known city named in the text.
+ */
+export async function geocodeFree(text) {
+  const q = text.trim();
+  const base = { name: q.split(',')[0], address: q.split(',')[0], oneOff: true };
+  try {
+    const { getKey, googleFailed, loadGoogle } = await import('./google.js');
+    if (getKey() && !googleFailed()) {
+      const maps = await loadGoogle();
+      const { Geocoder } = await maps.importLibrary('geocoding');
+      const { results } = await new Geocoder().geocode({ address: q, componentRestrictions: { country: 'CA' } }).catch(() => new Geocoder().geocode({ address: q }));
+      const r = results?.[0];
+      if (r) {
+        const comp = (t, short) => r.address_components.find((c) => c.types.includes(t))?.[short ? 'short_name' : 'long_name'] || '';
+        return { ...base, address: r.formatted_address.split(',')[0], city: comp('locality') || comp('sublocality') || comp('administrative_area_level_2'), region: comp('administrative_area_level_1', true), lat: r.geometry.location.lat(), lng: r.geometry.location.lng() };
+      }
+    }
+  } catch { /* try the next source */ }
+  const osm = await searchRemote(q);
+  if (osm[0]) return { ...base, address: osm[0].address || q, city: osm[0].city, region: osm[0].region, lat: osm[0].lat, lng: osm[0].lng };
+  const { CITIES } = await import('./basemap.js');
+  const lower = q.toLowerCase();
+  const city = CITIES.find(([n]) => lower.includes(n.toLowerCase()));
+  const known = COMMON_PLACES.find((p) => lower.includes(p.city.toLowerCase()));
+  if (city) return { ...base, city: city[0], region: known?.region || '', lat: city[1], lng: city[2], approx: true };
+  if (known) return { ...base, city: known.city, region: known.region, lat: known.lat, lng: known.lng, approx: true };
+  throw new Error('Couldn’t find that address. Add the city, e.g. “120 King St W, Hamilton”.');
+}

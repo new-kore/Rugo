@@ -8,12 +8,13 @@ import CalendarMap from './CalendarMap.jsx';
 import MapView from '../components/MapView.jsx';
 import PlacePicker from '../components/PlacePicker.jsx';
 import { DriverSheet, scheduleText } from './carrier/Drivers.jsx';
+import { daySchedule, shiftHours, driverAlerts } from '../lib/drivers.js';
 import { Sheet, Field, ActionButton, Switch } from '../components/ui.jsx';
 import { post } from '../lib/api.js';
 import { haversine } from '../lib/geo.js';
 import { useStore, useIndex, useNow } from '../lib/store.jsx';
 import { go } from '../lib/router.js';
-import { time, placeShort, km, duration } from '../lib/format.js';
+import { time, placeShort, km, duration, money2 } from '../lib/format.js';
 
 const H = 3.6e6;
 const HOUR_PX = 48;
@@ -418,173 +419,252 @@ function EventCard({ pop, idx, data, onClose }) {
   );
 }
 
-/** Dispatch adds its own route: stops, timing, team, freight, rate and step-by-step instructions. */
+/** Dispatch adds its own route. Left: numbered sections. Right: live summary with the route on a map. */
 function AddRouteSheet({ day, onClose, onDone }) {
   const { data, toast, upsert } = useStore();
   const idx = useIndex();
   const pad = (n) => String(n).padStart(2, '0');
-  const local = (t) => { const d = new Date(t); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; };
-  const initialFrom = (() => { const d = new Date(day); if (sameDay(day, Date.now())) d.setHours(new Date().getHours() + 1, 0, 0, 0); else d.setHours(8, 0, 0, 0); return d.getTime(); })();
+  const dayStr = (t) => { const d = new Date(t); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+  const firstHour = sameDay(day, Date.now()) ? Math.min(22, new Date().getHours() + 1) : 8;
 
   const [pickup, setPickup] = useState(null);
   const [dropoff, setDropoff] = useState(null);
   const [pc, setPc] = useState({ contact: '', phone: '', note: '' });
   const [dc, setDc] = useState({ contact: '', phone: '', note: '' });
-  const [from, setFrom] = useState(local(initialFrom));
-  const [to, setTo] = useState(local(initialFrom + 2 * H));
+  const [showPc, setShowPc] = useState(false);
+  const [showDc, setShowDc] = useState(false);
+  const [pDate, setPDate] = useState(dayStr(day));
+  const [pFrom, setPFrom] = useState(`${pad(firstHour)}:00`);
+  const [pTo, setPTo] = useState(`${pad(Math.min(23, firstHour + 2))}:00`);
   const [appt, setAppt] = useState('');
   const [f, setF] = useState({ equipment: 'dry_van', description: '', weightKg: '', pallets: '', tempC: 3, hazmat: false, valueCad: '', poNumber: '', customer: '', rate: '' });
   const [opts, setOpts] = useState({ liftgate: false, expedite: false });
+  const [moreFreight, setMoreFreight] = useState(false);
   const [steps, setSteps] = useState(['']);
   const [notes, setNotes] = useState('');
-  const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
+  const [driverId, setDriverId] = useState('');
+  const [teamId, setTeamId] = useState('');
+  const [showTeam, setShowTeam] = useState(false);
+  const [truckId, setTruckId] = useState('');
+  const [trailerId, setTrailerId] = useState('');
+  const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }));
 
+  const from = new Date(`${pDate}T${pFrom || '08:00'}`).getTime();
+  const to = new Date(`${pDate}T${pTo || pFrom || '10:00'}`).getTime();
   const dist = pickup && dropoff ? haversine(pickup, dropoff) * 1.2 : null;
   const driveH = dist ? dist / data.settings.avgSpeedKmh : 0;
-  const estArrival = dist ? new Date(from).getTime() + (driveH + 0.75) * H : null;
+  const arrival = dist ? from + (driveH + 0.75) * H : null;
+  const eq = data.meta.equipment[f.equipment];
+  const rateSuggest = dist ? Math.round((eq.base + dist * eq.perKm * (1 + data.settings.fuelSurchargePct)) * (1 - data.settings.platformFeePct)) : null;
+
   const busy = new Set(data.loads.filter((l) => ['accepted', 'en_route_pickup', 'at_pickup', 'in_transit', 'at_delivery'].includes(l.status)).flatMap((l) => [l.driverId, ...(l.teamDriverIds || [])]));
   const drivers = data.users.filter((u) => u.role === 'driver').map((d) => {
     const t = idx.trucks[d.truckId];
     const km0 = pickup && t?.location ? haversine(t.location, pickup) * 1.2 : null;
-    return { d, t, km0, free: !busy.has(d.id) };
-  }).sort((a, b) => (b.free - a.free) || ((b.t?.equipment === f.equipment) - (a.t?.equipment === f.equipment)) || ((a.km0 ?? 1e9) - (b.km0 ?? 1e9)));
-  const [driverId, setDriverId] = useState('');
-  const [teamId, setTeamId] = useState('');
-  const [truckId, setTruckId] = useState('');
-  const [trailerId, setTrailerId] = useState('');
-  const chosen = driverId || drivers.find((x) => x.free && x.t)?.d.id || '';
+    const shift = daySchedule(d.schedule, new Date(from).getDay());
+    const off = (d.timeOff || []).some((o) => o.from <= from && o.to >= from);
+    return { d, t, km0, free: !busy.has(d.id), shift, off };
+  }).sort((a, b) => (b.free - a.free) || (a.off - b.off) || ((b.t?.equipment === f.equipment) - (a.t?.equipment === f.equipment)) || ((a.km0 ?? 1e9) - (b.km0 ?? 1e9)));
+  const chosen = driverId || drivers.find((x) => x.free && x.t && !x.off)?.d.id || drivers.find((x) => x.t)?.d.id || '';
+  const chosenRow = drivers.find((x) => x.d.id === chosen);
   const chosenTruck = truckId || idx.users[chosen]?.truckId || '';
-  const rateSuggest = dist ? Math.round((data.meta.equipment[f.equipment].base + dist * data.meta.equipment[f.equipment].perKm * (1 + data.settings.fuelSurchargePct)) * (1 - data.settings.platformFeePct)) : null;
+  const inUseTrailers = new Set(data.loads.filter((l) => ['accepted', 'en_route_pickup', 'at_pickup', 'in_transit', 'at_delivery'].includes(l.status) && l.trailerId).map((l) => l.trailerId));
+  const autoTrailer = (data.trailers || []).find((t) => t.equipment === f.equipment && t.status !== 'shop' && !inUseTrailers.has(t.id));
+  const chosenTrailer = trailerId || autoTrailer?.id || '';
+
+  const places = useMemo(() => [pickup && { ...pickup, kind: 'pickup', label: 'Pickup' }, dropoff && { ...dropoff, kind: 'dropoff', label: 'Delivery' }].filter(Boolean), [pickup, dropoff]);
+  const line = useMemo(() => (pickup && dropoff ? [pickup, dropoff] : null), [pickup, dropoff]);
 
   const save = async () => {
-    const pf = new Date(from).getTime();
     const load = await post('/loads', {
       pickup: { ...pickup, contact: pc.contact || pickup.contact || '', phone: pc.phone || pickup.phone || '', dockNote: pc.note },
       dropoff: { ...dropoff, contact: dc.contact || dropoff.contact || '', phone: dc.phone || dropoff.phone || '', dockNote: dc.note },
-      pickupWindow: { from: pf, to: Math.max(pf, new Date(to).getTime() || pf) },
+      pickupWindow: { from, to: Math.max(from, to) },
       deliveryWindow: appt ? { from: new Date(appt).getTime(), to: new Date(appt).getTime() + H } : null,
-      cargo: {
-        equipment: f.equipment, description: f.description || 'General freight', weightKg: f.weightKg, pallets: f.pallets,
-        tempC: f.equipment === 'reefer' ? Number(f.tempC) : null, hazmat: f.hazmat, valueCad: f.valueCad,
-      },
-      options: opts, poNumber: f.poNumber, customer: f.customer, rate: f.rate,
-      driverId: chosen, teamDriverId: teamId || undefined, truckId: chosenTruck, trailerId: trailerId || undefined,
+      cargo: { equipment: f.equipment, description: f.description || 'General freight', weightKg: f.weightKg, pallets: f.pallets, tempC: f.equipment === 'reefer' ? Number(f.tempC) : null, hazmat: f.hazmat, valueCad: f.valueCad },
+      options: opts, poNumber: f.poNumber, customer: f.customer, rate: f.rate || rateSuggest,
+      driverId: chosen, teamDriverId: teamId || undefined, truckId: chosenTruck, trailerId: chosenTrailer || undefined,
       instructions: steps, notes,
     });
     upsert('loads', load);
-    toast({ title: 'Route added', body: `${load.ref} · ${idx.users[chosen]?.name} · ${new Date(pf).toLocaleString('en-CA', { weekday: 'short', hour: 'numeric', minute: '2-digit' })}` });
+    toast({ title: 'Route added', body: `${load.ref} · ${idx.users[chosen]?.name} · ${new Date(from).toLocaleString('en-CA', { weekday: 'short', hour: 'numeric', minute: '2-digit' })}` });
     onDone(load);
   };
 
-  const Stop = ({ kind, value, onChange, c, setC }) => (
-    <div className="route-stop">
-      <PlacePicker kind={kind} value={value} onChange={onChange} placeholder={kind === 'pickup' ? 'Pick up from — warehouse, street or city' : 'Deliver to'} autoFocus={kind === 'pickup'} />
-      <div className="grid grid-3" style={{ gap: 8 }}>
+  const Contact = ({ c, setC, open, setOpen }) => (open
+    ? (
+      <div className="ar-contact">
         <input className="input" placeholder="Contact name" value={c.contact} onChange={(e) => setC({ ...c, contact: e.target.value })} />
         <input className="input" placeholder="Phone" value={c.phone} onChange={(e) => setC({ ...c, phone: e.target.value })} />
-        <input className="input" placeholder="Dock / gate note" value={c.note} onChange={(e) => setC({ ...c, note: e.target.value })} />
+        <input className="input" placeholder="Dock, door or gate code" value={c.note} onChange={(e) => setC({ ...c, note: e.target.value })} />
       </div>
-    </div>
+    )
+    : <button type="button" className="ar-link" onClick={() => setOpen(true)}><Icon name="plus" size={13} stroke={2.4} />Contact, phone & dock</button>);
+  const Section = ({ n, title, sub, children }) => (
+    <section className="ar-sec">
+      <header><span className="ar-n">{n}</span><div><div className="headline">{title}</div>{sub && <div className="footnote secondary">{sub}</div>}</div></header>
+      <div className="ar-body">{children}</div>
+    </section>
   );
 
   return (
     <Sheet title="Add route" onClose={onClose} wide>
-      <div className="route-form">
-        <section>
-          <h4>Stops</h4>
-          {Stop({ kind: 'pickup', value: pickup, onChange: setPickup, c: pc, setC: setPc })}
-          {Stop({ kind: 'dropoff', value: dropoff, onChange: setDropoff, c: dc, setC: setDc })}
-          {dist && <div className="footnote secondary">About <b>{km(dist)}</b> · {duration(driveH)} driving · arrives around <b>{new Date(estArrival).toLocaleString('en-CA', { weekday: 'short', hour: 'numeric', minute: '2-digit' })}</b></div>}
-        </section>
-
-        <section>
-          <h4>Timing</h4>
-          <div className="grid grid-3">
-            <Field label="Pickup window — from"><input className="input" type="datetime-local" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
-            <Field label="Pickup window — to"><input className="input" type="datetime-local" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
-            <Field label="Delivery appointment (optional)"><input className="input" type="datetime-local" value={appt} onChange={(e) => setAppt(e.target.value)} /></Field>
-          </div>
-        </section>
-
-        <section>
-          <h4>Driver & truck</h4>
-          <div className="grid grid-3">
-            <Field label="Driver">
-              <select className="select" value={chosen} onChange={(e) => { setDriverId(e.target.value); setTruckId(''); }}>
-                {drivers.map(({ d, t, km0, free }) => (
-                  <option key={d.id} value={d.id} disabled={!t}>{d.name}{t ? ` · Unit ${t.unit}` : ' · no truck'}{km0 != null ? ` · ${Math.round(km0)} km away` : ''}{!free ? ' · on a job' : ''}</option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Team driver (optional)">
-              <select className="select" value={teamId} onChange={(e) => setTeamId(e.target.value)}>
-                <option value="">None</option>
-                {drivers.filter(({ d }) => d.id !== chosen).map(({ d, free }) => <option key={d.id} value={d.id} disabled={!free}>{d.name}{!free ? ' · on a job' : ''}</option>)}
-              </select>
-            </Field>
-            <Field label="Trailer unit">
-              <select className="select" value={trailerId} onChange={(e) => setTrailerId(e.target.value)}>
-                <option value="">Pick automatically</option>
-                {(data.trailers || []).map((t) => <option key={t.id} value={t.id} disabled={t.status === 'shop'}>{t.unit} · {data.meta.equipment[t.equipment]?.label}{t.status === 'shop' ? ' · in shop' : ''}</option>)}
-              </select>
-            </Field>
-            <Field label="Truck">
-              <select className="select" value={chosenTruck} onChange={(e) => setTruckId(e.target.value)}>
-                {data.trucks.map((t) => <option key={t.id} value={t.id}>Unit {t.unit} · {data.meta.equipment[t.equipment]?.label}</option>)}
-              </select>
-            </Field>
-          </div>
-          {idx.trucks[chosenTruck] && idx.trucks[chosenTruck].equipment !== f.equipment && <div className="footnote orange">Unit {idx.trucks[chosenTruck].unit} pulls a {data.meta.equipment[idx.trucks[chosenTruck].equipment]?.label}, not a {data.meta.equipment[f.equipment].label}.</div>}
-        </section>
-
-        <section>
-          <h4>Freight</h4>
-          <div className="grid grid-3">
-            <Field label="Trailer">
-              <select className="select" value={f.equipment} onChange={set('equipment')}>
-                {Object.entries(data.meta.equipment).map(([k, e]) => <option key={k} value={k}>{e.label}</option>)}
-              </select>
-            </Field>
-            <Field label="What is it?"><input className="input" value={f.description} onChange={set('description')} placeholder="e.g. Steel coils" /></Field>
-            <Field label="Customer"><input className="input" value={f.customer} onChange={set('customer')} placeholder="Who is it for?" /></Field>
-            <Field label="Weight (kg)"><input className="input" type="number" value={f.weightKg} onChange={set('weightKg')} /></Field>
-            <Field label="Pallets"><input className="input" type="number" value={f.pallets} onChange={set('pallets')} /></Field>
-            <Field label="PO / reference"><input className="input" value={f.poNumber} onChange={set('poNumber')} /></Field>
-            {f.equipment === 'reefer' && <Field label="Keep at (°C)"><input className="input" type="number" value={f.tempC} onChange={set('tempC')} /></Field>}
-            <Field label="Declared value ($)"><input className="input" type="number" value={f.valueCad} onChange={set('valueCad')} /></Field>
-            <Field label={`Rate you're paid ($)${rateSuggest ? ` · suggested ${rateSuggest.toLocaleString()}` : ''}`}><input className="input" type="number" value={f.rate} onChange={set('rate')} placeholder={rateSuggest ? String(rateSuggest) : ''} /></Field>
-          </div>
-          <div className="row wrap" style={{ gap: 18 }}>
-            <label className="row" style={{ gap: 8 }}><Switch checked={f.hazmat} onChange={(v) => setF((x) => ({ ...x, hazmat: v }))} label="Hazmat" />Hazmat</label>
-            <label className="row" style={{ gap: 8 }}><Switch checked={opts.liftgate} onChange={(v) => setOpts((o) => ({ ...o, liftgate: v }))} label="Liftgate" />Liftgate needed</label>
-            <label className="row" style={{ gap: 8 }}><Switch checked={opts.expedite} onChange={(v) => setOpts((o) => ({ ...o, expedite: v }))} label="Expedite" />Expedited</label>
-          </div>
-        </section>
-
-        <section>
-          <h4>Task details for the driver</h4>
-          <div className="stack-sm">
-            {steps.map((st, i) => (
-              <div key={i} className="row">
-                <span className="step-num" style={{ width: 22, height: 22, fontSize: '0.75rem' }}>{i + 1}</span>
-                <input className="input" value={st} placeholder={['Check in at the gate and show the PO', 'Count pallets with the shipper', 'Strap and tarp the load'][i] || 'Next step'}
-                  onChange={(e) => setSteps((x) => x.map((y, k) => (k === i ? e.target.value : y)))} />
-                {steps.length > 1 && <button className="icon-btn" aria-label="Remove step" onClick={() => setSteps((x) => x.filter((_, k) => k !== i))}><Icon name="close" size={14} /></button>}
+      <div className="ar">
+        <div className="ar-main">
+          {Section({ n: 1, title: 'Route', sub: 'Search a saved place or type any address', children: (
+            <div className="ar-stops">
+              <div className="ar-stop">
+                <PlacePicker kind="pickup" value={pickup} onChange={setPickup} placeholder="Pickup address" autoFocus />
+                {Contact({ c: pc, setC: setPc, open: showPc, setOpen: setShowPc })}
               </div>
-            ))}
-            <button className="btn small" style={{ alignSelf: 'flex-start' }} onClick={() => setSteps((x) => [...x, ''])}><Icon name="plus" size={14} stroke={2.4} />Add step</button>
-          </div>
-          <Field label="Notes"><textarea className="textarea" style={{ minHeight: 64 }} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Anything else the driver should know" /></Field>
-        </section>
+              <div className="ar-stop">
+                <PlacePicker kind="dropoff" value={dropoff} onChange={setDropoff} placeholder="Delivery address" />
+                {Contact({ c: dc, setC: setDc, open: showDc, setOpen: setShowDc })}
+              </div>
+            </div>
+          ) })}
 
-        <div className="row" style={{ justifyContent: 'flex-end', gap: 8, position: 'sticky', bottom: 0, background: 'var(--bg)', padding: '12px 0 2px' }}>
-          <button className="btn" onClick={onClose}>Cancel</button>
-          <ActionButton className="btn primary large" disabled={!pickup || !dropoff || !chosen || !from} onClick={save}>
-            <Icon name="plus" size={16} stroke={2.4} />Add route
-          </ActionButton>
+          {Section({ n: 2, title: 'Schedule', sub: 'When the truck should be at the pickup', children: (
+            <>
+              <div className="ar-row3">
+                <Field label="Pickup date"><input className="input" type="date" value={pDate} onChange={(e) => setPDate(e.target.value)} /></Field>
+                <Field label="Window opens"><input className="input" type="time" value={pFrom} onChange={(e) => setPFrom(e.target.value)} /></Field>
+                <Field label="Window closes"><input className="input" type="time" value={pTo} onChange={(e) => setPTo(e.target.value)} /></Field>
+              </div>
+              <Field label="Delivery appointment (optional)"><input className="input" type="datetime-local" value={appt} onChange={(e) => setAppt(e.target.value)} /></Field>
+            </>
+          ) })}
+
+          {Section({ n: 3, title: 'Assignment', sub: 'Best match is picked for you', children: (
+            <>
+              <Field label="Driver">
+                <select className="select" value={chosen} onChange={(e) => { setDriverId(e.target.value); setTruckId(''); }}>
+                  {drivers.map(({ d, t, km0, free, off, shift }) => (
+                    <option key={d.id} value={d.id} disabled={!t}>
+                      {d.name}{t ? ` · Unit ${t.unit}` : ' · no truck'}{km0 != null ? ` · ${Math.round(km0)} km away` : ''}{off ? ' · time off' : !shift ? ' · day off' : ''}{!free ? ' · on a job' : ''}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              {chosenRow && (chosenRow.off || !chosenRow.shift) && <div className="footnote orange">{chosenRow.d.name} is {chosenRow.off ? 'on time off' : 'not scheduled to work'} that day.</div>}
+              <div className="ar-row2">
+                <Field label="Truck">
+                  <select className="select" value={chosenTruck} onChange={(e) => setTruckId(e.target.value)}>
+                    {data.trucks.map((t) => <option key={t.id} value={t.id}>Unit {t.unit} · {t.make}</option>)}
+                  </select>
+                </Field>
+                <Field label="Trailer">
+                  <select className="select" value={chosenTrailer} onChange={(e) => setTrailerId(e.target.value)}>
+                    <option value="">No trailer</option>
+                    {(data.trailers || []).map((t) => <option key={t.id} value={t.id} disabled={t.status === 'shop' || inUseTrailers.has(t.id)}>{t.unit} · {data.meta.equipment[t.equipment]?.label}{t.status === 'shop' ? ' · in shop' : inUseTrailers.has(t.id) ? ' · in use' : ''}</option>)}
+                  </select>
+                </Field>
+              </div>
+              {showTeam ? (
+                <Field label="Team driver">
+                  <select className="select" value={teamId} onChange={(e) => setTeamId(e.target.value)}>
+                    <option value="">None</option>
+                    {drivers.filter(({ d }) => d.id !== chosen).map(({ d, free }) => <option key={d.id} value={d.id} disabled={!free}>{d.name}{!free ? ' · on a job' : ''}</option>)}
+                  </select>
+                </Field>
+              ) : <button type="button" className="ar-link" onClick={() => setShowTeam(true)}><Icon name="plus" size={13} stroke={2.4} />Add a team driver</button>}
+            </>
+          ) })}
+
+          {Section({ n: 4, title: 'Freight', children: (
+            <>
+              <div className="ar-eq">
+                {Object.entries(data.meta.equipment).map(([k, e]) => (
+                  <button key={k} type="button" className={`ar-eq-btn ${f.equipment === k ? 'on' : ''}`} onClick={() => setF((x) => ({ ...x, equipment: k }))}>
+                    <i style={{ background: EQ_COLOR[k] }} />{e.label}
+                  </button>
+                ))}
+              </div>
+              <div className="ar-row2">
+                <Field label="What is it?"><input className="input" value={f.description} onChange={set('description')} placeholder="e.g. 22 pallets of paper" /></Field>
+                <Field label="Customer"><input className="input" value={f.customer} onChange={set('customer')} placeholder="Who it's for" /></Field>
+              </div>
+              <div className="ar-row3">
+                <Field label="Weight (kg)"><input className="input" type="number" value={f.weightKg} onChange={set('weightKg')} /></Field>
+                <Field label="Pallets"><input className="input" type="number" value={f.pallets} onChange={set('pallets')} /></Field>
+                <Field label="PO / reference"><input className="input" value={f.poNumber} onChange={set('poNumber')} /></Field>
+              </div>
+              {moreFreight ? (
+                <>
+                  <div className="ar-row3">
+                    {f.equipment === 'reefer' && <Field label="Keep at (°C)"><input className="input" type="number" value={f.tempC} onChange={set('tempC')} /></Field>}
+                    <Field label="Declared value ($)"><input className="input" type="number" value={f.valueCad} onChange={set('valueCad')} /></Field>
+                  </div>
+                  <div className="row wrap" style={{ gap: 18 }}>
+                    <label className="row" style={{ gap: 8 }}><Switch checked={f.hazmat} onChange={(v) => setF((x) => ({ ...x, hazmat: v }))} label="Hazmat" />Hazmat</label>
+                    <label className="row" style={{ gap: 8 }}><Switch checked={opts.liftgate} onChange={(v) => setOpts((o) => ({ ...o, liftgate: v }))} label="Liftgate" />Liftgate</label>
+                    <label className="row" style={{ gap: 8 }}><Switch checked={opts.expedite} onChange={(v) => setOpts((o) => ({ ...o, expedite: v }))} label="Expedited" />Expedited</label>
+                  </div>
+                </>
+              ) : <button type="button" className="ar-link" onClick={() => setMoreFreight(true)}><Icon name="plus" size={13} stroke={2.4} />Temperature, value, hazmat, liftgate…</button>}
+            </>
+          ) })}
+
+          {Section({ n: 5, title: 'Instructions for the driver', sub: 'Shown step by step on their phone', children: (
+            <>
+              {steps.map((st, i) => (
+                <div key={i} className="ar-step">
+                  <span>{i + 1}</span>
+                  <input className="input" value={st} placeholder={['Check in at the gate and show the PO', 'Count pallets with the shipper', 'Strap and tarp the load'][i] || 'Next step'}
+                    onChange={(e) => setSteps((x) => x.map((y, k) => (k === i ? e.target.value : y)))}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && st.trim()) { e.preventDefault(); setSteps((x) => [...x, '']); } }} />
+                  {steps.length > 1 && <button type="button" className="icon-btn" aria-label="Remove step" onClick={() => setSteps((x) => x.filter((_, k) => k !== i))}><Icon name="close" size={14} /></button>}
+                </div>
+              ))}
+              <button type="button" className="ar-link" onClick={() => setSteps((x) => [...x, ''])}><Icon name="plus" size={13} stroke={2.4} />Add step</button>
+              <textarea className="textarea" style={{ minHeight: 60 }} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Other notes (optional)" />
+            </>
+          ) })}
         </div>
+
+        <aside className="ar-side">
+          <div className="ar-map">
+            <MapView height={200} places={places} route={line} fitKey={`ar-${pickup?.lat}-${dropoff?.lat}`} padding={30} />
+          </div>
+          <div className="ar-sum">
+            <div className="ar-sum-route">
+              <RouteMini a={pickup} b={dropoff} />
+            </div>
+            <dl>
+              <div><dt>Distance</dt><dd>{dist ? km(dist) : '—'}</dd></div>
+              <div><dt>Driving</dt><dd>{dist ? duration(driveH) : '—'}</dd></div>
+              <div><dt>Pickup</dt><dd>{new Date(from).toLocaleString('en-CA', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</dd></div>
+              <div><dt>Arrives about</dt><dd>{arrival ? new Date(arrival).toLocaleString('en-CA', { weekday: 'short', hour: 'numeric', minute: '2-digit' }) : '—'}</dd></div>
+              <div><dt>Driver</dt><dd>{idx.users[chosen]?.name || '—'}{teamId ? ` + ${idx.users[teamId]?.name.split(' ')[0]}` : ''}</dd></div>
+              <div><dt>Equipment</dt><dd>{idx.trucks[chosenTruck] ? `Unit ${idx.trucks[chosenTruck].unit}` : '—'}{idx.trailers?.[chosenTrailer] ? ` · ${idx.trailers[chosenTrailer].unit}` : ''}</dd></div>
+            </dl>
+            <Field label={`Your rate ($)${rateSuggest ? ` · suggested ${rateSuggest.toLocaleString()}` : ''}`}>
+              <input className="input" type="number" value={f.rate} onChange={set('rate')} placeholder={rateSuggest ? String(rateSuggest) : 'Add stops to get a rate'} />
+            </Field>
+            {dist && <div className="footnote secondary">{money2(Number(f.rate || rateSuggest) / dist)} per km</div>}
+          </div>
+          <div className="ar-actions">
+            <button className="btn" onClick={onClose}>Cancel</button>
+            <ActionButton className="btn primary large" disabled={!pickup || !dropoff || !chosen || !pDate} onClick={save}>
+              <Icon name="plus" size={16} stroke={2.4} />Add route
+            </ActionButton>
+          </div>
+          {(!pickup || !dropoff) && <div className="footnote tertiary" style={{ textAlign: 'center' }}>Add a pickup and delivery to continue.</div>}
+        </aside>
       </div>
     </Sheet>
+  );
+}
+
+function RouteMini({ a, b }) {
+  return (
+    <div className="route-line">
+      <div className="dots"><i /><b /><i className="end" /></div>
+      <div className="stack" style={{ gap: 10 }}>
+        <div><div className="headline truncate">{a ? a.name : 'Pickup'}</div><div className="footnote secondary truncate">{a ? `${a.address}${a.city ? `, ${a.city}` : ''}` : 'Not set'}</div></div>
+        <div><div className="headline truncate">{b ? b.name : 'Delivery'}</div><div className="footnote secondary truncate">{b ? `${b.address}${b.city ? `, ${b.city}` : ''}` : 'Not set'}</div></div>
+      </div>
+    </div>
   );
 }
 
@@ -601,7 +681,7 @@ function ScheduleView({ days, trips, now, onEvent }) {
   const tripsOf = (id) => trips.filter((t) => t.load.driverId === id || (t.load.teamDriverIds || []).includes(id));
   const offOn = (d, day) => (d.timeOff || []).find((o) => o.from < day + 864e5 && o.to >= day);
   const pct = (t, day) => Math.max(0, Math.min(100, ((t - day) / 864e5) * 100));
-  const hoursPlanned = (d) => days.reduce((a, day) => a + ((d.schedule?.days || []).includes(new Date(day).getDay()) && !offOn(d, day) ? parseHM(d.schedule.end) - parseHM(d.schedule.start) : 0), 0);
+  const hoursPlanned = (d) => days.reduce((a, day) => a + (!offOn(d, day) ? shiftHours(daySchedule(d.schedule, new Date(day).getDay())) : 0), 0);
 
   return (
     <div className="sched">
@@ -634,13 +714,14 @@ function ScheduleView({ days, trips, now, onEvent }) {
                 <button className="icon-btn" aria-label={`Edit ${drv.name}'s schedule`} title="Edit schedule" onClick={() => setEdit(drv)}><Icon name="gear" size={15} /></button>
               </div>
               {days.map((day) => {
-                const works = (drv.schedule?.days || []).includes(new Date(day).getDay());
+                const shift = daySchedule(drv.schedule, new Date(day).getDay());
+                const works = !!shift;
                 const off = offOn(drv, day);
-                const s0 = parseHM(drv.schedule?.start); const s1 = parseHM(drv.schedule?.end);
+                const s0 = shift ? parseHM(shift.start) : 0; const s1raw = shift ? parseHM(shift.end) : 0; const s1 = s1raw <= s0 ? 24 : s1raw;
                 const segs = mine.filter((t) => t.start < day + 864e5 && t.end > day);
                 return (
                   <div key={day} className={`sched-cell ${!works ? 'rest' : ''} ${sameDay(day, now) ? 'today' : ''}`} style={{ minHeight: who === 'all' ? 64 : 160 }}>
-                    {works && !off && <div className="sched-shift" style={{ left: `${(s0 / 24) * 100}%`, width: `${((s1 - s0) / 24) * 100}%` }} title={`Shift ${drv.schedule.start}–${drv.schedule.end}`} />}
+                    {works && !off && <div className="sched-shift" style={{ left: `${(s0 / 24) * 100}%`, width: `${((s1 - s0) / 24) * 100}%` }} title={`Shift ${shift.start}–${shift.end}`} />}
                     {off && <div className="sched-off">{off.reason || 'Time off'}</div>}
                     {!works && !off && <div className="sched-restlabel">Off</div>}
                     {segs.map((t, i) => (

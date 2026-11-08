@@ -6,6 +6,7 @@ import { StatusIcon } from './LoadList.jsx';
 import { useStore, useIndex, useNow } from '../lib/store.jsx';
 import { go } from '../lib/router.js';
 import { placeShort, ago, km } from '../lib/format.js';
+import { driverAlerts } from '../lib/drivers.js';
 
 function useOutside(ref, onOut) {
   useEffect(() => {
@@ -190,14 +191,21 @@ function useNotifications() {
         items.push({ id: m.id, t: m.t, title: `Message from ${m.name}`, body: m.text, load: l, kind: 'message' });
       }
     }
+    // Licences and records expiring within 30 days (dispatch sees everyone; a driver sees their own).
+    for (const u of data.users.filter((x) => x.role === 'driver' && (me.role === 'dispatcher' || x.id === me.id))) {
+      for (const al of driverAlerts(u)) {
+        items.push({ id: al.id, t: Math.min(Date.now(), al.at - 30 * 864e5), title: `${al.label} ${al.level === 'expired' ? 'expired' : 'expiring'}`, body: `${u.name} — ${al.text.toLowerCase()}`, driver: u, kind: 'expiry', warn: true, pin: true });
+      }
+    }
     for (const tr of data.trucks) {
       for (const n of tr.notes || []) {
         if (n.by === me.name) continue;
         items.push({ id: n.id, t: n.t, title: `Note on Unit ${tr.unit}`, body: n.text, truck: tr, kind: 'note' });
       }
     }
-    return items.sort((a, b) => b.t - a.t).slice(0, 40);
-  }, [data.loads, data.trucks, me]);
+    // Licence/record alerts stay pinned at the top until they're dealt with.
+    return items.sort((a, b) => (b.pin ? 1 : 0) - (a.pin ? 1 : 0) || b.t - a.t).slice(0, 40);
+  }, [data.loads, data.trucks, data.users, me]);
 }
 
 export function NotificationBell() {
@@ -216,7 +224,7 @@ export function NotificationBell() {
   const box = useRef(null);
   useOutside(box, () => setOpen(false));
 
-  const isUnread = (n) => unreadIds.has(n.id) || (n.t > seen && !readIds.has(n.id));
+  const isUnread = (n) => unreadIds.has(n.id) || ((n.pin || n.t > seen) && !readIds.has(n.id));
   const unread = items.filter(isUnread).length;
   const persist = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* ignore */ } };
   const setRead = (n, read) => {
@@ -237,6 +245,7 @@ export function NotificationBell() {
     setOpen(false);
     if (n.load) go(`/loads/${n.load.id}`);
     else if (n.truck) { sessionStorage.setItem('rugo.fleetSel', n.truck.id); go('/fleet'); window.dispatchEvent(new Event('rugo:fleet-select')); }
+    else if (n.driver) { try { sessionStorage.setItem('rugo.openDriver', n.driver.id); } catch { /* ignore */ } go(data.me.role === 'dispatcher' ? '/drivers' : '/settings'); window.dispatchEvent(new Event('rugo:open-driver')); }
   };
 
   return (
@@ -259,12 +268,12 @@ export function NotificationBell() {
                 <div key={n.id} className={`pop-item notif ${un ? 'unread' : ''}`} role="button" tabIndex={0}
                   onClick={() => openItem(n)} onKeyDown={(e) => e.key === 'Enter' && openItem(n)}>
                   <span className="pop-icon">
-                    {n.kind === 'message' ? <Icon name="message" size={15} /> : n.kind === 'note' ? <Icon name="doc" size={15} /> : <StatusIcon status={n.kind} />}
+                    {n.kind === 'message' ? <Icon name="message" size={15} /> : n.kind === 'note' ? <Icon name="doc" size={15} /> : n.kind === 'expiry' ? <Icon name="warning" size={15} style={{ color: 'var(--orange)' }} /> : <StatusIcon status={n.kind} />}
                   </span>
                   <span className="pop-text">
                     <span className={n.warn ? 'orange' : ''} style={{ fontWeight: un ? 600 : 500 }}>{n.title}</span>
                     <span className="pop-sub" style={{ whiteSpace: 'normal' }}>{n.load ? <><span className="mono">{n.load.ref}</span> · </> : null}{n.body}</span>
-                    <span className="caption tertiary">{ago(n.t)}</span>
+                    <span className="caption tertiary">{n.pin ? 'Needs attention' : ago(n.t)}</span>
                   </span>
                   <button className={`btn small notif-read ${un ? '' : 'done'}`} onClick={(e) => { e.stopPropagation(); setRead(n, un); }}
                     aria-label={un ? 'Mark as read' : 'Mark as unread'}>

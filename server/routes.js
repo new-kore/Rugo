@@ -8,6 +8,19 @@ import {
   gpsUpdate, clockIn, clockOut, nextRef, newLoadShell, publicUser, updateEta, trailerInUse,
 } from './fleet.js';
 
+/** Weekly schedule: { 0..6: { start: 'HH:MM', end: 'HH:MM' } | null }. Accepts the older { days, start, end } shape too. */
+const HM = /^([01]\d|2[0-3]):[0-5]\d$/;
+export function normSchedule(s) {
+  if (!s) return null;
+  const out = {};
+  if (Array.isArray(s.days)) { for (let d = 0; d < 7; d++) out[d] = s.days.map(Number).includes(d) ? { start: s.start || '07:00', end: s.end || '17:00' } : null; return out; }
+  for (let d = 0; d < 7; d++) {
+    const v = s[d] ?? s[String(d)];
+    out[d] = v && HM.test(v.start) && HM.test(v.end) ? { start: v.start, end: v.end } : null;
+  }
+  return out;
+}
+
 const driverBusy = (driverId, exceptLoadId) => db.loads.some((l) => l.id !== exceptLoadId && ACTIVE.includes(l.status) && (l.driverId === driverId || (l.teamDriverIds || []).includes(driverId)));
 
 export function routes(app) {
@@ -394,7 +407,7 @@ export function routes(app) {
       password: hashPassword(b.password || 'demo'), color: COLORS[db.users.length % COLORS.length], status: 'available',
       payType: b.payType === 'per_km' ? 'per_km' : 'hourly', hourlyRate: Number(b.hourlyRate) || 32, perKmRate: Number(b.perKmRate) || 0.62,
       truckId: b.truckId || null, licenseClass: b.licenseClass || 'AZ', hireDate: Date.now(), rating: null, locationSource: 'sim',
-    schedule: b.schedule || { days: [1, 2, 3, 4, 5], start: '07:00', end: '17:00' }, timeOff: [], documents: [],
+    schedule: normSchedule(b.schedule || { days: [1, 2, 3, 4, 5], start: '07:00', end: '17:00' }), timeOff: [], documents: [], licenseNumber: b.licenseNumber || '',
     licenseExpiry: b.licenseExpiry ? Number(b.licenseExpiry) : null,
     };
     db.users.push(u);
@@ -412,7 +425,8 @@ export function routes(app) {
     for (const k of ['name', 'phone', 'licenseClass']) if (b[k] !== undefined) u[k] = String(b[k]);
     if (b.email && !db.users.some((x) => x.id !== u.id && x.email.toLowerCase() === String(b.email).toLowerCase())) u.email = String(b.email);
     if (b.licenseExpiry !== undefined) u.licenseExpiry = b.licenseExpiry ? Number(b.licenseExpiry) : null;
-    if (b.schedule) u.schedule = { days: (b.schedule.days || []).map(Number).filter((x) => x >= 0 && x <= 6), start: String(b.schedule.start || '07:00'), end: String(b.schedule.end || '17:00') };
+    if (b.schedule) u.schedule = normSchedule(b.schedule);
+    if (b.licenseNumber !== undefined) u.licenseNumber = String(b.licenseNumber).slice(0, 40);
     if (Array.isArray(b.timeOff)) u.timeOff = b.timeOff.filter((x) => x.from && x.to).map((x) => ({ id: x.id || id('off'), from: Number(x.from), to: Number(x.to), reason: String(x.reason || '') }));
     if (b.payType) u.payType = b.payType === 'per_km' ? 'per_km' : 'hourly';
     if (b.hourlyRate !== undefined) u.hourlyRate = Number(b.hourlyRate);

@@ -118,10 +118,13 @@ export async function seed() {
   }));
   db.trailers.push(...trailers);
   drivers.forEach((d, i) => {
-    d.schedule = { days: i % 3 === 2 ? [2, 3, 4, 5, 6] : [1, 2, 3, 4, 5], start: ['06:00', '07:00', '05:00'][i % 3], end: ['16:00', '18:00', '17:00'][i % 3] };
+    const base = [['06:00', '16:00'], ['07:00', '18:00'], ['05:00', '17:00']][i % 3];
+    const workDays = i % 3 === 2 ? [2, 3, 4, 5, 6] : [1, 2, 3, 4, 5];
+    d.schedule = Object.fromEntries([0, 1, 2, 3, 4, 5, 6].map((dow) => [dow, workDays.includes(dow) ? { start: base[0], end: dow === 5 && i % 2 === 0 ? '14:00' : base[1] } : null]));
+    d.licenseNumber = `${d.name.split(' ').pop()[0]}${Math.floor(rnd(1000, 9999))}-${Math.floor(rnd(10000, 99999))}-${Math.floor(rnd(10000, 99999))}`;
     d.timeOff = i === 4 ? [{ id: id('off'), from: Date.now() + 4 * D, to: Date.now() + 6 * D, reason: 'Vacation' }] : [];
     d.documents = [];
-    d.licenseExpiry = Date.now() + rnd(60, 900) * D;
+    d.licenseExpiry = i === 5 ? Date.now() + 18 * D : i === 3 ? Date.now() + 40 * D : Date.now() + rnd(120, 900) * D;
   });
 
   const mkLoad = (shipper, by, from, to, cargo, options, created, legToDrop) => {

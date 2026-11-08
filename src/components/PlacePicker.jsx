@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import Icon from './Icon.jsx';
-import { searchLocal, searchRemote, searchGoogle, resolveGoogle } from '../lib/places.js';
+import { searchLocal, searchRemote, searchGoogle, resolveGoogle, geocodeFree } from '../lib/places.js';
 import { placeShort } from '../lib/format.js';
 
 export default function PlacePicker({ value, onChange, placeholder, kind, autoFocus }) {
@@ -13,7 +13,7 @@ export default function PlacePicker({ value, onChange, placeholder, kind, autoFo
   useEffect(() => {
     const ac = new AbortController();
     setRemote([]);
-    if (q.trim().length < 4) return undefined;
+    if (q.trim().length < 3) return undefined;
     setLoading(true);
     const t = setTimeout(async () => {
       const g = await searchGoogle(q);
@@ -31,11 +31,15 @@ export default function PlacePicker({ value, onChange, placeholder, kind, autoFo
 
   const local = searchLocal(q);
   const results = [...local, ...remote.filter((r) => r.google || !local.some((l) => Math.abs(l.lat - r.lat) < 0.001))].slice(0, 8);
+  const [err, setErr] = useState('');
   const choose = async (p) => {
-    setOpen(false); setQ('');
-    if (p.google) {
-      try { onChange(await resolveGoogle(p)); } catch { /* keep previous value */ }
-    } else onChange(p);
+    setOpen(false); setErr('');
+    try {
+      if (p.google) onChange(await resolveGoogle(p));
+      else if (p.freeText) { setLoading(true); onChange(await geocodeFree(p.freeText)); }
+      else onChange(p);
+      setQ('');
+    } catch (e) { setErr(e.message); setOpen(true); } finally { setLoading(false); }
   };
 
   return (
@@ -49,14 +53,16 @@ export default function PlacePicker({ value, onChange, placeholder, kind, autoFo
           </button>
         ) : (
           <input className="spacer" autoFocus={autoFocus || open} style={{ border: 0, background: 'none', outline: 'none', fontSize: '1.0625rem', height: 56, minWidth: 0 }}
-            placeholder={placeholder} value={q} onChange={(e) => { setQ(e.target.value); setOpen(true); }} onFocus={() => setOpen(true)} />
+            placeholder={placeholder} value={q} onChange={(e) => { setQ(e.target.value); setOpen(true); setErr(''); }} onFocus={() => setOpen(true)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (results[0] && q.trim().length < 4) choose(results[0]); else if (q.trim()) choose(results[0] && results[0].google ? results[0] : { freeText: q }); } }} />
         )}
         {loading && <span className="spinner" style={{ color: 'var(--label-3)' }} />}
         {value && !open && <button className="icon-btn" style={{ width: 28, height: 28 }} aria-label="Change" onClick={() => setOpen(true)}><Icon name="search" size={15} /></button>}
       </div>
       {open && (
         <div className="list glass" style={{ position: 'absolute', zIndex: 600, left: 0, right: 0, top: 'calc(100% + 6px)', maxHeight: 360, overflowY: 'auto' }}>
-          {results.length === 0 && <div className="list-row secondary subhead">{loading ? 'Searching…' : 'No places found. Try a street and city.'}</div>}
+          {err && <div className="list-row subhead red">{err}</div>}
+          {results.length === 0 && !q.trim() && <div className="list-row secondary subhead">Start typing an address.</div>}
           {results.map((p, i) => (
             <button key={`${p.lat},${p.lng},${i}`} className="list-row indent" onClick={() => choose(p)}>
               <div className="icon-tile" style={{ background: p.remote ? 'var(--label-3)' : 'var(--blue)', borderRadius: 16 }}><Icon name={p.remote ? 'pin' : 'building'} size={17} /></div>
@@ -66,8 +72,18 @@ export default function PlacePicker({ value, onChange, placeholder, kind, autoFo
               </div>
             </button>
           ))}
+          {q.trim().length >= 4 && (
+            <button className="list-row indent" onClick={() => choose({ freeText: q })}>
+              <div className="icon-tile" style={{ background: 'var(--orange)', borderRadius: 16 }}><Icon name="plus" size={16} stroke={2.4} /></div>
+              <div className="label">
+                <div className="headline truncate">Use “{q.trim()}”</div>
+                <div className="footnote secondary">One-off address — located automatically</div>
+              </div>
+            </button>
+          )}
         </div>
       )}
+      {value?.approx && !open && <div className="caption orange" style={{ marginTop: 4 }}>Placed at the city centre — the exact street couldn’t be found offline.</div>}
     </div>
   );
 }

@@ -1,14 +1,17 @@
 // Drivers: list with pay and 7-day stats; full driver file with schedule, time off, documents, email and delete.
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Icon from '../../components/Icon.jsx';
-import { PageHead, Segmented, Avatar, Sheet, Field, ActionButton, ConfirmButton } from '../../components/ui.jsx';
+import { PageHead, Segmented, Avatar, Sheet, Field, ActionButton, ConfirmButton, Switch } from '../../components/ui.jsx';
 import { useStore, useIndex, isActive } from '../../lib/store.jsx';
 import { money, money2, num, date } from '../../lib/format.js';
 import { post, patch, del } from '../../lib/api.js';
 import { compressImage } from '../../lib/image.js';
+import { DAYS, weekSchedule, shiftHours, weeklyHours, scheduleText, expiry, driverAlerts } from '../../lib/drivers.js';
+import { scanLicence } from '../../lib/licenceScan.js';
+
+export { scheduleText };
 
 const WEEK = 7 * 864e5;
-const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export function driverStats(d, data, since = Date.now() - WEEK) {
   const shifts = data.shifts.filter((s) => s.driverId === d.id && (s.end || Date.now()) > since);
@@ -43,8 +46,19 @@ export function EmailButton({ email, small = true, label = 'Email' }) {
 export default function Drivers() {
   const { data, toast } = useStore();
   const idx = useIndex();
-  const [edit, setEdit] = useState(null);
+  const [edit, setEdit] = useState(() => {
+    // Opened from a notification (licence expiring).
+    let id = null; try { id = sessionStorage.getItem('rugo.openDriver'); sessionStorage.removeItem('rugo.openDriver'); } catch { /* ignore */ }
+    return id ? { __open: id } : null;
+  });
+  useEffect(() => {
+    const on = () => { let id = null; try { id = sessionStorage.getItem('rugo.openDriver'); sessionStorage.removeItem('rugo.openDriver'); } catch { /* ignore */ } if (id) setEdit({ __open: id }); };
+    window.addEventListener('rugo:open-driver', on);
+    return () => window.removeEventListener('rugo:open-driver', on);
+  }, []);
   const drivers = data.users.filter((u) => u.role === 'driver');
+  const editing = edit?.__open ? idx.users[edit.__open] : edit;
+  const attention = drivers.flatMap((d) => driverAlerts(d).map((a) => ({ ...a, d })));
   const onJob = new Set(data.loads.filter(isActive).flatMap((l) => [l.driverId, ...(l.teamDriverIds || [])]));
 
   return (
@@ -52,9 +66,19 @@ export default function Drivers() {
       <PageHead sub={`${drivers.length} drivers`}>
         <button className="btn primary" onClick={() => setEdit({})}><Icon name="plus" size={18} stroke={2.4} />Add driver</button>
       </PageHead>
+      {attention.length > 0 && (
+        <div className="card pad alert-card">
+          <Icon name="warning" size={18} />
+          <div className="spacer">
+            <div className="headline">{attention.length === 1 ? '1 record needs attention' : `${attention.length} records need attention`}</div>
+            <div className="footnote secondary">{attention.map((a) => `${a.d.name} — ${a.label.toLowerCase()} ${a.text.toLowerCase()}`).join(' · ')}</div>
+          </div>
+          <button className="btn small" onClick={() => setEdit(attention[0].d)}>Review</button>
+        </div>
+      )}
       <div className="card table-wrap">
         <table className="table">
-          <thead><tr><th>Driver</th><th>Status</th><th>Truck</th><th>Pay</th><th>Schedule</th><th className="r">Hours (7d)</th><th className="r">km (7d)</th><th className="r">Earned (7d)</th><th>Records</th><th /></tr></thead>
+          <thead><tr><th>Driver</th><th>Status</th><th>Truck</th><th>Pay</th><th>Schedule</th><th>Licence</th><th className="r">Hours (7d)</th><th className="r">km (7d)</th><th className="r">Earned (7d)</th><th>Records</th><th /></tr></thead>
           <tbody>
             {drivers.map((d) => {
               const s = driverStats(d, data);
@@ -68,7 +92,8 @@ export default function Drivers() {
                   <td><span className={`pill ${st[0]}`}>{st[1]}</span></td>
                   <td>{idx.trucks[d.truckId] ? `Unit ${idx.trucks[d.truckId].unit}` : '—'}</td>
                   <td>{d.payType === 'per_km' ? `${money2(d.perKmRate)}/km` : `${money2(d.hourlyRate)}/h`}</td>
-                  <td className="footnote">{scheduleText(d.schedule)}</td>
+                  <td className="footnote" style={{ whiteSpace: 'normal', maxWidth: 220 }}>{scheduleText(d.schedule)}</td>
+                  <td><LicencePill driver={d} /></td>
                   <td className="r">{num(s.hours, 1)}</td>
                   <td className="r">{num(s.kms)}</td>
                   <td className="r">{money(s.pay)}</td>
@@ -92,21 +117,28 @@ export default function Drivers() {
           </tbody>
         </table>
       </div>
-      {edit && <DriverSheet driver={edit} onClose={() => setEdit(null)} />}
+      {editing && <DriverSheet driver={editing} onClose={() => setEdit(null)} />}
     </div>
   );
 }
 
-export const scheduleText = (s) => {
-  if (!s) return '—';
-  const days = [...s.days].sort();
-  const run = days.length && days.every((d, i) => i === 0 || d === days[i - 1] + 1);
-  const dayText = days.length === 7 ? 'Every day' : run && days.length > 2 ? `${DAYS[days[0]]}–${DAYS[days[days.length - 1]]}` : days.map((d) => DAYS[d]).join(', ');
-  return `${dayText} · ${s.start}–${s.end}`;
-};
+
+export function LicencePill({ driver }) {
+  const e = expiry(driver.licenseExpiry);
+  const tone = { expired: 'red', soon: 'orange', ok: 'green', none: 'gray' }[e.level];
+  const text = e.level === 'ok' ? `Valid · ${new Date(driver.licenseExpiry).toLocaleDateString('en-CA', { month: 'short', year: 'numeric' })}` : e.level === 'none' ? 'No expiry' : e.text;
+  return <span className={`pill ${tone}`} title={e.text}>{e.level !== 'ok' && e.level !== 'none' && <Icon name="warning" size={12} />}{text}</span>;
+}
 
 const toLocalDate = (t) => { if (!t) return ''; const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
-const fromLocalDate = (s) => (s ? new Date(`${s}T00:00`).getTime() : null);
+const fromLocalDate = (str) => (str ? new Date(`${str}T00:00`).getTime() : null);
+const PRESETS = [
+  { label: 'Mon–Fri 7–5', week: { 1: ['07:00', '17:00'], 2: ['07:00', '17:00'], 3: ['07:00', '17:00'], 4: ['07:00', '17:00'], 5: ['07:00', '17:00'] } },
+  { label: '4 × 10 h', week: { 1: ['06:00', '16:00'], 2: ['06:00', '16:00'], 3: ['06:00', '16:00'], 4: ['06:00', '16:00'] } },
+  { label: 'Nights', week: { 0: ['20:00', '06:00'], 1: ['20:00', '06:00'], 2: ['20:00', '06:00'], 3: ['20:00', '06:00'], 4: ['20:00', '06:00'] } },
+  { label: 'Weekends', week: { 5: ['08:00', '18:00'], 6: ['08:00', '18:00'], 0: ['08:00', '18:00'] } },
+];
+const fromPreset = (p) => Object.fromEntries([0, 1, 2, 3, 4, 5, 6].map((d) => [d, p.week[d] ? { start: p.week[d][0], end: p.week[d][1] } : null]));
 
 export function DriverSheet({ driver, onClose }) {
   const { data, upsert, toast } = useStore();
@@ -114,123 +146,249 @@ export function DriverSheet({ driver, onClose }) {
   const [current, setCurrent] = useState(driver);
   const isNew = !current.id;
   const live = current.id ? idx.users[current.id] || current : current;
-  const domain = (data.users.find((u) => u.id === data.me.id)?.email || data.me.email || '').split('@')[1] || 'example.com';
+  const [tab, setTab] = useState('profile');
+  const domain = (data.me.email || '').split('@')[1] || 'example.com';
   const takenTrucks = new Set(data.users.filter((u) => u.role === 'driver' && u.id !== current.id && u.truckId).map((u) => u.truckId));
   const freeTruck = data.trucks.find((t) => !takenTrucks.has(t.id));
 
   // New drivers start fully filled in: email from the name, a free truck, standard pay and hours.
   const [f, setF] = useState(() => ({
-    name: '', email: '', phone: '', licenseClass: 'AZ', payType: 'hourly', hourlyRate: 32, perKmRate: 0.62,
-    truckId: isNew ? freeTruck?.id || '' : '', schedule: { days: [1, 2, 3, 4, 5], start: '07:00', end: '17:00' }, timeOff: [],
-    ...driver, licenseExpiry: toLocalDate(driver.licenseExpiry),
+    name: '', email: '', phone: '', licenseClass: 'AZ', licenseNumber: '', payType: 'hourly', hourlyRate: 32, perKmRate: 0.62,
+    truckId: isNew ? freeTruck?.id || '' : '', timeOff: [],
+    ...driver, schedule: weekSchedule(driver.schedule || { days: [1, 2, 3, 4, 5], start: '07:00', end: '17:00' }), licenseExpiry: toLocalDate(driver.licenseExpiry),
   }));
   const [emailTouched, setEmailTouched] = useState(!isNew);
+  const [scan, setScan] = useState(null); // { state: 'reading'|'done'|'failed', progress, result, dataUrl, fileName }
   const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }));
   const autoEmail = (name) => {
     const parts = name.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').split(/\s+/).filter(Boolean);
-    return parts.length ? `${parts[0].replace(/[^a-z-]/g, '')}${parts[1] ? `.${parts[parts.length - 1].replace(/[^a-z-]/g, '')}` : ''}@${domain}` : '';
+    return parts.length ? `${parts[0].replace(/[^a-z-]/g, '')}${parts.length > 1 ? `.${parts[parts.length - 1].replace(/[^a-z-]/g, '')}` : ''}@${domain}` : '';
   };
-  const onName = (e) => { const name = e.target.value; setF((x) => ({ ...x, name, email: emailTouched ? x.email : autoEmail(name) })); };
-  const toggleDay = (d) => setF((x) => ({ ...x, schedule: { ...x.schedule, days: x.schedule.days.includes(d) ? x.schedule.days.filter((y) => y !== d) : [...x.schedule.days, d] } }));
-  const [off, setOff] = useState({ from: '', to: '', reason: '' });
+  const setName = (name) => setF((x) => ({ ...x, name, email: emailTouched ? x.email : autoEmail(name) }));
+  const setDay = (d, v) => setF((x) => ({ ...x, schedule: { ...x.schedule, [d]: v } }));
+
+  // Licence scan: read the photo, fill the form, keep the file to attach on save.
+  const onLicence = async (file) => {
+    if (!file) return;
+    const dataUrl = await compressImage(file, 2000, 0.9);
+    setScan({ state: 'reading', progress: 0, dataUrl, fileName: file.name });
+    try {
+      const r = await scanLicence(dataUrl, (p) => setScan((s) => s && { ...s, progress: p }));
+      setScan({ state: 'done', result: r, dataUrl, fileName: file.name });
+      setF((x) => ({
+        ...x,
+        name: r.name && (isNew || !x.name) ? r.name : x.name,
+        email: r.name && !emailTouched && (isNew || !x.name) ? autoEmail(r.name) : x.email,
+        licenseNumber: r.licenseNumber || x.licenseNumber, licenseClass: r.licenseClass || x.licenseClass,
+        licenseExpiry: r.expiry || x.licenseExpiry,
+      }));
+    } catch {
+      setScan({ state: 'failed', dataUrl, fileName: file.name });
+    }
+  };
 
   const save = async () => {
     const body = { ...f, licenseExpiry: fromLocalDate(f.licenseExpiry) };
+    delete body.documents;
     const r = isNew ? await post('/drivers', body) : await patch(`/drivers/${current.id}`, body);
     upsert('users', r);
+    if (scan?.dataUrl) {
+      const withDoc = await post(`/drivers/${r.id}/documents`, { kind: 'licence', name: scan.fileName, dataUrl: scan.dataUrl, expires: body.licenseExpiry });
+      upsert('users', withDoc);
+      setScan(null);
+    }
     if (isNew) {
-      toast({ title: 'Driver added', body: `${f.name} can sign in with ${r.email} (password: demo). Now add their licence and abstract.` });
-      setCurrent(r); // stay open so records can be attached
+      toast({ title: 'Driver added', body: `${f.name} signs in with ${r.email} (password: demo).` });
+      setCurrent(r); setTab('records');
     } else {
       toast({ title: 'Saved', body: f.name });
       onClose();
     }
   };
 
+  const lic = expiry(fromLocalDate(f.licenseExpiry));
+  const alerts = isNew ? [] : driverAlerts(live);
+  const truck = idx.trucks[f.truckId];
+  const onJob = !isNew && data.loads.some((l) => ['accepted', 'en_route_pickup', 'at_pickup', 'in_transit', 'at_delivery'].includes(l.status) && (l.driverId === live.id || (l.teamDriverIds || []).includes(live.id)));
+  const tabs = [['profile', 'Profile'], ['pay', 'Pay'], ['schedule', 'Schedule'], ['timeoff', 'Time off'], ['records', 'Records']];
+
   return (
-    <Sheet title={isNew ? 'New driver' : f.name} onClose={onClose} wide>
-      <div className="route-form">
-        <section>
-          <h4>Profile</h4>
-          <div className="grid grid-2">
-            <Field label="Full name"><input className="input" value={f.name} onChange={onName} autoFocus={isNew} placeholder="First and last name" /></Field>
-            <Field label="Email (sign-in)">
-              <div className="row" style={{ gap: 6 }}>
-                <input className="input" type="email" value={f.email} onChange={(e) => { setEmailTouched(true); set('email')(e); }} />
-                {!isNew && <EmailButton email={live.email} small={false} />}
-              </div>
-            </Field>
-            <Field label="Phone"><input className="input" value={f.phone} onChange={set('phone')} placeholder="647-555-0100" /></Field>
-            <Field label="Licence class"><input className="input" value={f.licenseClass} onChange={set('licenseClass')} /></Field>
-            <Field label="Licence expiry"><input className="input" type="date" value={f.licenseExpiry} onChange={set('licenseExpiry')} /></Field>
-            <Field label="Assigned truck">
-              <select className="select" value={f.truckId || ''} onChange={set('truckId')}>
-                <option value="">No truck</option>
-                {data.trucks.map((t) => <option key={t.id} value={t.id}>Unit {t.unit} — {t.make} {t.model}{takenTrucks.has(t.id) ? ' · has a driver' : ''}</option>)}
-              </select>
-            </Field>
-          </div>
-        </section>
-
-        <section>
-          <h4>Pay</h4>
-          <Segmented block value={f.payType} onChange={(v) => setF((x) => ({ ...x, payType: v }))} options={[{ value: 'hourly', label: 'By the hour' }, { value: 'per_km', label: 'By the kilometre' }]} />
-          {f.payType === 'hourly'
-            ? <Field label="Hourly rate ($)"><input className="input" type="number" step="0.5" value={f.hourlyRate} onChange={set('hourlyRate')} /></Field>
-            : <Field label="Rate per km ($)"><input className="input" type="number" step="0.01" value={f.perKmRate} onChange={set('perKmRate')} /></Field>}
-        </section>
-
-        <section>
-          <h4>Schedule</h4>
-          <div className="row wrap" style={{ gap: 6 }}>
-            {DAYS.map((d, i) => (
-              <button key={d} type="button" className={`day-toggle ${f.schedule.days.includes(i) ? 'on' : ''}`} onClick={() => toggleDay(i)} aria-pressed={f.schedule.days.includes(i)}>{d}</button>
-            ))}
-          </div>
-          <div className="grid grid-2">
-            <Field label="Shift starts"><input className="input" type="time" value={f.schedule.start} onChange={(e) => setF((x) => ({ ...x, schedule: { ...x.schedule, start: e.target.value } }))} /></Field>
-            <Field label="Shift ends"><input className="input" type="time" value={f.schedule.end} onChange={(e) => setF((x) => ({ ...x, schedule: { ...x.schedule, end: e.target.value } }))} /></Field>
-          </div>
-          <div className="footnote secondary">Time off</div>
-          {(f.timeOff || []).map((o) => (
-            <div key={o.id || o.from} className="row" style={{ gap: 8 }}>
-              <span className="pill orange">{date(o.from)} – {date(o.to)}</span>
-              <span className="subhead spacer">{o.reason || 'Time off'}</span>
-              <button className="icon-btn" aria-label="Remove time off" onClick={() => setF((x) => ({ ...x, timeOff: x.timeOff.filter((y) => y !== o) }))}><Icon name="close" size={14} /></button>
+    <Sheet title={isNew ? 'New driver' : 'Driver'} onClose={onClose} wide>
+      <div className="dsheet">
+        <header className="dsheet-head">
+          <Avatar user={{ ...live, name: f.name || 'New driver' }} size="lg" />
+          <div className="spacer" style={{ minWidth: 0 }}>
+            <div className="title2 truncate">{f.name || 'New driver'}</div>
+            <div className="row wrap" style={{ gap: 6, marginTop: 4 }}>
+              {!isNew && <span className={`pill ${onJob ? 'blue' : 'green'}`}>{onJob ? 'On a job' : 'Available'}</span>}
+              <span className="pill gray">Class {f.licenseClass || '—'}</span>
+              {f.licenseExpiry && <span className={`pill ${{ expired: 'red', soon: 'orange', ok: 'green', none: 'gray' }[lic.level]}`}>{lic.text}</span>}
+              {truck && <span className="pill gray">Unit {truck.unit}</span>}
+              <span className="pill gray">{weeklyHours(f.schedule).toFixed(0)} h / week</span>
             </div>
-          ))}
-          <div className="row wrap" style={{ gap: 8 }}>
-            <input className="input" style={{ width: 160 }} type="date" value={off.from} onChange={(e) => setOff({ ...off, from: e.target.value })} aria-label="Time off from" />
-            <input className="input" style={{ width: 160 }} type="date" value={off.to} onChange={(e) => setOff({ ...off, to: e.target.value })} aria-label="Time off to" />
-            <input className="input" style={{ flex: 1, minWidth: 140 }} placeholder="Reason (vacation, medical…)" value={off.reason} onChange={(e) => setOff({ ...off, reason: e.target.value })} />
-            <button className="btn" disabled={!off.from} onClick={() => {
-              const from = fromLocalDate(off.from); const to = fromLocalDate(off.to || off.from) + 864e5 - 1;
-              setF((x) => ({ ...x, timeOff: [...(x.timeOff || []), { from, to, reason: off.reason }] })); setOff({ from: '', to: '', reason: '' });
-            }}><Icon name="plus" size={14} stroke={2.4} />Add time off</button>
           </div>
-        </section>
+          {!isNew && <div className="row" style={{ gap: 6 }}>
+            {live.phone && <a className="btn small" href={`tel:${live.phone}`}><Icon name="phone" size={14} />Call</a>}
+            <EmailButton email={live.email} />
+          </div>}
+        </header>
 
-        {!isNew && <Documents driver={live} />}
+        {alerts.length > 0 && (
+          <div className="alert-card card pad">
+            <Icon name="warning" size={18} />
+            <div className="spacer">{alerts.map((a) => <div key={a.id} className="subhead"><b>{a.label}</b> — {a.text.toLowerCase()}</div>)}</div>
+            <button className="btn small" onClick={() => setTab('records')}>Upload new</button>
+          </div>
+        )}
 
-        <div className="row" style={{ gap: 8, position: 'sticky', bottom: 0, background: 'var(--bg)', padding: '12px 0 2px' }}>
+        <nav className="dsheet-tabs" role="tablist">
+          {tabs.map(([k, label]) => (
+            <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)} disabled={isNew && k === 'records'}>
+              {label}{k === 'records' && alerts.length > 0 && <i className="dot-alert" />}
+            </button>
+          ))}
+        </nav>
+
+        <div className="dsheet-body">
+          {tab === 'profile' && (
+            <div className="stack">
+              <label className={`scan-drop ${scan?.state || ''}`}>
+                <Icon name="camera" size={22} />
+                <div className="spacer">
+                  <div className="headline">{scan?.state === 'reading' ? `Reading licence… ${Math.round((scan.progress || 0) * 100)}%` : scan?.state === 'done' ? 'Licence read — check the details below' : scan?.state === 'failed' ? 'Couldn’t read the text here — fill in the details below' : 'Scan driver’s licence'}</div>
+                  <div className="footnote secondary">{scan?.state === 'done'
+                    ? [scan.result.name && `Name: ${scan.result.name}`, scan.result.licenseNumber && `No. ${scan.result.licenseNumber}`, scan.result.expiry && `Expires ${scan.result.expiry}`].filter(Boolean).join(' · ') || 'Nothing recognised — fill in by hand.'
+                    : 'Upload a clear photo of the front. Name, licence number, class and expiry are filled in for you. The photo is saved to their records.'}</div>
+                </div>
+                {scan?.dataUrl && <img src={scan.dataUrl} alt="Licence" className="scan-thumb" />}
+                <input type="file" accept="image/*" capture="environment" onChange={(e) => { onLicence(e.target.files[0]); e.target.value = ''; }} />
+              </label>
+              <div className="grid grid-2">
+                <Field label="Full name"><input className="input" value={f.name} onChange={(e) => setName(e.target.value)} autoFocus={isNew} placeholder="First and last name" /></Field>
+                <Field label="Email (sign-in)"><input className="input" type="email" value={f.email} onChange={(e) => { setEmailTouched(true); set('email')(e); }} /></Field>
+                <Field label="Phone"><input className="input" value={f.phone} onChange={set('phone')} placeholder="647-555-0100" /></Field>
+                <Field label="Assigned truck">
+                  <select className="select" value={f.truckId || ''} onChange={set('truckId')}>
+                    <option value="">No truck</option>
+                    {data.trucks.map((t) => <option key={t.id} value={t.id}>Unit {t.unit} — {t.make} {t.model}{takenTrucks.has(t.id) ? ' · has a driver' : ''}</option>)}
+                  </select>
+                </Field>
+                <Field label="Licence number"><input className="input mono" value={f.licenseNumber || ''} onChange={set('licenseNumber')} placeholder="A1234-56789-01234" /></Field>
+                <div className="grid grid-2" style={{ gap: 12 }}>
+                  <Field label="Class"><input className="input" value={f.licenseClass} onChange={set('licenseClass')} /></Field>
+                  <Field label="Expiry"><input className="input" type="date" value={f.licenseExpiry} onChange={set('licenseExpiry')} /></Field>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {tab === 'pay' && (
+            <div className="stack">
+              <Segmented block value={f.payType} onChange={(v) => setF((x) => ({ ...x, payType: v }))} options={[{ value: 'hourly', label: 'By the hour' }, { value: 'per_km', label: 'By the kilometre' }]} />
+              {f.payType === 'hourly'
+                ? <Field label="Hourly rate ($)"><input className="input" type="number" step="0.5" value={f.hourlyRate} onChange={set('hourlyRate')} /></Field>
+                : <Field label="Rate per km ($)"><input className="input" type="number" step="0.01" value={f.perKmRate} onChange={set('perKmRate')} /></Field>}
+              <div className="footnote secondary">
+                {f.payType === 'hourly'
+                  ? `About ${money(weeklyHours(f.schedule) * Number(f.hourlyRate || 0))} for a full scheduled week (${weeklyHours(f.schedule).toFixed(0)} h).`
+                  : `About ${money(2500 * Number(f.perKmRate || 0))} for a 2,500 km week.`}
+              </div>
+            </div>
+          )}
+
+          {tab === 'schedule' && (
+            <div className="stack">
+              <div className="row wrap" style={{ gap: 6 }}>
+                <span className="footnote secondary" style={{ marginRight: 4 }}>Presets</span>
+                {PRESETS.map((p) => <button key={p.label} className="btn small" onClick={() => setF((x) => ({ ...x, schedule: fromPreset(p) }))}>{p.label}</button>)}
+              </div>
+              <div className="week-table">
+                {[1, 2, 3, 4, 5, 6, 0].map((d) => {
+                  const v = f.schedule[d];
+                  return (
+                    <div key={d} className={`week-row ${v ? '' : 'off'}`}>
+                      <div className="week-day">{DAYS[d]}</div>
+                      <Switch checked={!!v} onChange={(on) => setDay(d, on ? { start: '07:00', end: '17:00', ...(f.schedule[d] || {}) } : null)} label={`Works ${DAYS[d]}`} />
+                      {v ? (
+                        <>
+                          <input className="input" type="time" value={v.start} onChange={(e) => setDay(d, { ...v, start: e.target.value })} aria-label={`${DAYS[d]} start`} />
+                          <span className="secondary">to</span>
+                          <input className="input" type="time" value={v.end} onChange={(e) => setDay(d, { ...v, end: e.target.value })} aria-label={`${DAYS[d]} end`} />
+                          <span className="week-hours">{shiftHours(v).toFixed(1).replace('.0', '')} h{v && hmLess(v) ? ' (overnight)' : ''}</span>
+                          <button className="btn plain small" title="Copy these hours to every working day" onClick={() => setF((x) => ({ ...x, schedule: Object.fromEntries(Object.entries(x.schedule).map(([k, val]) => [k, val ? { ...v } : null])) }))}>Copy to all</button>
+                        </>
+                      ) : <span className="secondary subhead">Day off</span>}
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="row between"><span className="footnote secondary">{scheduleText(f.schedule)}</span><span className="headline">{weeklyHours(f.schedule).toFixed(1).replace('.0', '')} h / week</span></div>
+            </div>
+          )}
+
+          {tab === 'timeoff' && <TimeOff value={f.timeOff || []} onChange={(timeOff) => setF((x) => ({ ...x, timeOff }))} />}
+
+          {tab === 'records' && !isNew && <Documents driver={live} onLicenceExpiry={(t) => setF((x) => ({ ...x, licenseExpiry: toLocalDate(t) }))} />}
+        </div>
+
+        <footer className="dsheet-foot">
           {!isNew && (
-            <ConfirmButton className="btn danger" confirmLabel="Tap again to delete" onConfirm={async () => { await del(`/drivers/${current.id}`); toast({ title: 'Driver deleted', body: f.name }); onClose(); }}>
-              <Icon name="trash" size={14} />Delete driver
+            <ConfirmButton className="btn danger" confirmLabel="Tap again to delete" disabled={onJob} title={onJob ? 'On a job — replace them on the load first' : undefined}
+              onConfirm={async () => { await del(`/drivers/${current.id}`); toast({ title: 'Driver deleted', body: f.name }); onClose(); }}>
+              <Icon name="trash" size={14} />Delete
             </ConfirmButton>
           )}
           <div className="spacer" />
           <button className="btn" onClick={onClose}>{isNew ? 'Cancel' : 'Close'}</button>
-          <ActionButton className="btn primary large" disabled={!f.name || !f.email} onClick={save}>{isNew ? 'Add driver' : 'Save changes'}</ActionButton>
-        </div>
+          <ActionButton className="btn primary" disabled={!f.name || !f.email || scan?.state === 'reading'} onClick={save}>{isNew ? 'Add driver' : 'Save changes'}</ActionButton>
+        </footer>
       </div>
     </Sheet>
   );
 }
 
+const hmLess = (v) => v.end <= v.start;
+
+function TimeOff({ value, onChange }) {
+  const [off, setOff] = useState({ from: '', to: '', reason: 'Vacation' });
+  const sorted = [...value].sort((a, b) => a.from - b.from);
+  return (
+    <div className="stack">
+      {sorted.length === 0 && <div className="subhead secondary">No time off booked.</div>}
+      {sorted.map((o) => {
+        const past = o.to < Date.now();
+        return (
+          <div key={o.id || o.from} className="row" style={{ gap: 10, opacity: past ? 0.55 : 1 }}>
+            <span className="pill orange">{date(o.from)} – {date(o.to)}</span>
+            <span className="subhead spacer">{o.reason || 'Time off'}{past ? ' · past' : ''}</span>
+            <span className="footnote secondary">{Math.round((o.to - o.from) / 864e5)} days</span>
+            <button className="icon-btn" aria-label="Remove time off" onClick={() => onChange(value.filter((y) => y !== o))}><Icon name="close" size={14} /></button>
+          </div>
+        );
+      })}
+      <div className="card pad" style={{ background: 'var(--bg-fill-2)', boxShadow: 'none' }}>
+        <div className="grid grid-3" style={{ alignItems: 'end' }}>
+          <Field label="From"><input className="input" type="date" value={off.from} onChange={(e) => setOff({ ...off, from: e.target.value })} /></Field>
+          <Field label="To"><input className="input" type="date" value={off.to} onChange={(e) => setOff({ ...off, to: e.target.value })} /></Field>
+          <Field label="Reason">
+            <select className="select" value={off.reason} onChange={(e) => setOff({ ...off, reason: e.target.value })}>
+              {['Vacation', 'Sick', 'Medical', 'Personal', 'Training', 'Bereavement'].map((r) => <option key={r}>{r}</option>)}
+            </select>
+          </Field>
+        </div>
+        <button className="btn primary small" style={{ marginTop: 10 }} disabled={!off.from} onClick={() => {
+          const from = fromLocalDate(off.from); const to = fromLocalDate(off.to || off.from) + 864e5 - 1;
+          onChange([...value, { from, to, reason: off.reason }]); setOff({ from: '', to: '', reason: 'Vacation' });
+        }}><Icon name="plus" size={14} stroke={2.4} />Add time off</button>
+      </div>
+    </div>
+  );
+}
+
 /** Licence, abstract and other records: upload a photo or PDF, set an expiry, view or remove. */
-function Documents({ driver }) {
-  const { toast } = useStore();
-  const [kind, setKind] = useState('licence');
+function Documents({ driver, onLicenceExpiry }) {
+  const { toast, upsert } = useStore();
+  const [kind, setKind] = useState('abstract');
   const [expires, setExpires] = useState('');
   const [busy, setBusy] = useState(false);
   const docs = useMemo(() => [...(driver.documents || [])].sort((a, b) => b.t - a.t), [driver.documents]);
@@ -238,53 +396,75 @@ function Documents({ driver }) {
     if (!file) return;
     setBusy(true);
     try {
-      const dataUrl = file.type === 'application/pdf'
+      const isPdf = file.type === 'application/pdf';
+      const dataUrl = isPdf
         ? await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); })
         : await compressImage(file, 2000, 0.85);
-      await post(`/drivers/${driver.id}/documents`, { kind, name: file.name, dataUrl, expires: fromLocalDate(expires) });
+      let exp = fromLocalDate(expires);
+      if (kind === 'licence' && !isPdf && !exp) {
+        // Try to read the expiry straight off the licence photo.
+        try { const r = await scanLicence(dataUrl); if (r.expiry) { exp = fromLocalDate(r.expiry); onLicenceExpiry(exp); toast({ title: 'Expiry read from licence', body: r.expiry }); } } catch { /* manual */ }
+      }
+      const u = await post(`/drivers/${driver.id}/documents`, { kind, name: file.name, dataUrl, expires: exp });
+      upsert('users', u);
+      if (kind === 'licence' && exp) upsert('users', await patch(`/drivers/${driver.id}`, { licenseExpiry: exp }));
       toast({ title: 'Document added', body: file.name });
       setExpires('');
     } catch (e) { toast({ title: 'Upload failed', body: e.message, tone: 'error' }); } finally { setBusy(false); }
   };
-  const has = (k) => docs.some((d) => d.kind === k);
+  const latest = (k) => docs.find((d) => d.kind === k);
+  const Req = ({ k, label }) => {
+    const d = latest(k); const e = d ? expiry(k === 'licence' ? driver.licenseExpiry || d.expires : d.expires) : null;
+    const tone = !d ? 'red' : { expired: 'red', soon: 'orange', ok: 'green', none: 'green' }[e.level];
+    return (
+      <div className="req">
+        <Icon name={d ? (tone === 'green' ? 'checkCircle' : 'warning') : 'doc'} size={18} style={{ color: `var(--${tone === 'green' ? 'green' : tone === 'orange' ? 'orange' : 'red'})` }} />
+        <div className="spacer"><div className="headline">{label}</div><div className="footnote secondary">{d ? (e.level === 'none' ? `On file · ${date(d.t)}` : e.text) : 'Not on file'}</div></div>
+        <button className="btn small" onClick={() => setKind(k)}>{d ? 'Replace' : 'Add'}</button>
+      </div>
+    );
+  };
   return (
-    <section>
-      <h4>Records</h4>
-      <div className="row wrap" style={{ gap: 8 }}>
-        <span className={`pill ${has('licence') ? 'green' : 'orange'}`}>{has('licence') ? '✓ Licence on file' : 'Licence missing'}</span>
-        <span className={`pill ${has('abstract') ? 'green' : 'orange'}`}>{has('abstract') ? '✓ Abstract on file' : 'Abstract missing'}</span>
+    <div className="stack">
+      <div className="grid grid-3">
+        <Req k="licence" label="Driver’s licence" />
+        <Req k="abstract" label="Driver abstract" />
+        <Req k="medical" label="Medical certificate" />
+      </div>
+      <div className="card pad" style={{ background: 'var(--bg-fill-2)', boxShadow: 'none' }}>
+        <div className="row wrap" style={{ gap: 8 }}>
+          <select className="select" style={{ width: 200 }} value={kind} onChange={(e) => setKind(e.target.value)} aria-label="Document type">
+            <option value="licence">Driver’s licence</option>
+            <option value="abstract">Driver abstract</option>
+            <option value="medical">Medical certificate</option>
+            <option value="other">Other</option>
+          </select>
+          <input className="input" style={{ width: 170 }} type="date" value={expires} onChange={(e) => setExpires(e.target.value)} aria-label="Expiry date" title={kind === 'licence' ? 'Leave empty to read it from the photo' : 'Expiry date (optional)'} />
+          <label className="btn primary" style={{ position: 'relative', overflow: 'hidden' }}>
+            {busy ? <span className="spinner" /> : <Icon name="plus" size={14} stroke={2.4} />}Upload photo or PDF
+            <input type="file" accept="image/*,application/pdf" style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }} onChange={(e) => { upload(e.target.files[0]); e.target.value = ''; }} />
+          </label>
+        </div>
+        {kind === 'licence' && <div className="footnote secondary" style={{ marginTop: 6 }}>Leave the date empty and the expiry is read from the licence photo.</div>}
       </div>
       {docs.length > 0 && (
         <div className="list">
           {docs.map((d) => {
-            const expired = d.expires && d.expires < Date.now();
+            const e = expiry(d.expires);
             return (
               <div key={d.id} className="list-row">
                 <Icon name="doc" size={18} />
                 <div className="label">
                   <div className="headline">{d.label}</div>
-                  <div className="footnote secondary truncate">{d.name} · added {date(d.t)}{d.expires ? ` · ` : ''}{d.expires && <span className={expired ? 'red' : ''}>{expired ? 'expired' : 'expires'} {date(d.expires)}</span>}</div>
+                  <div className="footnote secondary truncate">{d.name} · added {date(d.t)} by {d.by}{d.expires ? ' · ' : ''}{d.expires && <span className={e.level === 'expired' ? 'red' : e.level === 'soon' ? 'orange' : ''}>{e.text}</span>}</div>
                 </div>
                 <a className="btn small" href={d.url} target="_blank" rel="noreferrer">View</a>
-                <ConfirmButton className="btn small danger" confirmLabel="Remove?" aria-label={`Remove ${d.label}`} onConfirm={() => del(`/drivers/${driver.id}/documents/${d.id}`)}><Icon name="trash" size={13} /></ConfirmButton>
+                <ConfirmButton className="btn small danger" confirmLabel="Remove?" aria-label={`Remove ${d.label}`} onConfirm={async () => upsert('users', await del(`/drivers/${driver.id}/documents/${d.id}`))}><Icon name="trash" size={13} /></ConfirmButton>
               </div>
             );
           })}
         </div>
       )}
-      <div className="row wrap" style={{ gap: 8 }}>
-        <select className="select" style={{ width: 200 }} value={kind} onChange={(e) => setKind(e.target.value)} aria-label="Document type">
-          <option value="licence">Driver’s licence</option>
-          <option value="abstract">Driver abstract</option>
-          <option value="medical">Medical certificate</option>
-          <option value="other">Other</option>
-        </select>
-        <input className="input" style={{ width: 170 }} type="date" value={expires} onChange={(e) => setExpires(e.target.value)} aria-label="Expiry date (optional)" title="Expiry date (optional)" />
-        <label className="btn primary" style={{ position: 'relative', overflow: 'hidden' }}>
-          {busy ? <span className="spinner" /> : <Icon name="plus" size={14} stroke={2.4} />}Upload photo or PDF
-          <input type="file" accept="image/*,application/pdf" style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }} onChange={(e) => { upload(e.target.files[0]); e.target.value = ''; }} />
-        </label>
-      </div>
-    </section>
+    </div>
   );
 }
