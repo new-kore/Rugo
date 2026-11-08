@@ -19,7 +19,9 @@ export function publicUser(u, viewer) {
   if (sameCompany) {
     Object.assign(base, {
       email: u.email, payType: u.payType, hourlyRate: u.hourlyRate, perKmRate: u.perKmRate,
-      hireDate: u.hireDate, locationSource: u.locationSource,
+      hireDate: u.hireDate, locationSource: u.locationSource, schedule: u.schedule, timeOff: u.timeOff || [], licenseExpiry: u.licenseExpiry,
+      // Documents are records for dispatch; a driver sees their own.
+      documents: viewer.role === 'dispatcher' || viewer.id === u.id ? (u.documents || []) : undefined,
     });
   }
   return base;
@@ -43,6 +45,10 @@ export function canSee(viewer, col, item) {
       return false;
     case 'companies':
       return true;
+    case 'trailers':
+      if (item.carrierId === c) return true;
+      if (viewer.role === 'shipper') return db.loads.some((l) => l.shipperId === c && l.trailerId === item.id && ACTIVE.includes(l.status));
+      return false;
     case 'fuelLogs':
     case 'shifts':
       if (item.carrierId !== c) return false;
@@ -77,6 +83,7 @@ export function snapshot(viewer) {
     companies: db.companies,
     users: pick('users'),
     trucks: pick('trucks'),
+    trailers: pick('trailers'),
     loads: pick('loads'),
     fuelLogs: pick('fuelLogs'),
     shifts: pick('shifts'),
@@ -160,11 +167,18 @@ function legRemaining(load, leg, truck) {
   return haversine(truck.location, target) * 1.18;
 }
 
+/** Trailers in use are derived from active loads; stored status is only 'available' or 'shop'. */
+export const trailerInUse = (trailerId, exceptLoadId) => db.loads.some((l) => l.id !== exceptLoadId && l.trailerId === trailerId && ACTIVE.includes(l.status));
+export function pickTrailer(carrierId, equipment) {
+  return db.trailers.find((t) => t.carrierId === carrierId && t.equipment === equipment && t.status !== 'shop' && !trailerInUse(t.id));
+}
+
 export async function accept(load, carrierUser, driver, truck) {
   load.status = 'accepted';
   load.carrierId = carrierUser.companyId;
   load.driverId = driver.id;
   load.truckId = truck.id;
+  if (!load.trailerId && load.cargo.equipment !== 'power_only') load.trailerId = pickTrailer(load.carrierId, load.cargo.equipment)?.id || null;
   load.acceptedAt = Date.now();
   driver.status = 'on_job';
   driver.truckId = truck.id;

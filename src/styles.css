@@ -722,3 +722,28 @@ table.table { width: 100%; border-collapse: collapse; font-size: 0.93rem; font-v
 .route-form h4 { margin: 0; font-size: 0.82rem; font-weight: 600; color: var(--label-2); text-transform: uppercase; letter-spacing: 0.04em; }
 .route-stop { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-fill-2); }
 .task-steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; font-size: 0.95rem; }
+
+/* ------------------------------ schedule ------------------------------ */
+.sched { display: flex; flex-direction: column; min-width: 0; }
+.sched-people { display: flex; gap: 6px; padding: 10px 16px; border-bottom: 1px solid var(--border); overflow-x: auto; }
+.sched-person { display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px 0 6px; border-radius: 17px; border: 1px solid var(--border); background: var(--bg-elevated); cursor: pointer; font-size: 0.9rem; white-space: nowrap; color: var(--label); }
+.sched-person:first-child { padding-left: 12px; }
+.sched-person.on { background: var(--g-blue-soft, var(--accent-soft)); border-color: transparent; color: var(--g-blue, var(--blue)); font-weight: 500; }
+.sched-grid { display: grid; overflow-x: auto; }
+.sched-corner { border-bottom: 1px solid var(--border); }
+.sched-dayhead { display: flex; flex-direction: column; align-items: center; padding: 6px 0; border-left: 1px solid var(--separator); border-bottom: 1px solid var(--border); font-size: 0.7rem; color: var(--label-2); }
+.sched-dayhead b { font-size: 1.2rem; font-weight: 400; color: var(--label); width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; }
+.sched-dayhead.today span { color: var(--g-blue, var(--blue)); }
+.sched-dayhead.today b { background: var(--g-blue, var(--blue)); color: #fff; }
+.sched-who { display: flex; align-items: center; gap: 10px; padding: 8px 10px 8px 16px; border-bottom: 1px solid var(--separator); min-width: 0; }
+.sched-cell { position: relative; border-left: 1px solid var(--separator); border-bottom: 1px solid var(--separator); overflow: hidden; }
+.sched-cell.rest { background: repeating-linear-gradient(135deg, transparent 0 6px, var(--bg-fill-2) 6px 12px); }
+.sched-cell.today { background-color: color-mix(in srgb, var(--g-blue, var(--blue)) 4%, transparent); }
+.sched-shift { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--green) 12%, transparent); border-left: 2px solid color-mix(in srgb, var(--green) 55%, transparent); border-right: 2px solid color-mix(in srgb, var(--green) 55%, transparent); }
+.sched-off { position: absolute; inset: 4px; border-radius: 6px; background: color-mix(in srgb, var(--orange) 16%, transparent); color: var(--orange-text); font-size: 0.74rem; font-weight: 500; display: grid; place-items: center; text-align: center; padding: 2px; }
+.sched-restlabel { position: absolute; bottom: 4px; right: 6px; font-size: 0.68rem; color: var(--label-3); }
+.sched-trip { position: absolute; height: 16px; border: 0; border-radius: 4px; background: var(--ev); color: #fff; font-size: 0.68rem; font-weight: 600; padding: 0 4px; cursor: pointer; display: flex; align-items: center; min-width: 10px; z-index: 1; box-shadow: 0 0 0 1px var(--bg); }
+.sched-trip:hover { z-index: 3; filter: brightness(0.95); }
+.sched-now { position: absolute; top: 0; bottom: 0; width: 2px; background: #ea4335; z-index: 2; }
+.day-toggle { min-width: 52px; height: 34px; border-radius: 17px; border: 1px solid var(--border); background: var(--bg-elevated); cursor: pointer; font-weight: 500; color: var(--label-2); }
+.day-toggle.on { background: var(--blue); border-color: transparent; color: #fff; }

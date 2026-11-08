@@ -10,7 +10,7 @@ const FILE = path.join(DATA_DIR, 'db.json');
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const empty = () => ({
-  companies: [], users: [], sessions: [], trucks: [], loads: [], fuelLogs: [], shifts: [], settings: {},
+  companies: [], users: [], sessions: [], trucks: [], trailers: [], loads: [], fuelLogs: [], shifts: [], settings: {},
 });
 
 export const isFresh = !fs.existsSync(FILE);
@@ -34,11 +34,12 @@ export const randomToken = (bytes = 24) => crypto.randomBytes(bytes).toString('h
 
 /** Store an uploaded image (data URL). Returns its public URL, or null if it isn't a readable image. */
 export function saveUpload(dataUrl) {
-  const m = /^data:(image\/(jpeg|png|webp));base64,(.+)$/.exec(dataUrl || '');
+  const m = /^data:((?:image\/(jpeg|png|webp))|application\/(pdf));base64,(.+)$/.exec(dataUrl || '');
   if (!m) return null;
-  const buf = Buffer.from(m[3], 'base64');
+  const ext = m[3] ? 'pdf' : m[2] === 'jpeg' ? 'jpg' : m[2];
+  const buf = Buffer.from(m[4], 'base64');
   if (buf.length > 12 * 1024 * 1024) return null;
-  const name = `${randomToken(12)}.${m[2] === 'jpeg' ? 'jpg' : m[2]}`;
+  const name = `${randomToken(12)}.${ext}`;
   fs.writeFileSync(path.join(UPLOAD_DIR, name), buf);
   return `/uploads/${name}`;
 }

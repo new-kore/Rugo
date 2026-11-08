@@ -1,6 +1,6 @@
 // Browser replacement for server/db.js: same API, data kept in memory and (best effort) in localStorage.
 const KEY = 'rugo.demo.db.v1';
-const empty = () => ({ companies: [], users: [], sessions: [], trucks: [], loads: [], fuelLogs: [], shifts: [], settings: {} });
+const empty = () => ({ companies: [], users: [], sessions: [], trucks: [], trailers: [], loads: [], fuelLogs: [], shifts: [], settings: {} });
 
 let saved = null;
 try { saved = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch { saved = null; }
@@ -28,7 +28,7 @@ export const find = (col, key) => db[col].find((x) => x.id === key);
 
 // Photos stay as data URLs inside the browser.
 export function saveUpload(dataUrl) {
-  return /^data:image\/(jpeg|png|webp);base64,/.test(dataUrl || '') ? dataUrl : null;
+  return /^data:(image\/(jpeg|png|webp)|application\/pdf);base64,/.test(dataUrl || '') ? dataUrl : null;
 }
 export function writeUpload(_name, text) {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(text)}`;

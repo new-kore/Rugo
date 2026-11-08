@@ -5,7 +5,7 @@ import { quote, EQUIPMENT } from './pricing.js';
 import { STATUSES, PHOTO_SLOTS, DAMAGE_SLOT, ACTIVE } from './constants.js';
 import {
   settings, snapshot, subscribe, publish, publishRemove, notify, accept, advance, addTimeline,
-  gpsUpdate, clockIn, clockOut, nextRef, newLoadShell, publicUser, updateEta,
+  gpsUpdate, clockIn, clockOut, nextRef, newLoadShell, publicUser, updateEta, trailerInUse,
 } from './fleet.js';
 
 const driverBusy = (driverId, exceptLoadId) => db.loads.some((l) => l.id !== exceptLoadId && ACTIVE.includes(l.status) && (l.driverId === driverId || (l.teamDriverIds || []).includes(driverId)));
@@ -111,6 +111,8 @@ export function routes(app) {
     if (own) {
       load.customer = customer || '';
       load.instructions = Array.isArray(instructions) ? instructions.map(String).filter((x) => x.trim()).slice(0, 20) : [];
+      const tr = req.body.trailerId && find('trailers', req.body.trailerId);
+      if (tr && tr.carrierId === req.user.companyId) load.trailerId = tr.id;
       if (Number(rate) > 0) { load.quote.carrierPayout = Math.round(Number(rate) * 100) / 100; load.quote.customRate = true; }
       const team = teamDriverId && teamDriverId !== ownDriver.id && find('users', teamDriverId);
       if (team && team.companyId === req.user.companyId && team.role === 'driver') { load.teamDriverIds = [team.id]; team.status = 'on_job'; publish('users', team); }
@@ -392,8 +394,12 @@ export function routes(app) {
       password: hashPassword(b.password || 'demo'), color: COLORS[db.users.length % COLORS.length], status: 'available',
       payType: b.payType === 'per_km' ? 'per_km' : 'hourly', hourlyRate: Number(b.hourlyRate) || 32, perKmRate: Number(b.perKmRate) || 0.62,
       truckId: b.truckId || null, licenseClass: b.licenseClass || 'AZ', hireDate: Date.now(), rating: null, locationSource: 'sim',
+    schedule: b.schedule || { days: [1, 2, 3, 4, 5], start: '07:00', end: '17:00' }, timeOff: [], documents: [],
+    licenseExpiry: b.licenseExpiry ? Number(b.licenseExpiry) : null,
     };
     db.users.push(u);
+    const tk = u.truckId && find('trucks', u.truckId);
+    if (tk && tk.carrierId === u.companyId) { tk.driverId = u.id; publish('trucks', tk); } else u.truckId = null;
     save();
     publish('users', u);
     res.json(publicUser(u, req.user));
@@ -404,6 +410,10 @@ export function routes(app) {
     if (!u || u.companyId !== req.user.companyId || u.role !== 'driver') return res.status(404).json({ error: 'Driver not found.' });
     const b = req.body || {};
     for (const k of ['name', 'phone', 'licenseClass']) if (b[k] !== undefined) u[k] = String(b[k]);
+    if (b.email && !db.users.some((x) => x.id !== u.id && x.email.toLowerCase() === String(b.email).toLowerCase())) u.email = String(b.email);
+    if (b.licenseExpiry !== undefined) u.licenseExpiry = b.licenseExpiry ? Number(b.licenseExpiry) : null;
+    if (b.schedule) u.schedule = { days: (b.schedule.days || []).map(Number).filter((x) => x >= 0 && x <= 6), start: String(b.schedule.start || '07:00'), end: String(b.schedule.end || '17:00') };
+    if (Array.isArray(b.timeOff)) u.timeOff = b.timeOff.filter((x) => x.from && x.to).map((x) => ({ id: x.id || id('off'), from: Number(x.from), to: Number(x.to), reason: String(x.reason || '') }));
     if (b.payType) u.payType = b.payType === 'per_km' ? 'per_km' : 'hourly';
     if (b.hourlyRate !== undefined) u.hourlyRate = Number(b.hourlyRate);
     if (b.perKmRate !== undefined) u.perKmRate = Number(b.perKmRate);
@@ -467,6 +477,136 @@ export function routes(app) {
     save();
     publish('trucks', t);
     res.json(t);
+  });
+
+  const ownDriver = (req, res) => {
+    const u = find('users', req.params.id);
+    if (!u || u.companyId !== req.user.companyId || u.role !== 'driver') { res.status(404).json({ error: 'Driver not found.' }); return null; }
+    return u;
+  };
+
+  app.delete('/api/drivers/:id', auth, role('dispatcher'), (req, res) => {
+    const u = ownDriver(req, res); if (!u) return;
+    if (driverBusy(u.id)) return res.status(409).json({ error: `${u.name} is on a job. Replace them on that load first.` });
+    for (const t of db.trucks.filter((t) => t.driverId === u.id)) { t.driverId = null; publish('trucks', t); }
+    db.sessions = db.sessions.filter((x) => x.userId !== u.id);
+    db.users = db.users.filter((x) => x.id !== u.id);
+    save();
+    publishRemove('users', u.id);
+    res.json({ ok: true });
+  });
+
+  // Driver records: licence, abstract and other documents (image or PDF).
+  app.post('/api/drivers/:id/documents', auth, role('dispatcher'), (req, res) => {
+    const u = ownDriver(req, res); if (!u) return;
+    const { kind = 'other', name = '', dataUrl, expires } = req.body || {};
+    const url = saveUpload(dataUrl);
+    if (!url) return res.status(400).json({ error: 'Upload a photo (JPG, PNG) or a PDF under 12 MB.' });
+    const label = { licence: 'Driver’s licence', abstract: 'Driver abstract', medical: 'Medical certificate', other: 'Document' }[kind] || 'Document';
+    u.documents = [...(u.documents || []), { id: id('doc'), kind, label, name: String(name).slice(0, 120), url, t: Date.now(), expires: expires ? Number(expires) : null, by: req.user.name }];
+    save();
+    publish('users', u);
+    res.json(publicUser(u, req.user));
+  });
+  app.delete('/api/drivers/:id/documents/:docId', auth, role('dispatcher'), (req, res) => {
+    const u = ownDriver(req, res); if (!u) return;
+    u.documents = (u.documents || []).filter((d) => d.id !== req.params.docId);
+    save();
+    publish('users', u);
+    res.json(publicUser(u, req.user));
+  });
+
+  app.delete('/api/trucks/:id', auth, role('dispatcher'), (req, res) => {
+    const t = find('trucks', req.params.id);
+    if (!t || t.carrierId !== req.user.companyId) return res.status(404).json({ error: 'Truck not found.' });
+    if (db.loads.some((l) => l.truckId === t.id && ACTIVE.includes(l.status))) return res.status(409).json({ error: `Unit ${t.unit} is on a job.` });
+    for (const u of db.users.filter((u) => u.truckId === t.id)) { u.truckId = null; publish('users', u); }
+    db.trucks = db.trucks.filter((x) => x.id !== t.id);
+    save();
+    publishRemove('trucks', t.id);
+    res.json({ ok: true });
+  });
+
+  // Trailers
+  const trailerBody = (t, b) => {
+    for (const k of ['unit', 'make', 'plate', 'vin', 'notes']) if (b[k] !== undefined) t[k] = String(b[k]);
+    for (const k of ['year', 'lengthFt']) if (b[k] !== undefined) t[k] = Number(b[k]);
+    if (b.nextInspection !== undefined) t.nextInspection = b.nextInspection ? Number(b.nextInspection) : null;
+    if (EQUIPMENT[b.equipment]) t.equipment = b.equipment;
+    if (['available', 'shop'].includes(b.status)) t.status = b.status;
+  };
+  app.post('/api/trailers', auth, role('dispatcher'), (req, res) => {
+    const b = req.body || {};
+    if (!b.unit) return res.status(400).json({ error: 'Trailer number is required.' });
+    const t = { id: id('trl'), carrierId: req.user.companyId, unit: '', equipment: 'dry_van', make: '', year: 2024, lengthFt: 53, plate: '', vin: '', status: 'available', nextInspection: null, notes: '' };
+    trailerBody(t, b);
+    db.trailers.push(t);
+    save();
+    publish('trailers', t);
+    res.json(t);
+  });
+  app.patch('/api/trailers/:id', auth, role('dispatcher'), (req, res) => {
+    const t = find('trailers', req.params.id);
+    if (!t || t.carrierId !== req.user.companyId) return res.status(404).json({ error: 'Trailer not found.' });
+    trailerBody(t, req.body || {});
+    save();
+    publish('trailers', t);
+    res.json(t);
+  });
+  app.delete('/api/trailers/:id', auth, role('dispatcher'), (req, res) => {
+    const t = find('trailers', req.params.id);
+    if (!t || t.carrierId !== req.user.companyId) return res.status(404).json({ error: 'Trailer not found.' });
+    if (trailerInUse(t.id)) return res.status(409).json({ error: `${t.unit} is attached to a load in progress.` });
+    db.trailers = db.trailers.filter((x) => x.id !== t.id);
+    save();
+    publishRemove('trailers', t.id);
+    res.json({ ok: true });
+  });
+
+  // Attach or change the trailer (and optionally the truck) on a load.
+  app.post('/api/loads/:id/equipment', auth, role('dispatcher'), async (req, res) => {
+    const load = getLoad(req, res); if (!load) return;
+    if (load.carrierId !== req.user.companyId || !ACTIVE.includes(load.status)) return res.status(409).json({ error: 'Only loads in progress can be changed.' });
+    const { trailerId, truckId } = req.body || {};
+    if (trailerId !== undefined) {
+      if (trailerId) {
+        const t = find('trailers', trailerId);
+        if (!t || t.carrierId !== req.user.companyId) return res.status(400).json({ error: 'Choose one of your trailers.' });
+        // Moving a trailer detaches it from the route it was on.
+        for (const other of db.loads.filter((l) => l.id !== load.id && l.trailerId === t.id && ACTIVE.includes(l.status))) {
+          other.trailerId = null;
+          addTimeline(other, other.status, req.user, `Trailer ${t.unit} moved to ${load.ref}`);
+          other.updatedAt = Date.now();
+          publish('loads', other);
+        }
+        if (t.status === 'shop') return res.status(409).json({ error: `${t.unit} is in the shop.` });
+        load.trailerId = t.id;
+        addTimeline(load, load.status, req.user, `Trailer ${t.unit} attached`);
+      } else {
+        load.trailerId = null;
+        addTimeline(load, load.status, req.user, 'Trailer detached');
+      }
+    }
+    if (truckId) {
+      const t = find('trucks', truckId);
+      if (!t || t.carrierId !== req.user.companyId) return res.status(400).json({ error: 'Choose one of your trucks.' });
+      const other = db.loads.find((l) => l.id !== load.id && l.truckId === t.id && ACTIVE.includes(l.status));
+      if (other && ['at_pickup', 'in_transit', 'at_delivery'].includes(other.status)) return res.status(409).json({ error: `Unit ${t.unit} is loaded on ${other.ref}. Finish or reassign that route first.` });
+      if (other) {
+        const prevTruck = find('trucks', load.truckId);
+        other.truckId = prevTruck && prevTruck.id !== t.id ? prevTruck.id : null; // swap trucks between the two routes
+        addTimeline(other, other.status, req.user, `Truck swapped: unit ${t.unit} moved to ${load.ref}${other.truckId ? `, now unit ${prevTruck.unit}` : ''}`);
+        publish('loads', other);
+      }
+      load.truckId = t.id;
+      if (['accepted', 'en_route_pickup'].includes(load.status) && t.location) load.legs.toPickup = await route(t.location, load.pickup);
+      addTimeline(load, load.status, req.user, `Truck changed to unit ${t.unit}`);
+    }
+    updateEta(load);
+    load.updatedAt = Date.now();
+    save();
+    publish('loads', load);
+    res.json(load);
   });
 
   app.patch('/api/settings', auth, role('dispatcher'), (req, res) => {

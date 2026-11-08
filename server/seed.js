@@ -106,6 +106,23 @@ export async function seed() {
   trucks[0].notes = [{ id: id('nte'), text: 'Reefer unit serviced last week. Left mirror bracket is loose, book at next yard stop.', by: alex.name, role: 'dispatcher', t: Date.now() - 2 * D, loadRef: null }];
   trucks[4].notes = [{ id: id('nte'), text: 'Service due soon. Keep on short runs until it is booked.', by: alex.name, role: 'dispatcher', t: Date.now() - 5 * H, loadRef: null }];
   db.trucks.push(...trucks);
+  const trailerSpecs = [
+    ['T-201', 'dry_van', 'Utility', 2022, 53], ['T-202', 'dry_van', 'Great Dane', 2021, 53], ['T-203', 'reefer', 'Utility 3000R', 2023, 53],
+    ['T-204', 'reefer', 'Wabash ArcticLite', 2024, 53], ['T-205', 'flatbed', 'Fontaine', 2020, 48], ['T-206', 'step_deck', 'Manac', 2022, 53],
+    ['T-207', 'dry_van', 'Stoughton', 2019, 53], ['T-208', 'flatbed', 'Doepker', 2023, 48],
+  ];
+  const trailers = trailerSpecs.map(([unit, equipment, make, year, lengthFt], i) => ({
+    id: id('trl'), carrierId: velocity.id, unit, equipment, make, year, lengthFt, plate: `T${Math.floor(rnd(10000, 99999))}`,
+    vin: `2T${Math.random().toString(36).slice(2, 15).toUpperCase()}`, status: i === 6 ? 'shop' : 'available',
+    nextInspection: Date.now() + rnd(-5, 120) * D, notes: i === 6 ? 'Door seal replacement' : '',
+  }));
+  db.trailers.push(...trailers);
+  drivers.forEach((d, i) => {
+    d.schedule = { days: i % 3 === 2 ? [2, 3, 4, 5, 6] : [1, 2, 3, 4, 5], start: ['06:00', '07:00', '05:00'][i % 3], end: ['16:00', '18:00', '17:00'][i % 3] };
+    d.timeOff = i === 4 ? [{ id: id('off'), from: Date.now() + 4 * D, to: Date.now() + 6 * D, reason: 'Vacation' }] : [];
+    d.documents = [];
+    d.licenseExpiry = Date.now() + rnd(60, 900) * D;
+  });
 
   const mkLoad = (shipper, by, from, to, cargo, options, created, legToDrop) => {
     const q = quote({ distanceKm: legToDrop.distanceKm, cargo, options }, s);
@@ -258,6 +275,13 @@ export async function seed() {
       updateEtaSafe(load, truck);
     }
     db.loads.push(load);
+  }
+  // Attach trailers: one per active load, and history so each trailer has a last job.
+  for (const l of db.loads) {
+    if (!l.carrierId) continue;
+    const active = ['accepted', 'en_route_pickup', 'at_pickup', 'in_transit', 'at_delivery'].includes(l.status);
+    const t = trailers.find((x) => x.equipment === l.cargo.equipment && x.status !== 'shop' && (!active || !db.loads.some((o) => o !== l && o.trailerId === x.id && ['accepted', 'en_route_pickup', 'at_pickup', 'in_transit', 'at_delivery'].includes(o.status))));
+    if (t) l.trailerId = t.id;
   }
   save();
 }

@@ -73,7 +73,7 @@ export default function AccountMenu() {
           <div className="acct-section">
             <button className="acct-item" role="menuitem" onClick={() => goTo('/settings')}><Icon name="gear" size={15} />All settings</button>
             {me.role === 'shipper' && <button className="acct-item" role="menuitem" onClick={() => goTo('/billing')}><Icon name="receipt" size={15} />Billing & invoices</button>}
-            {me.role === 'dispatcher' && <button className="acct-item" role="menuitem" onClick={() => goTo('/drivers')}><Icon name="people" size={15} />Drivers & trucks</button>}
+            {me.role === 'dispatcher' && <button className="acct-item" role="menuitem" onClick={() => goTo('/drivers')}><Icon name="people" size={15} />Drivers</button>}
             {me.role === 'driver' && <button className="acct-item" role="menuitem" onClick={() => goTo('/hours')}><Icon name="clock" size={15} />Hours & pay</button>}
           </div>
 

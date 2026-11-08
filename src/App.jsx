@@ -18,6 +18,7 @@ import Board from './pages/carrier/Board.jsx';
 import Dispatch from './pages/carrier/Dispatch.jsx';
 import Fleet from './pages/carrier/Fleet.jsx';
 import Drivers from './pages/carrier/Drivers.jsx';
+import Inventory from './pages/carrier/Inventory.jsx';
 import Fuel from './pages/carrier/Fuel.jsx';
 import Reports from './pages/carrier/Reports.jsx';
 import DriverJob, { DriverGps } from './pages/driver/DriverJob.jsx';
@@ -38,7 +39,8 @@ const NAV = {
     { path: '/dispatch', label: 'Jobs', icon: 'route', page: Dispatch, badge: (d) => d.loads.filter(isActive).length, quiet: true },
     { path: '/calendar', label: 'Calendar', icon: 'calendar', page: CalendarPage },
     { path: '/fleet', label: 'Live fleet', icon: 'map', page: Fleet, section: 'Fleet' },
-    { path: '/drivers', label: 'Drivers & trucks', icon: 'people', page: Drivers, section: 'Fleet' },
+    { path: '/drivers', label: 'Drivers', icon: 'people', page: Drivers, section: 'Fleet' },
+    { path: '/inventory', label: 'Inventory', icon: 'truck', page: Inventory, section: 'Fleet' },
     { path: '/fuel', label: 'Fuel', icon: 'fuel', page: Fuel, section: 'Fleet' },
     { path: '/reports', label: 'Reports', icon: 'chart', page: Reports, section: 'Fleet' },
     { path: '/settings', label: 'Settings', icon: 'gear', page: Settings, section: 'Workspace', mobileOnly: true },
@@ -135,7 +137,7 @@ export default function App() {
           return (
             <button key={n.path} className={`tab ${activePath === n.path ? 'active' : ''}`} onClick={() => go(n.path)}>
               <Icon name={n.icon} size={23} stroke={activePath === n.path ? 2.1 : 1.7} />
-              {n.label.replace('Drivers & trucks', 'Fleet').replace('Request pickup', 'Request')}
+              {n.label.replace('Request pickup', 'Request')}
               {b && !n.quiet ? <span className="badge">{b}</span> : null}
             </button>
           );

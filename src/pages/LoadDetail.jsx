@@ -219,9 +219,45 @@ function DriversCard({ load, driver, truck, carrier, canEdit }) {
           <div><div className="k">Plate</div><div className="v mono">{truck.plate}</div></div>
         </div>
       )}
+      <EquipmentRow load={load} canEdit={canEdit} />
       {pick && (
         <DriverPicker load={load} mode={pick} onClose={() => setPick(null)}
           onPick={async (d) => { await act(pick, d.id); setPick(null); }} />
+      )}
+    </div>
+  );
+}
+
+/** Trailer on this load, with a quick switch for dispatch. */
+function EquipmentRow({ load, canEdit }) {
+  const { data, upsert, toast } = useStore();
+  const idx = useIndex();
+  const trailers = data.trailers || [];
+  const tr = idx.trailers?.[load.trailerId];
+  const inUse = new Set(data.loads.filter((l) => isActive(l) && l.id !== load.id && l.trailerId).map((l) => l.trailerId));
+  if (!tr && !canEdit) return null;
+  const change = async (trailerId) => {
+    try {
+      const r = await post(`/loads/${load.id}/equipment`, { trailerId: trailerId || null });
+      upsert('loads', r);
+      toast({ title: trailerId ? 'Trailer attached' : 'Trailer detached', body: idx.trailers?.[trailerId]?.unit });
+    } catch (e) { toast({ title: 'Couldn’t change trailer', body: e.message, tone: 'error' }); }
+  };
+  return (
+    <div className="row" style={{ gap: 10 }}>
+      <div className="spacer">
+        <div className="caption secondary">Trailer</div>
+        <div className="headline">{tr ? `${tr.unit} · ${data.meta.equipment[tr.equipment]?.label} · ${tr.year} ${tr.make}` : 'None attached'}</div>
+      </div>
+      {canEdit && (
+        <select className="select" style={{ width: 210 }} value={load.trailerId || ''} onChange={(e) => change(e.target.value)} aria-label="Change trailer">
+          <option value="">No trailer</option>
+          {trailers.map((t) => (
+            <option key={t.id} value={t.id} disabled={inUse.has(t.id) || t.status === 'shop'}>
+              {t.unit} · {data.meta.equipment[t.equipment]?.label}{inUse.has(t.id) ? ' · in use' : t.status === 'shop' ? ' · in shop' : ''}
+            </option>
+          ))}
+        </select>
       )}
     </div>
   );

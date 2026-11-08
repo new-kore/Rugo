@@ -7,6 +7,7 @@ import { StatusIcon, EQ_COLOR } from '../components/LoadList.jsx';
 import CalendarMap from './CalendarMap.jsx';
 import MapView from '../components/MapView.jsx';
 import PlacePicker from '../components/PlacePicker.jsx';
+import { DriverSheet, scheduleText } from './carrier/Drivers.jsx';
 import { Sheet, Field, ActionButton, Switch } from '../components/ui.jsx';
 import { post } from '../lib/api.js';
 import { haversine } from '../lib/geo.js';
@@ -217,11 +218,12 @@ export default function Calendar() {
           <button className="icon-btn" aria-label="Next" onClick={() => step(1)}><Icon name="chevron" size={18} /></button>
           <h2 className="gcal-title">{title}</h2>
           <div className="spacer" />
-          <Segmented value={view} onChange={setView} options={[{ value: 'day', label: 'Day' }, { value: 'week', label: 'Week' }, { value: 'month', label: 'Month' }, { value: 'map', label: 'Map' }]} />
+          <Segmented value={view} onChange={setView} options={[{ value: 'day', label: 'Day' }, { value: 'week', label: 'Week' }, { value: 'month', label: 'Month' }, ...(isDispatch ? [{ value: 'schedule', label: 'Schedule' }] : []), { value: 'map', label: 'Map' }]} />
         </header>
         {(view === 'week' || view === 'day') && <TimeGrid days={days} trips={trips} now={now} onEvent={showEvent} onDay={openDay} holidays={showHolidays} />}
         {view === 'month' && <MonthGrid days={days} month={c.getMonth()} trips={trips} onEvent={showEvent} onDay={openDay} holidays={showHolidays} />}
         {view === 'map' && <div style={{ padding: 16 }}><CalendarMap days={weekDays} byDay={byDay} /></div>}
+        {view === 'schedule' && <ScheduleView days={weekDays} trips={trips} now={now} onEvent={showEvent} />}
       </section>
 
       {pop && <EventCard pop={pop} idx={idx} data={data} onClose={() => setPop(null)} />}
@@ -449,6 +451,7 @@ function AddRouteSheet({ day, onClose, onDone }) {
   const [driverId, setDriverId] = useState('');
   const [teamId, setTeamId] = useState('');
   const [truckId, setTruckId] = useState('');
+  const [trailerId, setTrailerId] = useState('');
   const chosen = driverId || drivers.find((x) => x.free && x.t)?.d.id || '';
   const chosenTruck = truckId || idx.users[chosen]?.truckId || '';
   const rateSuggest = dist ? Math.round((data.meta.equipment[f.equipment].base + dist * data.meta.equipment[f.equipment].perKm * (1 + data.settings.fuelSurchargePct)) * (1 - data.settings.platformFeePct)) : null;
@@ -465,7 +468,7 @@ function AddRouteSheet({ day, onClose, onDone }) {
         tempC: f.equipment === 'reefer' ? Number(f.tempC) : null, hazmat: f.hazmat, valueCad: f.valueCad,
       },
       options: opts, poNumber: f.poNumber, customer: f.customer, rate: f.rate,
-      driverId: chosen, teamDriverId: teamId || undefined, truckId: chosenTruck,
+      driverId: chosen, teamDriverId: teamId || undefined, truckId: chosenTruck, trailerId: trailerId || undefined,
       instructions: steps, notes,
     });
     upsert('loads', load);
@@ -517,6 +520,12 @@ function AddRouteSheet({ day, onClose, onDone }) {
               <select className="select" value={teamId} onChange={(e) => setTeamId(e.target.value)}>
                 <option value="">None</option>
                 {drivers.filter(({ d }) => d.id !== chosen).map(({ d, free }) => <option key={d.id} value={d.id} disabled={!free}>{d.name}{!free ? ' · on a job' : ''}</option>)}
+              </select>
+            </Field>
+            <Field label="Trailer unit">
+              <select className="select" value={trailerId} onChange={(e) => setTrailerId(e.target.value)}>
+                <option value="">Pick automatically</option>
+                {(data.trailers || []).map((t) => <option key={t.id} value={t.id} disabled={t.status === 'shop'}>{t.unit} · {data.meta.equipment[t.equipment]?.label}{t.status === 'shop' ? ' · in shop' : ''}</option>)}
               </select>
             </Field>
             <Field label="Truck">
@@ -576,5 +585,80 @@ function AddRouteSheet({ day, onClose, onDone }) {
         </div>
       </div>
     </Sheet>
+  );
+}
+
+const parseHM = (s) => { const [h, m] = String(s || '0:0').split(':').map(Number); return (h || 0) + (m || 0) / 60; };
+
+/** Everyone's week at a glance (or one person): shift hours, time off and routes. Edit anyone's schedule from here. */
+function ScheduleView({ days, trips, now, onEvent }) {
+  const { data } = useStore();
+  const idx = useIndex();
+  const drivers = data.users.filter((u) => u.role === 'driver');
+  const [who, setWho] = useState('all');
+  const [edit, setEdit] = useState(null);
+  const list = who === 'all' ? drivers : drivers.filter((d) => d.id === who);
+  const tripsOf = (id) => trips.filter((t) => t.load.driverId === id || (t.load.teamDriverIds || []).includes(id));
+  const offOn = (d, day) => (d.timeOff || []).find((o) => o.from < day + 864e5 && o.to >= day);
+  const pct = (t, day) => Math.max(0, Math.min(100, ((t - day) / 864e5) * 100));
+  const hoursPlanned = (d) => days.reduce((a, day) => a + ((d.schedule?.days || []).includes(new Date(day).getDay()) && !offOn(d, day) ? parseHM(d.schedule.end) - parseHM(d.schedule.start) : 0), 0);
+
+  return (
+    <div className="sched">
+      <div className="sched-people">
+        <button className={`sched-person ${who === 'all' ? 'on' : ''}`} onClick={() => setWho('all')}><Icon name="people" size={16} />Everyone</button>
+        {drivers.map((d) => (
+          <button key={d.id} className={`sched-person ${who === d.id ? 'on' : ''}`} onClick={() => setWho(d.id)}>
+            <Avatar user={d} size="sm" />{d.name.split(' ')[0]}
+          </button>
+        ))}
+      </div>
+      <div className="sched-grid" style={{ gridTemplateColumns: `230px repeat(7, minmax(0, 1fr))` }}>
+        <div className="sched-corner" />
+        {days.map((d) => (
+          <div key={d} className={`sched-dayhead ${sameDay(d, now) ? 'today' : ''}`}>
+            <span>{WEEKDAYS[new Date(d).getDay()].toUpperCase()}</span><b>{new Date(d).getDate()}</b>
+          </div>
+        ))}
+        {list.map((drv) => {
+          const mine = tripsOf(drv.id);
+          return (
+            <div key={drv.id} style={{ display: 'contents' }}>
+              <div className="sched-who">
+                <Avatar user={drv} />
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div className="headline truncate">{drv.name}</div>
+                  <div className="caption secondary truncate">{scheduleText(drv.schedule)}</div>
+                  <div className="caption tertiary">{idx.trucks[drv.truckId] ? `Unit ${idx.trucks[drv.truckId].unit} · ` : ''}{hoursPlanned(drv).toFixed(0)} h planned · {mine.filter((t) => t.start < days[6] + 864e5 && t.end > days[0]).length} routes</div>
+                </div>
+                <button className="icon-btn" aria-label={`Edit ${drv.name}'s schedule`} title="Edit schedule" onClick={() => setEdit(drv)}><Icon name="gear" size={15} /></button>
+              </div>
+              {days.map((day) => {
+                const works = (drv.schedule?.days || []).includes(new Date(day).getDay());
+                const off = offOn(drv, day);
+                const s0 = parseHM(drv.schedule?.start); const s1 = parseHM(drv.schedule?.end);
+                const segs = mine.filter((t) => t.start < day + 864e5 && t.end > day);
+                return (
+                  <div key={day} className={`sched-cell ${!works ? 'rest' : ''} ${sameDay(day, now) ? 'today' : ''}`} style={{ minHeight: who === 'all' ? 64 : 160 }}>
+                    {works && !off && <div className="sched-shift" style={{ left: `${(s0 / 24) * 100}%`, width: `${((s1 - s0) / 24) * 100}%` }} title={`Shift ${drv.schedule.start}–${drv.schedule.end}`} />}
+                    {off && <div className="sched-off">{off.reason || 'Time off'}</div>}
+                    {!works && !off && <div className="sched-restlabel">Off</div>}
+                    {segs.map((t, i) => (
+                      <button key={t.id} className="sched-trip" style={{ left: `${pct(t.start, day)}%`, width: `max(10px, ${pct(t.end, day) - pct(t.start, day)}%)`, top: 6 + (i % 3) * 18, '--ev': t.color }}
+                        title={`${t.load.ref} · ${t.load.pickup.city} → ${t.load.dropoff.city} · ${shortTime(t.start)}–${shortTime(t.end)}`} onClick={(e) => onEvent(t, e)}>
+                        <span className="truncate">{t.load.ref.replace('RG-', '')} {t.load.dropoff.city}</span>
+                      </button>
+                    ))}
+                    {sameDay(day, now) && <div className="sched-now" style={{ left: `${pct(now, day)}%` }} />}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+      <div className="footnote tertiary" style={{ padding: '8px 16px' }}>Shaded band = shift hours · coloured bars = routes · ⚙ edits the schedule, time off and records.</div>
+      {edit && <DriverSheet driver={edit} onClose={() => setEdit(null)} />}
+    </div>
   );
 }

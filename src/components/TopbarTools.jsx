@@ -98,7 +98,7 @@ export function GlobalSearch() {
     const pages = [
       ['Request a pickup', '/new', 'shipper'], ['Billing & invoices', '/billing', 'shipper'], ['Load board', '/', 'dispatcher'],
       ['Live fleet', '/fleet', 'dispatcher'], ['Fuel log', '/fuel', 'dispatcher'], ['Reports', '/reports', 'dispatcher'],
-      ['Drivers & trucks', '/drivers', 'dispatcher'], ['Log fuel', '/fuel', 'driver'], ['Hours & pay', '/hours', 'driver'], ['Calendar', '/calendar', '*'], ['Settings', '/settings', '*'],
+      ['Drivers', '/drivers', 'dispatcher'], ['Inventory — trucks & trailers', '/inventory', 'dispatcher'], ['Log fuel', '/fuel', 'driver'], ['Hours & pay', '/hours', 'driver'], ['Calendar', '/calendar', '*'], ['Settings', '/settings', '*'],
     ];
     pages.filter(([n, , r]) => (r === '*' || r === role) && n.toLowerCase().includes(s)).forEach(([n, p]) => out.push({
       group: 'Go to', key: p + n, icon: <Icon name="chevron" size={14} />, title: n, sub: '', go: () => go(p),
