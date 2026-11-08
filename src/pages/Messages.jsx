@@ -3,11 +3,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Icon from '../components/Icon.jsx';
 import { Avatar, Sheet, Field, ActionButton, ConfirmButton, Empty, Lightbox } from '../components/ui.jsx';
 import { useStore, useIndex, useNow, isActive } from '../lib/store.jsx';
-import { post, del } from '../lib/api.js';
+import { api, post, del } from '../lib/api.js';
 import { compressImage } from '../lib/image.js';
 import { go } from '../lib/router.js';
 import { time, ago } from '../lib/format.js';
-import { unread, threadTitle, openThread, currentThreadParam, openShift, lastShiftEnd } from '../lib/chat.js';
+import { unread, threadTitle, openThread, currentThreadParam, openShift, lastShiftEnd, messageDriver } from '../lib/chat.js';
 
 const QUICK = {
   driver: ['On my way', 'Running late', 'At the dock', 'Loaded and rolling', 'Delayed at shipper', 'Please call me'],
@@ -61,7 +61,7 @@ export default function Messages() {
       <aside className="msg-list">
         <div className="msg-list-head">
           <div className="search-field"><Icon name="search" size={15} /><input placeholder="Search messages" value={q} onChange={(e) => setQ(e.target.value)} /></div>
-          {isDispatch && <button className="icon-btn" aria-label="New group or announcement" title="New group or announcement" onClick={() => setCreating(true)}><Icon name="plus" size={18} /></button>}
+          {isDispatch && <NewMenu onPick={setCreating} />}
         </div>
         <div className="msg-items">
           {threads.map(({ t, title, n }) => (
@@ -85,7 +85,9 @@ export default function Messages() {
       <section className="msg-thread">
         {current ? <Conversation key={current.id} t={current} /> : <Empty icon="message" title="Pick a conversation">{isDispatch ? 'Message any driver, a group, or every driver at once.' : 'Message the office any time.'}</Empty>}
       </section>
-      {creating && <NewThread onClose={() => setCreating(false)} />}
+      {creating === 'group' && <GroupSheet kind="group" onClose={() => setCreating(false)} />}
+      {creating === 'announce' && <GroupSheet kind="announce" onClose={() => setCreating(false)} />}
+      {creating === 'direct' && <PickDriver onClose={() => setCreating(false)} />}
     </div>
   );
 }
@@ -121,6 +123,7 @@ function Conversation({ t }) {
   };
 
   const [openInfo, setOpenInfo] = useState(null);
+  const [editing, setEditing] = useState(false);
   const audience = audienceOf(t, data);
 
   const subtitle = t.kind === 'driver'
@@ -140,6 +143,7 @@ function Conversation({ t }) {
         {isDispatch && driver?.phone && <a className="btn small" href={`tel:${driver.phone}`}><Icon name="phone" size={14} />Call</a>}
         {!isDispatch && (data.me.company?.phone || data.companies.find((c) => c.id === me.companyId)?.phone) && <a className="btn small" href={`tel:${data.me.company?.phone || data.companies.find((c) => c.id === me.companyId)?.phone}`}><Icon name="phone" size={14} />Call office</a>}
         {isDispatch && driverLoads[0] && <button className="btn small hide-mobile" onClick={() => go(`/loads/${driverLoads[0].id}`)}>Open {driverLoads[0].ref}</button>}
+        {isDispatch && t.kind === 'group' && <button className="btn small" onClick={() => setEditing(true)}><Icon name="people" size={14} />Members · {t.memberIds.length}</button>}
         {isDispatch && t.kind !== 'driver' && <ConfirmButton className="btn small danger" confirmLabel="Delete chat?" onConfirm={async () => { await del(`/chat/threads/${t.id}`); go('/messages'); }}><Icon name="trash" size={14} /></ConfirmButton>}
       </header>
 
@@ -153,6 +157,7 @@ function Conversation({ t }) {
           return (
             <div key={m.id} style={{ display: 'contents' }}>
               {showDay && <div className="day-sep"><span>{day}</span></div>}
+              {m.system ? <div className="sys-note">{m.userId === me.id ? m.text.replace(me.name, 'You') : m.text} · {time(m.t)}</div> : <>
               <div className={`bubble-meta ${mine ? 'me' : ''}`}>{mine ? 'You' : `${m.name}${m.role === 'dispatcher' && me.role === 'driver' ? ' · office' : ''}`} · {time(m.t)}</div>
               <div className={`bubble ${mine ? 'me' : 'them'} ${m.quick ? 'quick' : ''}`}>
                 {m.photoUrl && <img src={m.photoUrl} alt="Photo" className="bubble-photo" onClick={() => setLightbox({ url: m.photoUrl, label: 'Photo', t: m.t, by: m.name })} />}
@@ -164,6 +169,7 @@ function Conversation({ t }) {
                 {m.text && <div>{m.text}</div>}
               </div>
               {mine && <Receipt m={m} t={t} audience={audience} open={openInfo === m.id} onToggle={() => setOpenInfo(openInfo === m.id ? null : m.id)} />}
+              </>}
             </div>
           );
         })}
@@ -203,6 +209,7 @@ function Conversation({ t }) {
         </div>
       )}
       {lightbox && <Lightbox photo={lightbox} onClose={() => setLightbox(null)} />}
+      {editing && <GroupSheet kind="group" thread={t} onClose={() => setEditing(false)} />}
     </div>
   );
 }
@@ -276,43 +283,115 @@ function Receipt({ m, t, audience, open, onToggle }) {
   );
 }
 
-function NewThread({ onClose }) {
+function NewMenu({ onPick }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const on = (e) => { if (!ref.current?.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', on);
+    return () => document.removeEventListener('mousedown', on);
+  }, [open]);
+  const item = (key, icon, title, sub) => (
+    <button className="menu-item" onClick={() => { setOpen(false); onPick(key); }}>
+      <div className="icon-tile" style={{ background: key === 'group' ? 'var(--indigo)' : key === 'announce' ? 'var(--orange)' : 'var(--blue)', width: 30, height: 30, borderRadius: 8 }}><Icon name={icon} size={15} /></div>
+      <div><div className="subhead" style={{ fontWeight: 600 }}>{title}</div><div className="caption secondary">{sub}</div></div>
+    </button>
+  );
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button className="btn small primary" aria-label="New conversation" aria-expanded={open} onClick={() => setOpen((v) => !v)}><Icon name="plus" size={15} stroke={2.4} />New</button>
+      {open && (
+        <div className="menu glass" role="menu">
+          {item('group', 'people', 'New group', 'Pick drivers to chat with together')}
+          {item('announce', 'bell', 'New announcement channel', 'Office posts to every driver')}
+          {item('direct', 'message', 'Message a driver', 'One-to-one chat')}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PickDriver({ onClose }) {
   const { data, toast } = useStore();
-  const drivers = data.users.filter((u) => u.role === 'driver');
-  const [kind, setKind] = useState('group');
-  const [name, setName] = useState('');
-  const [pick, setPick] = useState(() => new Set());
+  const [q, setQ] = useState('');
+  const drivers = data.users.filter((u) => u.role === 'driver' && (!q || u.name.toLowerCase().includes(q.toLowerCase())));
+  return (
+    <Sheet title="Message a driver" onClose={onClose}>
+      <div className="stack">
+        <div className="search-field"><Icon name="search" size={15} /><input autoFocus placeholder="Search drivers" value={q} onChange={(e) => setQ(e.target.value)} /></div>
+        <div className="list">
+          {drivers.map((d) => (
+            <button key={d.id} className="list-row" onClick={async () => { try { await messageDriver(d.id); onClose(); } catch (e) { toast({ title: 'Couldn’t open chat', body: e.message, tone: 'error' }); } }}>
+              <Avatar user={d} size="sm" online={!!openShift(data, d.id)} /><span className="label">{d.name}</span><Icon name="chevron" size={14} className="tertiary" />
+            </button>
+          ))}
+        </div>
+      </div>
+    </Sheet>
+  );
+}
+
+/** Create a group / announcement channel, or edit an existing group's name and members. */
+function GroupSheet({ kind, thread, onClose }) {
+  const { data, toast } = useStore();
+  const idx = useIndex();
+  const editing = !!thread;
+  const all = data.users.filter((u) => u.role === 'driver');
+  const [name, setName] = useState(thread?.name || '');
+  const [pick, setPick] = useState(() => new Set(thread?.memberIds || []));
+  const [q, setQ] = useState('');
   const [text, setText] = useState('');
-  const create = async () => {
+  const eqOf = (d) => idx.trucks[d.truckId]?.equipment;
+  const shown = all.filter((d) => !q || d.name.toLowerCase().includes(q.toLowerCase()));
+  const toggle = (id, on) => setPick((s) => { const n = new Set(s); if (on) n.add(id); else n.delete(id); return n; });
+  const addSet = (ids) => setPick((s) => new Set([...s, ...ids]));
+  const eqs = [...new Set(all.map(eqOf).filter(Boolean))];
+  const save = async () => {
     try {
+      if (editing) { await api(`/chat/threads/${thread.id}`, { method: 'PATCH', body: { name, memberIds: [...pick] } }); toast({ title: 'Group updated' }); onClose(); return; }
       const t = await post('/chat/threads', { kind, name: name || (kind === 'announce' ? 'Announcements' : 'New group'), memberIds: [...pick], text });
       onClose(); openThread(t.id);
-    } catch (e) { toast({ title: 'Couldn’t create', body: e.message, tone: 'error' }); }
+    } catch (e) { toast({ title: editing ? 'Couldn’t save' : 'Couldn’t create', body: e.message, tone: 'error' }); }
   };
   return (
-    <Sheet title="New conversation" onClose={onClose}>
+    <Sheet title={editing ? 'Group members' : kind === 'announce' ? 'New announcement channel' : 'New group'} onClose={onClose}>
       <div className="stack">
-        <div className="segmented block" role="tablist">
-          <button className={kind === 'group' ? 'on' : ''} onClick={() => setKind('group')}>Group chat</button>
-          <button className={kind === 'announce' ? 'on' : ''} onClick={() => setKind('announce')}>Announcement channel</button>
-        </div>
-        <div className="footnote secondary">{kind === 'group' ? 'The drivers you pick and the office can all post.' : 'Goes to every driver. Only the office can post.'}</div>
-        <Field label="Name"><input className="input" placeholder={kind === 'group' ? 'e.g. Reefer team, Night shift' : 'e.g. Safety notices'} value={name} onChange={(e) => setName(e.target.value)} /></Field>
-        {kind === 'group' && (
-          <Field label={`Drivers (${pick.size})`}>
-            <div className="list">
-              <label className="list-row"><input type="checkbox" checked={pick.size === drivers.length} onChange={(e) => setPick(new Set(e.target.checked ? drivers.map((d) => d.id) : []))} /><span className="label">Everyone</span></label>
-              {drivers.map((d) => (
-                <label key={d.id} className="list-row">
-                  <input type="checkbox" checked={pick.has(d.id)} onChange={(e) => setPick((s) => { const n = new Set(s); if (e.target.checked) n.add(d.id); else n.delete(d.id); return n; })} />
-                  <Avatar user={d} size="sm" /><span className="label">{d.name}</span>
+        <Field label={kind === 'announce' ? 'Channel name' : 'Group name'}><input className="input" autoFocus={!editing} placeholder={kind === 'group' ? 'e.g. Reefer team, Night shift, Ottawa run' : 'e.g. Safety notices'} value={name} onChange={(e) => setName(e.target.value)} /></Field>
+        {kind === 'announce' ? (
+          <div className="footnote secondary">Every driver gets it, including drivers you add later. Only the office can post.</div>
+        ) : (
+          <>
+            <div className="row between"><span className="headline">Drivers · {pick.size} selected</span>{pick.size > 0 && <button className="btn plain small" onClick={() => setPick(new Set())}>Clear</button>}</div>
+            <div className="row wrap" style={{ gap: 6 }}>
+              <button className="qchip" onClick={() => addSet(all.map((d) => d.id))}>Everyone</button>
+              <button className="qchip" onClick={() => addSet(all.filter((d) => openShift(data, d.id)).map((d) => d.id))}><span className="dot-green" />On shift now</button>
+              {eqs.map((e) => <button key={e} className="qchip" onClick={() => addSet(all.filter((d) => eqOf(d) === e).map((d) => d.id))}>{data.meta.equipment[e]?.label || e} drivers</button>)}
+            </div>
+            {pick.size > 0 && (
+              <div className="row wrap" style={{ gap: 6 }}>
+                {[...pick].map((id) => idx.users[id]).filter(Boolean).map((d) => (
+                  <span key={d.id} className="pill">{d.name}<button className="link-btn" aria-label={`Remove ${d.name}`} onClick={() => toggle(d.id, false)}><Icon name="close" size={11} /></button></span>
+                ))}
+              </div>
+            )}
+            <div className="search-field"><Icon name="search" size={15} /><input placeholder="Search drivers" value={q} onChange={(e) => setQ(e.target.value)} /></div>
+            <div className="list" style={{ maxHeight: 300, overflowY: 'auto' }}>
+              {shown.map((d) => (
+                <label key={d.id} className="list-row" style={{ cursor: 'pointer' }}>
+                  <input type="checkbox" checked={pick.has(d.id)} onChange={(e) => toggle(d.id, e.target.checked)} aria-label={d.name} />
+                  <Avatar user={d} size="sm" online={!!openShift(data, d.id)} />
+                  <div className="label">
+                    <div>{d.name}</div>
+                    <div className="caption secondary">{[idx.trucks[d.truckId] ? `Unit ${idx.trucks[d.truckId].unit}` : null, data.meta.equipment[eqOf(d)]?.label, openShift(data, d.id) ? 'On shift' : null].filter(Boolean).join(' · ')}</div>
+                  </div>
                 </label>
               ))}
             </div>
-          </Field>
+          </>
         )}
-        <Field label="First message (optional)"><textarea className="input" rows={3} value={text} onChange={(e) => setText(e.target.value)} /></Field>
-        <ActionButton className="btn primary" disabled={kind === 'group' && !pick.size} onClick={create}>Create</ActionButton>
+        {!editing && <Field label="First message (optional)"><textarea className="input" rows={2} value={text} onChange={(e) => setText(e.target.value)} /></Field>}
+        <ActionButton className="btn primary" disabled={kind === 'group' && !pick.size} onClick={save}>{editing ? 'Save changes' : kind === 'announce' ? 'Create channel' : `Create group${pick.size ? ` with ${pick.size}` : ''}`}</ActionButton>
       </div>
     </Sheet>
   );

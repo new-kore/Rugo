@@ -30,14 +30,14 @@ export function driverThread(driver) {
   return t;
 }
 
-export function postMessage(thread, user, { text = '', photo = null, loadId = null, quick = false, at } = {}) {
+export function postMessage(thread, user, { text = '', photo = null, loadId = null, quick = false, system = false, at } = {}) {
   const body = String(text || '').trim().slice(0, MAX_TEXT);
   const photoUrl = photo ? saveUpload(photo) : null;
   const load = loadId ? find('loads', loadId) : null;
   const m = {
     id: id('msg'), threadId: thread.id, companyId: thread.companyId, userId: user.id, name: user.name, role: user.role,
     receipts: {},
-    text: body, photoUrl, loadId: load && load.carrierId === thread.companyId ? load.id : null, loadRef: load?.ref || null, quick: !!quick, t: at || Date.now(),
+    text: body, photoUrl, loadId: load && load.carrierId === thread.companyId ? load.id : null, loadRef: load?.ref || null, quick: !!quick, system: !!system, t: at || Date.now(),
   };
   db.chat.push(m);
   thread.lastAt = m.t;
@@ -81,6 +81,7 @@ export function chatRoutes(app, auth, role) {
     db.threads.push(t);
     save();
     publish('threads', t);
+    postMessage(t, req.user, { text: `${req.user.name} created ${kind === 'announce' ? 'this announcement channel' : `the group with ${memberIds.map((x) => find('users', x)?.name.split(' ')[0]).join(', ')}`}`, system: true });
     if (b.text) alert(t, postMessage(t, req.user, { text: b.text }));
     res.json(t);
   });
@@ -89,10 +90,20 @@ export function chatRoutes(app, auth, role) {
     const t = getThread(req, res); if (!t) return;
     if (t.kind !== 'group') return res.status(400).json({ error: 'Only group chats can be edited.' });
     const b = req.body || {};
-    if (b.name) t.name = String(b.name).trim().slice(0, 60);
-    if (Array.isArray(b.memberIds)) t.memberIds = [...new Set(b.memberIds)].filter((x) => { const u = find('users', x); return u && u.role === 'driver' && u.companyId === req.user.companyId; });
+    const notes = [];
+    if (b.name && String(b.name).trim() && String(b.name).trim() !== t.name) { t.name = String(b.name).trim().slice(0, 60); notes.push(`renamed the group to “${t.name}”`); }
+    if (Array.isArray(b.memberIds)) {
+      const next = [...new Set(b.memberIds)].filter((x) => { const u = find('users', x); return u && u.role === 'driver' && u.companyId === req.user.companyId; });
+      if (!next.length) return res.status(400).json({ error: 'A group needs at least one driver.' });
+      const names = (ids) => ids.map((x) => find('users', x)?.name).filter(Boolean).join(', ');
+      const added = next.filter((x) => !t.memberIds.includes(x)); const removed = t.memberIds.filter((x) => !next.includes(x));
+      if (added.length) notes.push(`added ${names(added)}`);
+      if (removed.length) notes.push(`removed ${names(removed)}`);
+      t.memberIds = next;
+    }
     save();
     publish('threads', t);
+    if (notes.length) postMessage(t, req.user, { text: `${req.user.name} ${notes.join(' and ')}`, system: true });
     res.json(t);
   });
 

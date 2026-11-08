@@ -165,7 +165,7 @@ Each driver also gets a weighted score with a grade (A–F), a rank, a trend ver
 Use **Messages** (sidebar, or the tab bar in the driver app) for the office and its drivers.
 - **Conversations:**
   - every driver has a private conversation with the office, and any dispatcher can answer it;
-  - **group chats** for the drivers you pick;
+  - **group chats** for the drivers you pick. Create them with **+ New → New group**. You can name the group, pick drivers one by one or with shortcuts (Everyone, On shift now, or by trailer type), and change members or rename it later with **Members**. Changes are posted in the chat;
   - **announcement channels** go to every driver, and only the office can post in them.
 - **Live delivery:** messages arrive instantly (SSE) and show a pop-up that opens the conversation.
 - **Unread counts** appear on the nav item and on each conversation.
