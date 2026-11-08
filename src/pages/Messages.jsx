@@ -192,12 +192,6 @@ function Conversation({ t }) {
               <Icon name="camera" size={18} />
               <input type="file" accept="image/*" hidden onChange={async (e) => { const f = e.target.files[0]; if (f) setPhoto(await compressImage(f, 1400, 0.78)); e.target.value = ''; }} />
             </label>
-            {driverLoads.length > 0 && (
-              <select className="icon-select" aria-label="Attach load" title="Attach a load" value={loadId} onChange={(e) => setLoadId(e.target.value)}>
-                <option value="">#</option>
-                {driverLoads.map((l) => <option key={l.id} value={l.id}>{l.ref} · {l.pickup.city} → {l.dropoff.city}</option>)}
-              </select>
-            )}
             <textarea className="input" rows={1} placeholder={t.kind === 'announce' ? 'Write an announcement to every driver' : 'Message'} value={text}
               onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} />
             <button className="icon-btn send" aria-label="Send" disabled={!text.trim() && !photo && !loadId}><Icon name="send" size={18} /></button>
