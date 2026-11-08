@@ -89,7 +89,6 @@ export function scorecard(driver, ctx, from, to = Date.now()) {
   const idleCost = driver.payType === 'hourly' ? idleH * (driver.hourlyRate || 0) : 0;
 
   // Quality & safety.
-  const ratings = done.map((l) => l.rating?.stars).filter(Boolean);
   const damage = done.filter((l) => l.damage?.hasDamage).length;
   const photosOk = done.filter((l) => (l.photos?.pickup?.length || 0) >= 4 && (l.photos?.delivery?.length || 0) >= 4).length;
   const signed = done.filter((l) => l.signature).length;
@@ -116,7 +115,7 @@ export function scorecard(driver, ctx, from, to = Date.now()) {
     },
     fuel: { litres, lPer100: totalKm ? (litres / totalKm) * 100 : null, fillUps: myFuel.length, receiptPct: pct(receipts, myFuel.length) },
     quality: {
-      rating: avg(ratings), ratings: ratings.length, damage, damagePct: pct(damage, done.length),
+      damage, damagePct: pct(damage, done.length),
       photoPct: pct(photosOk, done.length), signaturePct: pct(signed, done.length), hosViolations,
     },
     lanes: topLanes(done),
@@ -142,12 +141,11 @@ function overall(c) {
   const parts = [
     ['On-time pickups', 20, c.pickup.n ? c.pickup.onTimePct : N],
     ['On-time deliveries', 20, c.delivery.n ? c.delivery.onTimePct : N],
-    ['Profit per km', 15, c.money.revenuePerKm ? clamp(50 + ((c.money.marginPct ?? 0) * 2.5)) : N],
+    ['Profit per km', 20, c.money.revenuePerKm ? clamp(50 + ((c.money.marginPct ?? 0) * 2.5)) : N],
     ['Response time', 10, c.response.n ? clamp(100 - Math.max(0, c.response.avgMin - 10) * 2) : N],
     ['Idle paid time', 10, c.time.dutyH > 1 ? clamp(100 - Math.max(0, (c.time.idlePct ?? 0) - 25) * 2) : N],
     ['Safety & damage', 10, clamp(100 - (c.quality.damagePct ?? 0) * 2 - c.quality.hosViolations * 20)],
-    ['Customer rating', 10, c.quality.ratings ? clamp((c.quality.rating - 3) * 50) : N],
-    ['Paperwork', 5, c.loads ? clamp(((c.quality.photoPct ?? 100) + (c.quality.signaturePct ?? 100) + (c.fuel.receiptPct ?? 100)) / 3) : N],
+    ['Paperwork', 10, c.loads ? clamp(((c.quality.photoPct ?? 100) + (c.quality.signaturePct ?? 100) + (c.fuel.receiptPct ?? 100)) / 3) : N],
   ];
   const total = Math.round(sum(parts.map(([, w, v]) => (w * v) / 100)));
   return { total, grade: total >= 90 ? 'A' : total >= 80 ? 'B' : total >= 70 ? 'C' : total >= 60 ? 'D' : 'F', parts: parts.map(([label, weight, value]) => ({ label, weight, value: Math.round(value) })) };
@@ -183,7 +181,6 @@ export function insights(c, fleet) {
   if (fleet?.lPer100 && c.fuel.lPer100 && c.fuel.lPer100 > fleet.lPer100 * 1.05) work.push(`Uses more fuel: ${f(c.fuel.lPer100, 1)} L/100 km vs fleet ${f(fleet.lPer100, 1)}`);
   if (c.quality.damage) work.push(`${c.quality.damage} damage report${c.quality.damage > 1 ? 's' : ''}`);
   if (c.quality.hosViolations) work.push(`${c.quality.hosViolations} HOS violation${c.quality.hosViolations > 1 ? 's' : ''}`);
-  if (c.quality.ratings && c.quality.rating >= 4.8) good.push(`Customers rate ${f(c.quality.rating, 1)} ★`);
   if (c.fuel.fillUps && c.fuel.receiptPct < 100) work.push(`${100 - c.fuel.receiptPct}% of fill-ups missing receipts`);
   if (c.lanes[0]?.runs >= 2) good.push(`Knows ${c.lanes[0].lane} (${c.lanes[0].runs} runs)`);
   return { good, work };

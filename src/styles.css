@@ -828,3 +828,10 @@ table.table { width: 100%; border-collapse: collapse; font-size: 0.93rem; font-v
 
 /* scorecard legend swatch */
 .sw { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; vertical-align: 0; }
+
+/* driver app GPS status */
+.gps-chip { position: fixed; z-index: 950; left: 50%; transform: translateX(-50%); top: 12px; display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 99px; font-size: 0.78rem; font-weight: 500; background: var(--bg-elevated); color: var(--label-2); border: 1px solid var(--border); box-shadow: var(--shadow-sm, 0 1px 3px rgba(0,0,0,.08)); pointer-events: none; }
+.gps-chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--label-3); }
+.gps-chip.on { color: var(--green-text); }
+.gps-chip.on .dot { background: var(--green); animation: pulse 1.6s ease-in-out infinite; }
+.gps-banner { position: fixed; z-index: 950; left: 12px; right: 12px; top: 56px; max-width: 560px; margin: 0 auto; display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 12px; background: var(--red); color: #fff; box-shadow: 0 6px 20px rgba(0,0,0,.18); }

@@ -19,7 +19,7 @@ export function publicUser(u, viewer) {
   if (sameCompany) {
     Object.assign(base, {
       email: u.email, payType: u.payType, hourlyRate: u.hourlyRate, perKmRate: u.perKmRate,
-      hireDate: u.hireDate, locationSource: u.locationSource, schedule: u.schedule, timeOff: u.timeOff || [], licenseExpiry: u.licenseExpiry, licenseNumber: u.licenseNumber, hos: u.hos || null, hosEvents: u.hosEvents || [],
+      hireDate: u.hireDate, locationSource: u.locationSource, schedule: u.schedule, timeOff: u.timeOff || [], licenseExpiry: u.licenseExpiry, licenseNumber: u.licenseNumber, hos: u.hos || null, hosEvents: u.hosEvents || [], gps: u.gps || null,
       // Documents are records for dispatch; a driver sees their own.
       documents: viewer.role === 'dispatcher' || viewer.id === u.id ? (u.documents || []) : undefined,
     });
@@ -232,7 +232,15 @@ export async function advance(load, to, actor, extra = {}) {
     load.economics = economics(load, driver, truck, db.fuelLogs, settings(), team);
     load.eta = null;
     delete load.sim;
-    for (const d of [driver, ...team]) if (d) { d.status = 'available'; publish('users', d); }
+    for (const d of [driver, ...team]) {
+      if (!d) continue;
+      d.status = 'available';
+      // The shift (and the app's GPS) that started with this load ends with it. Manual clock-ins stay open.
+      const shift = db.shifts.find((x) => x.driverId === d.id && !x.end && x.auto && x.loadId === load.id);
+      const more = db.loads.some((l) => l.id !== load.id && ACTIVE.includes(l.status) && (l.driverId === d.id || (l.teamDriverIds || []).includes(d.id)));
+      if (shift && !more) clockOut(d);
+      publish('users', d);
+    }
   }
   load.status = to;
   addTimeline(load, to, actor, extra.note || (extra.auto ? 'Detected automatically by GPS geofence' : undefined));
@@ -310,7 +318,9 @@ export async function gpsUpdate(driver, { lat, lng, speed, heading }, source = '
   truck.gpsAt = now;
   if (load?.sim) load.sim.source = source;
   const moving = load && MOVING.includes(load.status);
-  recordMovement(moving ? load : null, truck, pos, moving ? km : 0, moving ? hours : 0, speed != null ? speed * 3.6 : km / Math.max(hours, 1e-6));
+  // Phones don't always report speed; derive it from the last fix, but never from a jump or a too-short gap.
+  const kmh = speed != null ? speed * 3.6 : hours > 0.002 && km > 0 ? Math.min(140, km / hours) : 0;
+  recordMovement(moving ? load : null, truck, pos, moving ? km : 0, moving ? hours : 0, kmh);
   if (moving) await checkGeofence(load, truck, driver);
 }
 

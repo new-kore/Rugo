@@ -114,7 +114,6 @@ export function ScorecardView({ driver }) {
         </div>
         <div>
           <div className="section-header" style={{ margin: '4px 0 6px' }}>Quality & safety</div>
-          <Row k="Customer rating" v={c.quality.ratings ? `${num(c.quality.rating, 1)} ★ (${c.quality.ratings})` : '—'} />
           <Row k="Damage reports" v={c.quality.damage} cls={c.quality.damage ? 'red' : 'green'} />
           <Row k="HOS violations (ELD)" v={c.quality.hosViolations} cls={c.quality.hosViolations ? 'red' : 'green'} />
           <Row k="Inspection photos complete" v={fmtPct(c.quality.photoPct)} />
@@ -158,7 +157,7 @@ export function ScorecardTable({ onOpen }) {
       </div>
       <div className="card table-wrap">
         <table className="table">
-          <thead><tr><th>#</th><th>Driver</th><th>Score</th><th className="r">Loads</th><th className="r">On-time pickup</th><th className="r">On-time delivery</th><th className="r">Start after dispatch</th><th className="r">Paid not moving</th><th className="r">Made</th><th className="r">Cost</th><th className="r">Profit</th><th className="r">Rating</th></tr></thead>
+          <thead><tr><th>#</th><th>Driver</th><th>Score</th><th className="r">Loads</th><th className="r">On-time pickup</th><th className="r">On-time delivery</th><th className="r">Start after dispatch</th><th className="r">Paid not moving</th><th className="r">Made</th><th className="r">Cost</th><th className="r">Profit</th></tr></thead>
           <tbody>
             {rows.map(({ d, c }) => (
               <tr key={d.id} className="click" onClick={() => onOpen(d)}>
@@ -173,7 +172,6 @@ export function ScorecardTable({ onOpen }) {
                 <td className="r num">{money(c.money.revenue)}</td>
                 <td className="r num">{money(c.money.cost)}</td>
                 <td className={`r num ${c.money.profit >= 0 ? 'green' : 'red'}`}>{money(c.money.profit)}</td>
-                <td className="r num">{c.quality.ratings ? `${num(c.quality.rating, 1)} ★` : '—'}</td>
               </tr>
             ))}
           </tbody>

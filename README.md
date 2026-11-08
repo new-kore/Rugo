@@ -72,8 +72,19 @@ With a Google Maps Platform API key, Rugo uses Google for the live map, real roa
 
 Without a key, or where Google can't be reached, Rugo falls back to OpenStreetMap and its own route estimates.
 
-### Demo simulation vs. real GPS
-In demo mode, trucks drive themselves along their route. A leg takes about 2–3 minutes, so you can follow a whole job from start to finish. When a driver turns on **Settings → Share my phone's GPS**, their phone's location is streamed instead, and the simulator leaves that truck alone. Dispatch can switch the simulator off in Settings.
+### Driver GPS (driver app)
+Every driver tracks with the Rugo app on their phone:
+- **When it starts:** tracking starts on its own when the driver taps **Start** on a load or clocks in. There's no switch to turn on.
+- **While it runs:** the app sends a position every 5 s, keeps the screen awake, and shows a "GPS tracking" chip.
+- **When it stops:**
+  - **When a load is delivered:** the shift that started with the load closes, and tracking stops with it. A manual clock-in stays open until the driver clocks out.
+  - **When the driver signs out:** signing out clocks them out.
+- **Dispatch alerts:**
+  - If the driver blocks location, loses signal or signs out during a load, dispatch gets a "GPS stopped" alert.
+  - The driver shows **GPS off** on the Drivers page.
+- **Demo mode:** a truck that isn't sending GPS (or ELD) positions is driven along its route by the demo simulator. Switch the simulator off in Settings for real use.
+
+Background tracking: a web app can only read GPS while it's open on screen. To keep tracking with the phone locked, package the app as a native app (for example with Capacitor and a background-geolocation plugin). It can post to the same `/api/driver/location` endpoint.
 
 ### ELD / hours of service (Samsara, Motive, Geotab, Isaac)
 Rugo doesn't replace a certified ELD. It reads from the one a fleet already uses. Dispatch connects it in **Integrations** with these credentials:
@@ -130,7 +141,7 @@ Choose the mode in **Settings → AI dispatch**:
 - **Time:** paid hours, driving hours, paid time not moving and what it costs, and average time at the docks.
 - **Money:** revenue, cost (driver pay and fuel), profit, margin and revenue per km.
 - **Fuel:** fuel economy compared with the fleet, and the share of fill-ups with a receipt.
-- **Quality & safety:** customer ratings, damage reports, HOS violations, photo and signature completeness, and cancellations.
+- **Quality & safety:** damage reports, HOS violations, photo and signature completeness, and cancellations.
 - **Lanes:** the lanes they run most.
 
 Each driver also gets a weighted score with a grade (A–F), a rank, a trend versus the previous period, and plain-language "Doing well" and "Work on" notes.

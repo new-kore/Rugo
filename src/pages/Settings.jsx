@@ -4,7 +4,7 @@ import { PageHead, Segmented, Switch, Avatar, ConfirmButton } from '../component
 import { useStore } from '../lib/store.jsx';
 import { applyTheme } from '../lib/theme.js';
 import { getKey, saveKey, googleFailed } from '../lib/google.js';
-import { patch, post, standalone, resetDemo, setToken } from '../lib/api.js';
+import { patch, standalone, resetDemo, setToken } from '../lib/api.js';
 
 function usePref(key, attr, def) {
   const [v, setV] = useState(() => { try { return localStorage.getItem(key) || def; } catch { return def; } });
@@ -66,10 +66,9 @@ export default function Settings() {
             <div className="list-row indent">
               <div className="icon-tile" style={{ background: 'var(--green)' }}><Icon name="location" size={18} /></div>
               <div className="label">
-                <div>Share my phone’s GPS</div>
-                <div className="footnote secondary">Off = demo mode, the truck drives itself along the route.</div>
+                <div>GPS tracking</div>
+                <div className="footnote secondary">Turns on by itself when you start a load or clock in, and stops when the load is delivered or you clock out or sign out. Keep location set to “Always” or “While using” for Rugo.</div>
               </div>
-              <Switch checked={me.locationSource === 'gps'} onChange={(v) => post('/driver/preferences', { locationSource: v ? 'gps' : 'sim' })} label="Share GPS" />
             </div>
           </div>
         </>

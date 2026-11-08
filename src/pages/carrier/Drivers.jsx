@@ -97,7 +97,7 @@ export default function Drivers() {
               return (
                 <tr key={d.id} className="click" onClick={() => setEdit(d)}>
                   <td><div className="row"><Avatar user={d} size="sm" /><div><div className="headline">{d.name}</div><div className="caption secondary">{d.phone} · Class {d.licenseClass}</div></div></div></td>
-                  <td><span className={`pill ${st[0]}`}>{st[1]}</span></td>
+                  <td><span className={`pill ${st[0]}`}>{st[1]}</span>{onJob.has(d.id) && ['denied', 'unavailable', 'stopped'].includes(d.gps?.state) && <span className="pill red" style={{ marginLeft: 4 }} title="The driver app isn’t sending location">GPS off</span>}</td>
                   {hasHos && <td><HosCell h={d.hos} /></td>}
                   <td>{idx.trucks[d.truckId] ? `Unit ${idx.trucks[d.truckId].unit}` : '—'}</td>
                   <td>{d.payType === 'per_km' ? `${money2(d.perKmRate)}/km` : `${money2(d.hourlyRate)}/h`}</td>

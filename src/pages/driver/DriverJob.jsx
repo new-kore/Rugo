@@ -12,23 +12,6 @@ import { navUrl } from '../../lib/geo.js';
 import { km, time, dayLabel, money, duration, placeShort } from '../../lib/format.js';
 import { go } from '../../lib/router.js';
 
-/** Streams the phone's GPS to dispatch while a job is active and the driver opted in. */
-export function DriverGps() {
-  const { data } = useStore();
-  const want = data.me.locationSource === 'gps' && data.loads.some(isActive);
-  const last = useRef(0);
-  useEffect(() => {
-    if (!want || !navigator.geolocation) return undefined;
-    const id = navigator.geolocation.watchPosition((p) => {
-      if (Date.now() - last.current < 4000) return;
-      last.current = Date.now();
-      post('/driver/location', { lat: p.coords.latitude, lng: p.coords.longitude, speed: p.coords.speed, heading: p.coords.heading }).catch(() => {});
-    }, () => {}, { enableHighAccuracy: true, maximumAge: 3000 });
-    return () => navigator.geolocation.clearWatch(id);
-  }, [want]);
-  return null;
-}
-
 const HERO = {
   accepted: { tone: '', title: 'You have a new job', button: 'Start driving to pickup', icon: 'navigate', next: 'en_route_pickup' },
   en_route_pickup: { tone: '', title: 'Drive to the pickup', button: 'I’m at the pickup', icon: 'pin', next: 'at_pickup' },

@@ -64,6 +64,13 @@ export function routes(app) {
 
   app.post('/api/auth/logout', auth, (req, res) => {
     const token = (req.headers.authorization || '').replace('Bearer ', '');
+    // Signing out of the driver app ends the shift and GPS tracking.
+    if (req.user.role === 'driver') {
+      const live = db.loads.find((l) => (l.driverId === req.user.id || (l.teamDriverIds || []).includes(req.user.id)) && ['en_route_pickup', 'at_pickup', 'in_transit', 'at_delivery'].includes(l.status));
+      if (clockOut(req.user)) req.user.status = live ? 'on_job' : 'off_duty';
+      gpsState(req.user, 'stopped', live);
+      publish('users', req.user);
+    }
     db.sessions = db.sessions.filter((s) => s.token !== token);
     save();
     res.json({ ok: true });
@@ -351,6 +358,25 @@ export function routes(app) {
     save();
     publish('users', req.user);
     res.json(shift || {});
+  });
+
+  /** The driver app reports whether its GPS is running. */
+  function gpsState(u, state, live) {
+    const prev = u.gps?.state;
+    u.gps = { state, at: Date.now() };
+    save();
+    if (state !== 'on' && state !== 'off' && prev !== state && live) {
+      const what = { denied: 'turned location off', unavailable: 'has no GPS signal', stopped: 'signed out of the app' }[state] || 'stopped GPS';
+      notify((v) => v.role === 'dispatcher' && v.companyId === u.companyId, { title: 'GPS stopped', body: `${u.name} ${what} during ${live.ref}.`, loadId: live.id, tone: 'warn' });
+    }
+  }
+
+  app.post('/api/driver/gps', auth, role('driver'), (req, res) => {
+    const state = ['on', 'off', 'denied', 'unavailable'].includes(req.body?.state) ? req.body.state : 'off';
+    const live = db.loads.find((l) => l.driverId === req.user.id && ['en_route_pickup', 'at_pickup', 'in_transit', 'at_delivery'].includes(l.status));
+    gpsState(req.user, state, live);
+    publish('users', req.user);
+    res.json({ ok: true });
   });
 
   app.post('/api/driver/preferences', auth, role('driver'), (req, res) => {
