@@ -591,3 +591,89 @@ table.table { width: 100%; border-collapse: collapse; font-size: 0.93rem; font-v
 .acct-row .segmented button { padding: 2px 8px; font-size: 0.8rem; }
 .acct-item { display: flex; align-items: center; gap: 10px; width: 100%; border: 0; background: none; padding: 8px 10px; border-radius: 6px; font-size: 0.93rem; color: var(--label); cursor: pointer; text-align: left; }
 .acct-item:hover { background: var(--bg-hover); }
+
+/* --------------------------- calendar (gcal layout) ---------------------- */
+.gcal { display: grid; grid-template-columns: 256px minmax(0, 1fr); flex: 1; min-height: calc(100vh - 66px); }
+.gcal-rail { padding: 16px 12px; border-right: 1px solid var(--border); display: flex; flex-direction: column; gap: 18px; }
+.gcal-create { display: inline-flex; align-items: center; gap: 10px; align-self: flex-start; height: 52px; padding: 0 22px 0 16px; border-radius: 16px; border: 0; background: var(--bg-elevated); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.16), 0 4px 12px rgba(0, 0, 0, 0.08); font-weight: 500; font-size: 0.95rem; cursor: pointer; color: var(--label); transition: box-shadow 0.15s, background 0.15s; }
+.gcal-create:hover { background: var(--bg-hover); box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2), 0 8px 18px rgba(0, 0, 0, 0.1); }
+.gcal-create svg { color: var(--blue); }
+.mini-head { display: flex; align-items: center; justify-content: space-between; font-size: 0.88rem; font-weight: 500; padding: 0 2px 6px 8px; }
+.mini-grid { display: grid; grid-template-columns: repeat(7, 1fr); row-gap: 2px; }
+.mini-wd { font-size: 0.68rem; color: var(--label-2); text-align: center; padding: 4px 0; font-weight: 500; }
+.mini-day { position: relative; height: 28px; width: 28px; margin: 0 auto; border: 0; border-radius: 50%; background: none; font-size: 0.74rem; cursor: pointer; color: var(--label); }
+.mini-day:hover { background: var(--bg-hover); }
+.mini-day.out { color: var(--label-3); }
+.mini-day.range { background: var(--accent-soft); border-radius: 0; width: 100%; }
+.mini-day.sel { background: color-mix(in srgb, var(--blue) 22%, transparent); border-radius: 50%; width: 28px; color: var(--blue); font-weight: 600; }
+.mini-day.today { background: var(--blue); color: #fff; border-radius: 50%; width: 28px; font-weight: 600; }
+.mini-day i { position: absolute; bottom: 2px; left: 50%; width: 3px; height: 3px; margin-left: -1.5px; border-radius: 50%; background: currentColor; opacity: 0.6; }
+.gcal-cals-head { font-size: 0.88rem; font-weight: 500; padding: 0 8px 6px; }
+.gcal-cal { display: flex; align-items: center; gap: 10px; padding: 5px 8px; border-radius: 6px; font-size: 0.88rem; cursor: pointer; }
+.gcal-cal:hover { background: var(--bg-hover); }
+.gcal-cal input { width: 16px; height: 16px; margin: 0; cursor: pointer; }
+.gcal-main { display: flex; flex-direction: column; min-width: 0; }
+.gcal-bar { display: flex; align-items: center; gap: 6px; padding: 10px 16px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.gcal-bar .btn { border-radius: 18px; padding: 0 16px; height: 34px; margin-right: 6px; }
+.gcal-title { font-size: 1.35rem; font-weight: 400; margin: 0 0 0 10px; letter-spacing: -0.01em; }
+
+.tg { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.tg-head { display: grid; border-bottom: 1px solid var(--border); padding-right: 10px; }
+.tg-tz { font-size: 0.66rem; color: var(--label-2); align-self: end; padding: 0 6px 6px 0; text-align: right; }
+.tg-dayhead { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 0 10px; border: 0; background: none; cursor: pointer; border-left: 1px solid var(--separator); }
+.tg-wd { font-size: 0.7rem; color: var(--label-2); font-weight: 500; letter-spacing: 0.04em; }
+.tg-num { font-size: 1.55rem; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: var(--label); }
+.tg-dayhead:hover .tg-num { background: var(--bg-hover); }
+.tg-dayhead.today .tg-wd { color: var(--blue); }
+.tg-dayhead.today .tg-num { background: var(--blue); color: #fff; }
+.tg-body { overflow-y: auto; height: calc(100vh - 230px); min-height: 360px; }
+.tg-inner { display: grid; position: relative; }
+.tg-hours { position: relative; }
+.tg-hour { position: absolute; right: 8px; transform: translateY(-50%); font-size: 0.66rem; color: var(--label-2); }
+.tg-col { position: relative; border-left: 1px solid var(--separator); }
+.tg-line { position: absolute; left: 0; right: 0; border-top: 1px solid var(--separator); }
+.tg-ev { position: absolute; border: 0; border-radius: 6px; background: var(--ev); color: #fff; text-align: left; padding: 3px 7px; overflow: hidden; cursor: pointer; display: flex; flex-direction: column; gap: 1px; box-shadow: 0 0 0 1.5px var(--bg); font-size: 0.76rem; line-height: 1.25; }
+.tg-ev:hover { filter: brightness(0.95); z-index: 50 !important; box-shadow: 0 0 0 1px var(--bg), 0 4px 12px rgba(0, 0, 0, 0.18); }
+.tg-ev.tentative { background: color-mix(in srgb, var(--ev) 14%, var(--bg-elevated)); color: var(--label); border: 1px dashed var(--ev); }
+.tg-ev.past { opacity: 0.72; }
+.tg-ev-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tg-ev-time { opacity: 0.9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tg-now { position: absolute; left: -1px; right: 0; height: 2px; background: #ea4335; z-index: 4; pointer-events: none; }
+.tg-now i { position: absolute; left: -6px; top: -5px; width: 12px; height: 12px; border-radius: 50%; background: #ea4335; }
+
+.mg { display: flex; flex-direction: column; flex: 1; }
+.mg-wds { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.mg-wds div { text-align: center; font-size: 0.7rem; font-weight: 500; color: var(--label-2); padding: 8px 0 4px; border-left: 1px solid var(--separator); letter-spacing: 0.04em; }
+.mg-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); flex: 1; min-height: calc(100vh - 210px); }
+.mg-cell { border-left: 1px solid var(--separator); border-bottom: 1px solid var(--separator); padding: 4px 4px 6px; display: flex; flex-direction: column; gap: 1px; min-width: 0; cursor: pointer; }
+.mg-cell.out .mg-num { color: var(--label-3); }
+.mg-num { align-self: center; border: 0; background: none; font-size: 0.78rem; font-weight: 500; min-width: 26px; height: 26px; border-radius: 13px; padding: 0 6px; cursor: pointer; color: var(--label); margin-bottom: 2px; }
+.mg-num:hover { background: var(--bg-hover); }
+.mg-num.today { background: var(--blue); color: #fff; }
+.mg-ev { display: flex; align-items: center; gap: 5px; border: 0; background: none; border-radius: 4px; padding: 1px 6px; font-size: 0.76rem; cursor: pointer; color: var(--label); text-align: left; min-width: 0; }
+.mg-ev:hover { background: var(--bg-hover); }
+.mg-ev i { width: 8px; height: 8px; border-radius: 50%; background: var(--ev); flex: none; }
+.mg-ev .num { color: var(--label-2); flex: none; }
+.mg-ev.bar { background: var(--ev); color: #fff; }
+.mg-ev.bar .num { color: rgba(255, 255, 255, 0.85); }
+.mg-ev.past { opacity: 0.65; }
+.mg-more { border: 0; background: none; text-align: left; font-size: 0.76rem; font-weight: 500; padding: 1px 6px; border-radius: 4px; cursor: pointer; color: var(--label); }
+.mg-more:hover { background: var(--bg-hover); }
+
+.ev-card { position: fixed; z-index: 1500; width: 400px; max-width: calc(100vw - 24px); background: var(--bg-elevated); border-radius: 12px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.22), 0 0 0 1px var(--border); padding: 8px 20px 18px; display: flex; flex-direction: column; gap: 12px; animation: rise 0.15s ease; }
+.ev-card-tools { display: flex; justify-content: flex-end; gap: 2px; margin-right: -12px; }
+.ev-row { display: flex; align-items: flex-start; gap: 16px; font-size: 0.92rem; }
+.ev-row > svg, .ev-row > .avatar { flex: none; color: var(--label-2); margin-top: 1px; }
+.ev-swatch { width: 16px; height: 16px; border-radius: 4px; flex: none; margin-top: 4px; }
+.ev-actions { display: flex; justify-content: flex-end; }
+
+@media (max-width: 1000px) {
+  .gcal { grid-template-columns: 1fr; }
+  .gcal-rail { display: none; }
+}
+@media (max-width: 700px) {
+  .tg-num { font-size: 1.1rem; width: 32px; height: 32px; }
+  .tg-ev-title { font-size: 0.68rem; }
+  .gcal-title { font-size: 1.1rem; }
+  .mg-ev .truncate { display: none; }
+}
