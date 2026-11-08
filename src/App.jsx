@@ -3,6 +3,7 @@ import { useStore, isActive } from './lib/store.jsx';
 import { useRoute, go, match, viewTransitions } from './lib/router.js';
 import Icon from './components/Icon.jsx';
 import { Toasts } from './components/ui.jsx';
+import AccountMenu from './components/AccountMenu.jsx';
 import { GlobalSearch, NotificationBell } from './components/TopbarTools.jsx';
 import { applyTheme } from './lib/theme.js';
 import Login from './pages/Login.jsx';
@@ -30,7 +31,7 @@ const NAV = {
     { path: '/shipments', label: 'Shipments', icon: 'box', page: Shipments, section: 'Workspace', badge: (d) => d.loads.filter((l) => l.status === 'requested' || isActive(l)).length, quiet: true },
     { path: '/calendar', label: 'Calendar', icon: 'calendar', page: CalendarPage, section: 'Workspace', desktopOnly: true },
     { path: '/billing', label: 'Billing', icon: 'receipt', page: Billing, section: 'Workspace' },
-    { path: '/settings', label: 'Settings', icon: 'gear', page: Settings, section: 'Workspace' },
+    { path: '/settings', label: 'Settings', icon: 'gear', page: Settings, section: 'Workspace', mobileOnly: true },
   ],
   dispatcher: [
     { path: '/', label: 'Load board', icon: 'list', page: Board, badge: (d) => d.loads.filter((l) => l.status === 'requested').length },
@@ -40,14 +41,14 @@ const NAV = {
     { path: '/drivers', label: 'Drivers & trucks', icon: 'people', page: Drivers, section: 'Fleet' },
     { path: '/fuel', label: 'Fuel', icon: 'fuel', page: Fuel, section: 'Fleet' },
     { path: '/reports', label: 'Reports', icon: 'chart', page: Reports, section: 'Fleet' },
-    { path: '/settings', label: 'Settings', icon: 'gear', page: Settings, section: 'Workspace' },
+    { path: '/settings', label: 'Settings', icon: 'gear', page: Settings, section: 'Workspace', mobileOnly: true },
   ],
   driver: [
     { path: '/', label: 'My job', icon: 'truck', page: DriverJob },
     { path: '/calendar', label: 'Calendar', icon: 'calendar', page: CalendarPage, section: 'Workspace' },
     { path: '/fuel', label: 'Fuel', icon: 'fuel', page: DriverFuel, section: 'Workspace' },
     { path: '/hours', label: 'Hours & pay', icon: 'clock', page: DriverHours, section: 'Workspace' },
-    { path: '/settings', label: 'Settings', icon: 'gear', page: Settings, section: 'Workspace' },
+    { path: '/settings', label: 'Settings', icon: 'gear', page: Settings, section: 'Workspace', mobileOnly: true },
   ],
 };
 
@@ -82,7 +83,8 @@ export default function App() {
     page = <P />;
   }
   const mobileNav = nav.filter((n) => !n.desktopOnly && !(role === 'dispatcher' && n.path === '/fuel'));
-  const sections = [...new Set(nav.map((n) => n.section || ''))];
+  const deskNav = nav.filter((n) => !n.mobileOnly);
+  const sections = [...new Set(deskNav.map((n) => n.section || ''))];
   const initials = (data.me.company?.name || 'R').split(/\s+/).map((w) => w[0]).slice(0, 2).join('');
 
   return (
@@ -100,7 +102,7 @@ export default function App() {
         {sections.map((sec) => (
           <div key={sec || 'main'} className="stack" style={{ gap: 1 }}>
             {sec && <div className="nav-label">{sec}<Icon name="chevron" size={11} style={{ transform: 'rotate(90deg)' }} /></div>}
-            {nav.filter((n) => (n.section || '') === sec).map((n) => {
+            {deskNav.filter((n) => (n.section || '') === sec).map((n) => {
               const b = n.badge?.(data);
               return (
                 <button key={n.path} className={`nav-item ${activePath === n.path ? 'active' : ''}`} onClick={() => go(n.path)}>
@@ -113,13 +115,7 @@ export default function App() {
           </div>
         ))}
         <div className="sidebar-foot">
-          <button className="nav-item" style={{ height: 44 }} onClick={() => go('/settings')}>
-            <div className="avatar sm" style={{ background: data.me.color }}>{data.me.name.split(' ').map((x) => x[0]).join('')}</div>
-            <div style={{ minWidth: 0, lineHeight: 1.2 }}>
-              <div className="subhead truncate">{data.me.name}</div>
-              <div className="caption secondary">{ROLE_LABEL[role]}</div>
-            </div>
-          </button>
+          <AccountMenu />
         </div>
       </aside>
       <main className="main">
