@@ -101,7 +101,6 @@ function Conversation({ t }) {
   const [text, setText] = useState('');
   const [photo, setPhoto] = useState(null);
   const [loadId, setLoadId] = useState('');
-  const [showQuick, setShowQuick] = useState(me.role === 'driver');
   const [lightbox, setLightbox] = useState(null);
   const box = useRef(null);
   const readOnly = t.kind === 'announce' && !isDispatch;
@@ -179,11 +178,9 @@ function Conversation({ t }) {
         <div className="convo-foot footnote secondary" style={{ textAlign: 'center' }}>Only the office can post announcements. Reply to the office in your own chat.</div>
       ) : (
         <div className="convo-foot">
-          {showQuick && (
-            <div className="quick-row">
-              {QUICK[me.role]?.map((qtext) => <button key={qtext} className="qchip" onClick={() => send({ text: qtext, quick: true })}>{qtext}</button>)}
-            </div>
-          )}
+          <div className="quick-row">
+            {QUICK[me.role]?.map((qtext) => <button key={qtext} className="qchip" onClick={() => send({ text: qtext, quick: true })}>{qtext}</button>)}
+          </div>
           {(photo || loadId) && (
             <div className="row" style={{ gap: 8, marginBottom: 6 }}>
               {photo && <div className="attach-thumb"><img src={photo} alt="" /><button aria-label="Remove photo" onClick={() => setPhoto(null)}><Icon name="close" size={12} /></button></div>}
@@ -191,7 +188,6 @@ function Conversation({ t }) {
             </div>
           )}
           <form className="row composer" onSubmit={(e) => { e.preventDefault(); send(); }}>
-            <button type="button" className="icon-btn" aria-label="Quick replies" title="Quick replies" onClick={() => setShowQuick((v) => !v)}><Icon name="bolt" size={18} /></button>
             <label className="icon-btn" aria-label="Attach photo" title="Attach photo" style={{ cursor: 'pointer' }}>
               <Icon name="camera" size={18} />
               <input type="file" accept="image/*" hidden onChange={async (e) => { const f = e.target.files[0]; if (f) setPhoto(await compressImage(f, 1400, 0.78)); e.target.value = ''; }} />
