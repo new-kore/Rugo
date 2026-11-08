@@ -205,18 +205,35 @@ export function NotificationBell() {
   useNow(30000);
   const items = useNotifications();
   const key = `rugo.seen.${data.me.id}`;
+  const keyRead = `rugo.read.${data.me.id}`;
+  const keyUnread = `rugo.unread.${data.me.id}`;
+  const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
   // First visit: only the last 12 hours count as new.
-  const [seen, setSeen] = useState(() => { try { return Number(localStorage.getItem(key)) || Date.now() - 12 * 3.6e6; } catch { return Date.now() - 12 * 3.6e6; } });
+  const [seen, setSeen] = useState(() => load(key, Date.now() - 12 * 3.6e6));
+  const [readIds, setReadIds] = useState(() => new Set(load(keyRead, [])));
+  const [unreadIds, setUnreadIds] = useState(() => new Set(load(keyUnread, [])));
   const [open, setOpen] = useState(false);
   const box = useRef(null);
   useOutside(box, () => setOpen(false));
-  const unread = items.filter((n) => n.t > seen).length;
+
+  const isUnread = (n) => unreadIds.has(n.id) || (n.t > seen && !readIds.has(n.id));
+  const unread = items.filter(isUnread).length;
+  const persist = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* ignore */ } };
+  const setRead = (n, read) => {
+    const r = new Set(readIds); const u = new Set(unreadIds);
+    if (read) { r.add(n.id); u.delete(n.id); } else { r.delete(n.id); u.add(n.id); }
+    // keep the stored lists small
+    const ids = new Set(items.map((x) => x.id));
+    const rr = [...r].filter((x) => ids.has(x)); const uu = [...u].filter((x) => ids.has(x));
+    setReadIds(new Set(rr)); setUnreadIds(new Set(uu)); persist(keyRead, rr); persist(keyUnread, uu);
+  };
   const markAll = () => {
     const now = Date.now();
-    setSeen(now);
-    try { localStorage.setItem(key, String(now)); } catch { /* ignore */ }
+    setSeen(now); setReadIds(new Set()); setUnreadIds(new Set());
+    persist(key, now); persist(keyRead, []); persist(keyUnread, []);
   };
   const openItem = (n) => {
+    setRead(n, true);
     setOpen(false);
     if (n.load) go(`/loads/${n.load.id}`);
     else if (n.truck) { sessionStorage.setItem('rugo.fleetSel', n.truck.id); go('/fleet'); window.dispatchEvent(new Event('rugo:fleet-select')); }
@@ -230,25 +247,32 @@ export function NotificationBell() {
       </button>
       {open && (
         <div className="popover bell-panel">
-          <div className="row between" style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>
-            <span className="headline">Notifications</span>
+          <div className="row between" style={{ padding: '12px 18px', borderBottom: '1px solid var(--border)' }}>
+            <span className="headline">Notifications{unread ? <span className="secondary" style={{ fontWeight: 400 }}> · {unread} unread</span> : ''}</span>
             <button className="btn plain small" onClick={markAll} disabled={!unread}>Mark all read</button>
           </div>
           <div className="bell-list">
             {items.length === 0 && <div className="pop-empty">You’re all caught up.</div>}
-            {items.map((n) => (
-              <button key={n.id} className={`pop-item notif ${n.t > seen ? 'unread' : ''}`} onClick={() => openItem(n)}>
-                <span className="pop-icon">
-                  {n.kind === 'message' ? <Icon name="message" size={15} /> : n.kind === 'note' ? <Icon name="doc" size={15} /> : <StatusIcon status={n.kind} />}
-                </span>
-                <span className="pop-text">
-                  <span className={n.warn ? 'orange' : ''} style={{ fontWeight: 500 }}>{n.title}</span>
-                  <span className="pop-sub" style={{ whiteSpace: 'normal' }}>{n.load ? <><span className="mono">{n.load.ref}</span> · </> : null}{n.body}</span>
-                  <span className="caption tertiary">{ago(n.t)}</span>
-                </span>
-                {n.t > seen && <span className="unread-dot" />}
-              </button>
-            ))}
+            {items.map((n) => {
+              const un = isUnread(n);
+              return (
+                <div key={n.id} className={`pop-item notif ${un ? 'unread' : ''}`} role="button" tabIndex={0}
+                  onClick={() => openItem(n)} onKeyDown={(e) => e.key === 'Enter' && openItem(n)}>
+                  <span className="pop-icon">
+                    {n.kind === 'message' ? <Icon name="message" size={15} /> : n.kind === 'note' ? <Icon name="doc" size={15} /> : <StatusIcon status={n.kind} />}
+                  </span>
+                  <span className="pop-text">
+                    <span className={n.warn ? 'orange' : ''} style={{ fontWeight: un ? 600 : 500 }}>{n.title}</span>
+                    <span className="pop-sub" style={{ whiteSpace: 'normal' }}>{n.load ? <><span className="mono">{n.load.ref}</span> · </> : null}{n.body}</span>
+                    <span className="caption tertiary">{ago(n.t)}</span>
+                  </span>
+                  <button className={`btn small notif-read ${un ? '' : 'done'}`} onClick={(e) => { e.stopPropagation(); setRead(n, un); }}
+                    aria-label={un ? 'Mark as read' : 'Mark as unread'}>
+                    {un ? <><Icon name="check" size={14} stroke={2.4} />Mark read</> : 'Mark unread'}
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
