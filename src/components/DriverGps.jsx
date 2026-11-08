@@ -15,6 +15,7 @@ export default function DriverGps() {
   const onLoad = data.loads.some((l) => (l.driverId === me.id || (l.teamDriverIds || []).includes(me.id)) && MOVING.includes(l.status));
   const want = clockedIn || onLoad;
   const [state, setState] = useState('off'); // off | starting | on | denied | unavailable
+  const [hidden, setHidden] = useState(false);
   const last = useRef(0);
   const reported = useRef('off');
 
@@ -52,7 +53,8 @@ export default function DriverGps() {
   }, [state]);
 
   if (!want) return null;
-  if (state === 'denied' || state === 'unavailable') {
+  if (hidden && (state === 'denied' || state === 'unavailable')) return <div className="gps-chip off" aria-live="polite"><span className="dot" />GPS off</div>;
+  if ((state === 'denied' || state === 'unavailable') && !hidden) {
     return (
       <div className="gps-banner red" role="alert">
         <Icon name="location" size={18} />
@@ -60,6 +62,7 @@ export default function DriverGps() {
           <b>{state === 'denied' ? 'Location is turned off for Rugo' : 'Can’t get your location'}</b>
           <div className="footnote">{state === 'denied' ? 'Dispatch can’t track your load. Allow location for Rugo in your phone settings, then reopen the app.' : 'Move to open sky or check that location services are on.'}</div>
         </div>
+        <button className="gps-x" aria-label="Hide" onClick={() => setHidden(true)}><Icon name="close" size={16} /></button>
       </div>
     );
   }

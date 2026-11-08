@@ -52,7 +52,7 @@ export default function Board() {
           <button className="btn small" onClick={() => go('/settings')}>Settings</button>
         </div>
       )}
-      <div className="split" style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)' }}>
+      <div className="split" style={{ '--split': 'minmax(0, 1fr) minmax(0, 1fr)' }}>
         <div className="stack">
           {rows.length === 0 && <div className="card"><Empty icon="list" title="The board is clear">New pickup requests appear here instantly.</Empty></div>}
           {rows.map(({ l, near, match, perKm }) => (
@@ -79,8 +79,8 @@ export default function Board() {
                 <div><div className="k">Weight</div><div className="v">{l.cargo.weightKg ? `${(l.cargo.weightKg / 1000).toFixed(1)} t` : '—'}</div></div>
                 <div><div className="k">Pickup</div><div className="v">{dayLabel(l.pickupWindow.from).replace('Today, ', '')}</div></div>
               </div>
-              <div className="row">
-                <div className="footnote secondary spacer truncate">{idx.companies[l.shipperId]?.name} · {l.cargo.description}{!match ? ' · no matching trailer free' : ''}</div>
+              <div className="row wrap-mobile">
+                <div className="footnote secondary spacer truncate" style={{ minWidth: 160 }}>{idx.companies[l.shipperId]?.name} · {l.cargo.description}{!match ? ' · no matching trailer free' : ''}</div>
                 <button className="btn small" onClick={() => go(`/loads/${l.id}`)}>Details</button>
                 {ai ? <BoardMatch load={l} onMore={() => setAccept(l)} /> : <button className="btn primary small" onClick={() => setAccept(l)} disabled={!freeTrucks.length}><Icon name="check" size={16} stroke={2.6} />Accept</button>}
               </div>

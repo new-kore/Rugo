@@ -124,7 +124,8 @@ export default function Calendar() {
   const now = useNow(60000);
   const role = data.me.role;
   const isDispatch = role === 'dispatcher';
-  const [view, setView] = useState(() => { try { return localStorage.getItem('rugo.calView') || 'week'; } catch { return 'week'; } });
+  const phone = typeof window !== 'undefined' && window.innerWidth < 700;
+  const [view, setView] = useState(() => { try { return localStorage.getItem('rugo.calView') || (phone ? 'day' : 'week'); } catch { return phone ? 'day' : 'week'; } });
   const [cursor, setCursor] = useState(() => startOfDay(Date.now()));
   const [hidden, setHidden] = useState(() => new Set());
   const [pop, setPop] = useState(null);

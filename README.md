@@ -176,6 +176,19 @@ Use **Messages** (sidebar, or the tab bar in the driver app) for the office and 
 - **Calling:** the office can call the driver, and drivers can call the office.
 - **Starting a chat:** the Chat button on Drivers, in each driver's details, and in Live fleet opens that driver's conversation.
 
+### Phones and tablets
+Rugo works in Safari and Chrome on iPhone, Android, iPad and Android tablets. It has been tested at iPhone SE, iPhone 14 Pro Max, Pixel 7, iPad Mini and iPad Pro landscape sizes.
+- **Layouts:**
+  - **Phones:** a bottom tab bar with four main tabs plus **More** for every other page.
+  - **iPad portrait:** the phone layout, with Messages shown as two panes side by side.
+  - **iPad landscape and desktops:** the sidebar.
+- **Phone-friendly details:**
+  - no sideways scrolling;
+  - form text is 16 px so iPhones don't zoom in;
+  - larger tap targets on touch screens;
+  - the calendar opens in Day view.
+- **Home-screen app:** add it with **Share → Add to Home Screen** (iPhone/iPad) or **⋮ → Add to Home screen / Install app** (Android). It then opens full-screen with the Rugo icon.
+
 ### Maps & routing
 - Map tiles come from CARTO/OpenStreetMap and change with light and dark mode.
 - Road routes come from the public OSRM router. If it can't be reached, Rugo uses an estimated route with a road factor. Set `RUGO_OFFLINE_ROUTING=1` to always use the estimate.

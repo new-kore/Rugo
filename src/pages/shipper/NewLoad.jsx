@@ -69,7 +69,7 @@ export default function NewLoad() {
 
   return (
     <div className="page wide" style={{ maxWidth: 1320 }}>
-      <div className="split" style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.1fr)' }}>
+      <div className="split" style={{ '--split': 'minmax(0, 1fr) minmax(0, 1.1fr)' }}>
         <div className="stack" style={{ gap: 18 }}>
           <div>
             <h1 className="large-title">{['Where is it going?', 'What are you shipping?', 'When should we pick up?', 'Review & request'][step]}</h1>

@@ -17,7 +17,8 @@ export function useRoute() {
         const root = document.documentElement;
         root.classList.add('vt');
         const t = document.startViewTransition(() => flushSync(apply));
-        t.finished.finally(() => root.classList.remove('vt'));
+        t.ready.catch(() => {});
+        t.finished.catch(() => {}).finally(() => root.classList.remove('vt'));
       }
       else apply();
     };

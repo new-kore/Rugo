@@ -45,7 +45,7 @@ export default function Fleet() {
   return (
     <div className="page wide" style={{ maxWidth: 1480 }}>
       <PageHead sub={`${data.trucks.length} trucks · ${moving} moving · ${Object.keys(jobByTruck).length} on a job`} />
-      <div className="split" style={{ gridTemplateColumns: 'minmax(0, 1.35fr) minmax(360px, 1fr)' }}>
+      <div className="split" style={{ '--split': 'minmax(0, 1.35fr) minmax(360px, 1fr)' }}>
         <div className="map-card sticky-top" style={{ height: 'calc(100vh - 150px)', minHeight: 460 }}>
           <MapView height="100%" trucks={trucks}
             places={selJob ? [{ ...selJob.pickup, kind: 'pickup', label: `Pickup · ${selJob.pickup.name}` }, { ...selJob.dropoff, kind: 'dropoff', label: `Delivery · ${selJob.dropoff.name}` }] : []}

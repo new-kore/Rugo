@@ -1,8 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore, isActive } from './lib/store.jsx';
 import { useRoute, go, match, viewTransitions } from './lib/router.js';
 import Icon from './components/Icon.jsx';
-import { Toasts } from './components/ui.jsx';
+import { Toasts, Sheet } from './components/ui.jsx';
 import AccountMenu from './components/AccountMenu.jsx';
 import { GlobalSearch, NotificationBell } from './components/TopbarTools.jsx';
 import { applyTheme } from './lib/theme.js';
@@ -67,6 +67,7 @@ const ROLE_LABEL = { shipper: 'Shipper', dispatcher: 'Carrier dispatch', driver:
 export default function App() {
   const { data, authed, online } = useStore();
   const path = useRoute();
+  const [more, setMore] = useState(false);
 
   useEffect(() => {
     let text = null; let theme = null;
@@ -92,7 +93,10 @@ export default function App() {
     const P = current.page;
     page = <P />;
   }
-  const mobileNav = nav.filter((n) => !n.desktopOnly && !(role === 'dispatcher' && n.path === '/fuel'));
+  // Phones: 4 main tabs + "More" for everything else (so every page is reachable).
+  const PRIMARY = { dispatcher: ['/', '/dispatch', '/messages', '/fleet'], driver: ['/', '/messages', '/fuel', '/hours'], shipper: ['/', '/new', '/shipments', '/billing'] }[role] || [];
+  const tabs = PRIMARY.map((p) => nav.find((n) => n.path === p)).filter(Boolean);
+  const moreNav = nav.filter((n) => !PRIMARY.includes(n.path));
   const deskNav = nav.filter((n) => !n.mobileOnly);
   const sections = [...new Set(deskNav.map((n) => n.section || ''))];
   const initials = (data.me.company?.name || 'R').split(/\s+/).map((w) => w[0]).slice(0, 2).join('');
@@ -140,7 +144,7 @@ export default function App() {
         </div>
       </main>
       <nav className="tabbar">
-        {mobileNav.slice(0, 6).map((n) => {
+        {tabs.map((n) => {
           const b = n.badge?.(data);
           return (
             <button key={n.path} className={`tab ${activePath === n.path ? 'active' : ''}`} onClick={() => go(n.path)}>
@@ -150,7 +154,32 @@ export default function App() {
             </button>
           );
         })}
+        {moreNav.length > 0 && (() => {
+          const on = moreNav.some((n) => n.path === activePath);
+          const b = moreNav.reduce((a, n) => a + (n.quiet ? 0 : Number(n.badge?.(data) || 0)), 0);
+          return (
+            <button className={`tab ${on ? 'active' : ''}`} onClick={() => setMore(true)} aria-label="More pages">
+              <Icon name="list" size={23} stroke={on ? 2.1 : 1.7} />More
+              {b ? <span className="badge">{b}</span> : null}
+            </button>
+          );
+        })()}
       </nav>
+      {more && (
+        <Sheet title="More" onClose={() => setMore(false)}>
+          <div className="more-grid">
+            {moreNav.map((n) => {
+              const b = n.badge?.(data);
+              return (
+                <button key={n.path} className={`more-item ${activePath === n.path ? 'on' : ''}`} onClick={() => { setMore(false); go(n.path); }}>
+                  <Icon name={n.icon} size={24} />{n.label}
+                  {b && !n.quiet ? <span className="badge">{b}</span> : null}
+                </button>
+              );
+            })}
+          </div>
+        </Sheet>
+      )}
       <Toasts />
       {role === 'driver' && <DriverGps />}
       {(role === 'driver' || role === 'dispatcher') && <ChatDelivery />}

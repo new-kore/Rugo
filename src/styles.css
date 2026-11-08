@@ -151,7 +151,7 @@ img { max-width: 100%; display: block; }
 .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.split { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(340px, 1fr); gap: 16px; align-items: start; }
+.split { display: grid; grid-template-columns: var(--split, minmax(0, 1.25fr) minmax(340px, 1fr)); gap: 16px; align-items: start; }
 @media (max-width: 1100px) { .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .split { grid-template-columns: 1fr; } }
 @media (max-width: 640px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
 .row { display: flex; align-items: center; gap: 10px; }
@@ -904,3 +904,55 @@ table.table { width: 100%; border-collapse: collapse; font-size: 0.93rem; font-v
 .menu-item:hover { background: var(--bg-hover); }
 .sys-note { align-self: center; text-align: center; font-size: 0.75rem; color: var(--label-3); padding: 6px 12px; max-width: 80%; }
 .dot-green { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--green); margin-right: 6px; }
+
+/* ---------- phones & tablets ---------- */
+.map-card { isolation: isolate; }            /* map controls never float over the tab bar or sheets */
+.tabbar { z-index: 990; }
+.tabs { overflow-x: auto; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.segmented { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.irow .ttl { min-width: 0; overflow: hidden; }
+.irow .ttl .sub { overflow: hidden; text-overflow: ellipsis; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body { overflow-x: hidden; }
+img, svg, video { max-width: 100%; }
+@media (max-width: 860px) {
+  .msg-layout { grid-template-columns: minmax(0, 1fr); }
+  .msg-list, .msg-thread, .msg-item, .msg-item .spacer { min-width: 0; }
+  /* iPhone zooms into any field under 16px: keep form text at 16px. */
+  html body .input, html body .select, html body textarea, html body .inline-input, html body .search input,
+  html body .search-field input, html body .rail-search input, html body .gsearch input { font-size: 16px; }
+  .page-head { flex-wrap: wrap; gap: 10px; }
+  .row.wrap-mobile { flex-wrap: wrap; }
+  .sheet { max-width: 100vw; }
+  .table-wrap { -webkit-overflow-scrolling: touch; }
+  .gps-banner { top: calc(52px + env(safe-area-inset-top)); }
+}
+/* Touch screens: comfortable tap targets. */
+@media (pointer: coarse) {
+  .btn.small { min-height: 36px; }
+  .icon-btn { min-width: 40px; min-height: 40px; }
+  .segmented button, .tabs .t { min-height: 36px; }
+  .list-row { min-height: 48px; }
+}
+/* "More" sheet in the phone tab bar */
+.more-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.more-item { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 6px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-elevated); color: var(--label); font: inherit; font-size: 0.85rem; font-weight: 500; cursor: pointer; position: relative; }
+.more-item.on { border-color: var(--blue); color: var(--blue); }
+.more-item .badge { position: absolute; top: 6px; right: 8px; }
+.gps-banner > div { flex: 1; min-width: 0; }
+.gps-x { flex: none; border: 0; background: rgba(255,255,255,.2); color: #fff; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; cursor: pointer; }
+.gps-chip.off { color: var(--red); }
+.gps-chip.off .dot { background: var(--red); }
+/* grid and flex children may shrink below their content (prevents sideways scrolling on phones) */
+.split > *, .grid > *, .stack > * { min-width: 0; }
+.grid > .card { overflow-x: auto; }
+.search-field { min-width: 0; }
+.search-field input { width: 100%; }
+/* Tablets in portrait: list and conversation side by side. */
+@media (min-width: 700px) and (max-width: 860px) {
+  .msg-layout { grid-template-columns: 280px minmax(0, 1fr); }
+  .msg-layout .msg-list { display: flex !important; border-right: 1px solid var(--border); }
+  .msg-layout .msg-thread { display: flex !important; }
+  .msg-layout .convo-head .show-mobile { display: none; }
+}
