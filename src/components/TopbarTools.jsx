@@ -97,7 +97,7 @@ export function GlobalSearch() {
       go: () => go(role === 'shipper' ? '/shipments' : '/dispatch'),
     }));
     const pages = [
-      ['Request a pickup', '/new', 'shipper'], ['Billing & invoices', '/billing', 'shipper'], ['Load board', '/', 'dispatcher'],
+      ['Request a pickup', '/new', 'shipper'], ['Billing & invoices', '/billing', 'shipper'], ['Dashboard', '/', 'dispatcher'], ['Load board', '/board', 'dispatcher'],
       ['Live fleet', '/fleet', 'dispatcher'], ['Fuel log', '/fuel', 'dispatcher'], ['Reports', '/reports', 'dispatcher'],
       ['Drivers', '/drivers', 'dispatcher'], ['Inventory — trucks & trailers', '/inventory', 'dispatcher'], ['Integrations — ELD & hours of service', '/integrations', 'dispatcher'], ['Log fuel', '/fuel', 'driver'], ['Hours & pay', '/hours', 'driver'], ['Calendar', '/calendar', '*'], ['Settings', '/settings', '*'],
     ];

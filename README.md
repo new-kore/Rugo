@@ -189,6 +189,31 @@ Rugo works in Safari and Chrome on iPhone, Android, iPad and Android tablets. It
   - the calendar opens in Day view.
 - **Home-screen app:** add it with **Share → Add to Home Screen** (iPhone/iPad) or **⋮ → Add to Home screen / Install app** (Android). It then opens full-screen with the Rugo icon.
 
+### Dashboards
+Each kind of user lands on a live dashboard:
+- **Office (carrier):**
+  - **Headline numbers:** moving now, new loads waiting, overdue pickups, delivered today, revenue today, drivers on shift and unread messages.
+  - **Live map:** every truck and active load, coloured by stage. Problem loads show in red and new board loads as pins. Filters: Everything, Moving, Problems, New loads.
+  - **Needs attention:** overdue or late pickups, deliveries at risk, off-route trucks, GPS off, detention running, loads waiting for a carrier, HOS, licences, overdue service and old unpaid invoices.
+  - **Panels:** today's pickups and deliveries with status; new loads with a one-tap send to the best driver; a live activity feed.
+  - **Charts:** fleet status, loads by stage, revenue for the last 7 days, and today's on-time % and drivers on shift.
+  - **Driver strip:** each driver's progress.
+
+  The load board moved to `/board`.
+- **Driver ("Today"):**
+  - shift status with clock in or out, and the current or next job with progress and ETA;
+  - a to-do list (start the job, photos, signature, deliver, messages, hours, documents);
+  - hours left today as gauges (from the ELD when connected), plus km and earnings this week;
+  - the week's schedule and coming loads;
+  - anything missed in the last 7 days: late stops, route changes, scheduled days with no shift, unread office messages.
+
+  The job screen moved to `/job`.
+- **Customer (shipper):**
+  - on the road, arriving today, finding a carrier, delivered this month and spend;
+  - a live map of all their loads, with a progress bar and ETA for each;
+  - a gallery of the pickup and delivery photos for each load, showing who signed and any damage;
+  - weekly shipments and spend, on-time %, and open invoices.
+
 ### Reports (company owners)
 **Reports** (in Fleet) covers any period: this or last week, this or last month, the last 30 or 90 days, this quarter, year to date, or a custom range. Every number is compared with the previous period of the same length.
 - **Summary:** 12 headline numbers with change arrows, "Where we're doing really well" and "Where we can improve" talking points, a profit trend, and meeting notes that print with the report.

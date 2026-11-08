@@ -25,6 +25,8 @@ import DriverJob from './pages/driver/DriverJob.jsx';
 import DriverGps from './components/DriverGps.jsx';
 import DriverFuel from './pages/driver/DriverFuel.jsx';
 import Integrations from './pages/carrier/Integrations.jsx';
+import Dashboard from './pages/carrier/Dashboard.jsx';
+import DriverToday from './pages/driver/DriverToday.jsx';
 import Messages from './pages/Messages.jsx';
 import ChatDelivery from './components/ChatDelivery.jsx';
 import { unread } from './lib/chat.js';
@@ -32,7 +34,7 @@ import DriverHours from './pages/driver/DriverHours.jsx';
 
 const NAV = {
   shipper: [
-    { path: '/', label: 'Home', icon: 'map', page: ShipperHome },
+    { path: '/', label: 'Dashboard', icon: 'grid', page: ShipperHome },
     { path: '/new', label: 'Request pickup', icon: 'plusCircle', page: NewLoad },
     { path: '/shipments', label: 'Shipments', icon: 'box', page: Shipments, section: 'Workspace', badge: (d) => d.loads.filter((l) => l.status === 'requested' || isActive(l)).length, quiet: true },
     { path: '/calendar', label: 'Calendar', icon: 'calendar', page: CalendarPage, section: 'Workspace', desktopOnly: true },
@@ -40,7 +42,8 @@ const NAV = {
     { path: '/settings', label: 'Settings', icon: 'gear', page: Settings, section: 'Workspace', mobileOnly: true },
   ],
   dispatcher: [
-    { path: '/', label: 'Load board', icon: 'list', page: Board, badge: (d) => d.loads.filter((l) => l.status === 'requested').length },
+    { path: '/', label: 'Dashboard', icon: 'grid', page: Dashboard },
+    { path: '/board', label: 'Load board', icon: 'list', page: Board, badge: (d) => d.loads.filter((l) => l.status === 'requested').length },
     { path: '/dispatch', label: 'Jobs', icon: 'route', page: Dispatch, badge: (d) => d.loads.filter(isActive).length, quiet: true },
     { path: '/calendar', label: 'Calendar', icon: 'calendar', page: CalendarPage },
     { path: '/messages', label: 'Messages', icon: 'message', page: Messages, badge: (d) => unread(d) },
@@ -53,7 +56,8 @@ const NAV = {
     { path: '/settings', label: 'Settings', icon: 'gear', page: Settings, section: 'Workspace', mobileOnly: true },
   ],
   driver: [
-    { path: '/', label: 'My job', icon: 'truck', page: DriverJob },
+    { path: '/', label: 'Today', icon: 'grid', page: DriverToday },
+    { path: '/job', label: 'My job', icon: 'truck', page: DriverJob },
     { path: '/messages', label: 'Messages', icon: 'message', page: Messages, badge: (d) => unread(d) },
     { path: '/calendar', label: 'Calendar', icon: 'calendar', page: CalendarPage, section: 'Workspace' },
     { path: '/fuel', label: 'Fuel', icon: 'fuel', page: DriverFuel, section: 'Workspace' },
@@ -83,7 +87,7 @@ export default function App() {
   const nav = NAV[role];
   let page = null;
   const loadParams = match('/loads/:id', path);
-  const activePath = loadParams ? (role === 'shipper' ? '/shipments' : role === 'dispatcher' ? '/dispatch' : '/') : (nav.find((n) => n.path === path) ? path : '/');
+  const activePath = loadParams ? (role === 'shipper' ? '/shipments' : role === 'dispatcher' ? '/dispatch' : '/job') : (nav.find((n) => n.path === path) ? path : '/');
   const current = nav.find((n) => n.path === activePath);
   if (loadParams) {
     page = role === 'driver' ? <DriverJob loadId={loadParams.id} /> : <LoadDetail id={loadParams.id} />;
@@ -94,7 +98,7 @@ export default function App() {
     page = <P />;
   }
   // Phones: 4 main tabs + "More" for everything else (so every page is reachable).
-  const PRIMARY = { dispatcher: ['/', '/dispatch', '/messages', '/fleet'], driver: ['/', '/messages', '/fuel', '/hours'], shipper: ['/', '/new', '/shipments', '/billing'] }[role] || [];
+  const PRIMARY = { dispatcher: ['/', '/board', '/messages', '/fleet'], driver: ['/', '/job', '/messages', '/fuel'], shipper: ['/', '/new', '/shipments', '/billing'] }[role] || [];
   const tabs = PRIMARY.map((p) => nav.find((n) => n.path === p)).filter(Boolean);
   const moreNav = nav.filter((n) => !PRIMARY.includes(n.path));
   const deskNav = nav.filter((n) => !n.mobileOnly);
