@@ -1137,3 +1137,6 @@ img, svg, video { max-width: 100%; }
 .note-add { display: flex; flex-direction: column; gap: 8px; }
 .note-add textarea { resize: vertical; }
 .note-add .btn { align-self: flex-end; }
+/* Multi-line text boxes: real height and inner padding so text/placeholder sits comfortably inside. */
+textarea.input { height: auto; min-height: 84px; padding: 11px 14px; line-height: 1.45; }
+.composer textarea.input { min-height: 40px; padding: 9px 14px; line-height: 1.35; }
