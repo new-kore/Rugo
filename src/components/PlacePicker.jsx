@@ -59,10 +59,9 @@ export default function PlacePicker({ value, onChange, placeholder, kind, autoFo
         {loading && <span className="spinner" style={{ color: 'var(--label-3)' }} />}
         {value && !open && <button className="icon-btn" style={{ width: 28, height: 28 }} aria-label="Change" onClick={() => setOpen(true)}><Icon name="search" size={15} /></button>}
       </div>
-      {open && (
+      {open && q.trim() && (
         <div className="list glass" style={{ position: 'absolute', zIndex: 600, left: 0, right: 0, top: 'calc(100% + 6px)', maxHeight: 360, overflowY: 'auto' }}>
           {err && <div className="list-row subhead red">{err}</div>}
-          {results.length === 0 && !q.trim() && <div className="list-row secondary subhead">Start typing an address.</div>}
           {results.map((p, i) => (
             <button key={`${p.lat},${p.lng},${i}`} className="list-row indent" onClick={() => choose(p)}>
               <div className="icon-tile" style={{ background: p.remote ? 'var(--label-3)' : 'var(--blue)', borderRadius: 16 }}><Icon name={p.remote ? 'pin' : 'building'} size={17} /></div>

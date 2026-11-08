@@ -22,10 +22,20 @@ export const COMMON_PLACES = [
   { name: 'Chicago Intermodal (Joliet)', address: '26664 S Elwood Int Port Rd', city: 'Elwood', region: 'IL', lat: 41.4231, lng: -88.1186 },
 ];
 
+/** Saved places ranked by how well they match what's typed (name/city starts first, then word starts, then anywhere). */
 export function searchLocal(q) {
   const s = q.trim().toLowerCase();
-  if (!s) return COMMON_PLACES.slice(0, 6);
-  return COMMON_PLACES.filter((p) => `${p.name} ${p.address} ${p.city} ${p.region}`.toLowerCase().includes(s)).slice(0, 6);
+  if (!s) return [];
+  const words = s.split(/\s+/);
+  const score = (p) => {
+    const name = p.name.toLowerCase(); const city = p.city.toLowerCase(); const hay = `${p.name} ${p.address} ${p.city} ${p.region}`.toLowerCase();
+    if (!words.every((w) => hay.includes(w))) return -1;
+    let sc = 0;
+    if (name.startsWith(s) || city.startsWith(s)) sc += 100;
+    for (const w of words) if (hay.split(/[\s,—-]+/).some((t) => t.startsWith(w))) sc += 10;
+    return sc - name.length / 100;
+  };
+  return COMMON_PLACES.map((p) => [score(p), p]).filter(([sc]) => sc >= 0).sort((a, b) => b[0] - a[0]).slice(0, 5).map(([, p]) => p);
 }
 
 export async function searchRemote(q, signal) {

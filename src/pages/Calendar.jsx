@@ -14,7 +14,7 @@ import { post } from '../lib/api.js';
 import { haversine } from '../lib/geo.js';
 import { useStore, useIndex, useNow } from '../lib/store.jsx';
 import { go } from '../lib/router.js';
-import { time, placeShort, km, duration, money2 } from '../lib/format.js';
+import { time, placeShort, km, duration, money, money2 } from '../lib/format.js';
 
 const H = 3.6e6;
 const HOUR_PX = 48;
@@ -451,8 +451,21 @@ function AddRouteSheet({ day, onClose, onDone }) {
 
   const from = new Date(`${pDate}T${pFrom || '08:00'}`).getTime();
   const to = new Date(`${pDate}T${pTo || pFrom || '10:00'}`).getTime();
-  const dist = pickup && dropoff ? haversine(pickup, dropoff) * 1.2 : null;
-  const driveH = dist ? dist / data.settings.avgSpeedKmh : 0;
+  // Road distance and drive time from the routing service (Google when connected); straight-line estimate until it answers.
+  const [trip, setTrip] = useState(null);
+  const [tripBusy, setTripBusy] = useState(false);
+  useEffect(() => {
+    if (!pickup || !dropoff) { setTrip(null); return undefined; }
+    let live = true;
+    setTripBusy(true);
+    post('/quote', { pickup, dropoff, cargo: { equipment: f.equipment } })
+      .then((r) => { if (live) setTrip(r); })
+      .catch(() => { if (live) setTrip(null); })
+      .finally(() => { if (live) setTripBusy(false); });
+    return () => { live = false; };
+  }, [pickup, dropoff, f.equipment]); // eslint-disable-line react-hooks/exhaustive-deps
+  const dist = trip ? trip.quote.distanceKm : pickup && dropoff ? haversine(pickup, dropoff) * 1.2 : null;
+  const driveH = trip?.route?.durationH || (dist ? dist / data.settings.avgSpeedKmh : 0);
   const arrival = dist ? from + (driveH + 0.75) * H : null;
   const eq = data.meta.equipment[f.equipment];
   const rateSuggest = dist ? Math.round((eq.base + dist * eq.perKm * (1 + data.settings.fuelSurchargePct)) * (1 - data.settings.platformFeePct)) : null;
@@ -472,8 +485,24 @@ function AddRouteSheet({ day, onClose, onDone }) {
   const autoTrailer = (data.trailers || []).find((t) => t.equipment === f.equipment && t.status !== 'shop' && !inUseTrailers.has(t.id));
   const chosenTrailer = trailerId || autoTrailer?.id || '';
 
+  // What the trip costs you: driver pay (drive + ~1.5 h loading/unloading), fuel and truck/insurance per km.
+  const cost = (() => {
+    if (!dist) return null;
+    const d = idx.users[chosen]; const t = idx.trucks[chosenTruck];
+    const hours = driveH + 1.5;
+    const team = teamId ? idx.users[teamId] : null;
+    const payOf = (x) => (!x ? 0 : x.payType === 'per_km' ? dist * (x.perKmRate || 0) : hours * (x.hourlyRate || 0));
+    const pay = payOf(d) + payOf(team);
+    const litres = (dist * (t?.fuelLPer100 || 36)) / 100;
+    const fuel = litres * data.settings.fuelPricePerL;
+    const truck = dist * (data.settings.overheadPerKm ?? 0.92);
+    const total = pay + fuel + truck;
+    const rate = Number(f.rate) || rateSuggest || 0;
+    return { pay, fuel, litres, truck, total, rate, margin: rate - total, hours };
+  })();
+
   const places = useMemo(() => [pickup && { ...pickup, kind: 'pickup', label: 'Pickup' }, dropoff && { ...dropoff, kind: 'dropoff', label: 'Delivery' }].filter(Boolean), [pickup, dropoff]);
-  const line = useMemo(() => (pickup && dropoff ? [pickup, dropoff] : null), [pickup, dropoff]);
+  const line = useMemo(() => (trip?.route?.points?.length ? trip.route.points : pickup && dropoff ? [pickup, dropoff] : null), [trip, pickup, dropoff]);
 
   const save = async () => {
     const load = await post('/loads', {
@@ -521,6 +550,16 @@ function AddRouteSheet({ day, onClose, onDone }) {
                 <PlacePicker kind="dropoff" value={dropoff} onChange={setDropoff} placeholder="Delivery address" />
                 {Contact({ c: dc, setC: setDc, open: showDc, setOpen: setShowDc })}
               </div>
+              {dist ? (
+                <div className={`ar-trip ${tripBusy ? 'busy' : ''}`}>
+                  <div><span>Distance</span><b>{km(dist)}</b></div>
+                  <div><span>Drive time</span><b>{duration(driveH)}</b></div>
+                  <div><span>Arrives about</span><b>{new Date(from + (driveH + 0.75) * H).toLocaleString('en-CA', { weekday: 'short', hour: 'numeric', minute: '2-digit' })}</b></div>
+                  <div><span>Trip cost</span><b>{money(cost.total)}</b></div>
+                  <div><span>Profit at {money(cost.rate)}</span><b className={cost.margin >= 0 ? 'green' : 'red'}>{money(cost.margin)}</b></div>
+                  <em>{tripBusy ? 'Calculating road route…' : trip?.route?.source === 'google' ? 'Road route from Google Maps' : trip?.route?.source === 'road' ? 'Road route' : 'Estimated route'}</em>
+                </div>
+              ) : <div className="footnote tertiary">Add both addresses to see distance, drive time and cost.</div>}
             </div>
           ) })}
 
@@ -641,7 +680,16 @@ function AddRouteSheet({ day, onClose, onDone }) {
             <Field label={`Your rate ($)${rateSuggest ? ` · suggested ${rateSuggest.toLocaleString()}` : ''}`}>
               <input className="input" type="number" value={f.rate} onChange={set('rate')} placeholder={rateSuggest ? String(rateSuggest) : 'Add stops to get a rate'} />
             </Field>
-            {dist && <div className="footnote secondary">{money2(Number(f.rate || rateSuggest) / dist)} per km</div>}
+            {cost && (
+              <div className="ar-cost">
+                <div><span>Driver pay{teamId ? ' (team)' : ''}</span><span>{money(cost.pay)}</span></div>
+                <div><span>Fuel · {Math.round(cost.litres)} L</span><span>{money(cost.fuel)}</span></div>
+                <div><span>Truck & insurance</span><span>{money(cost.truck)}</span></div>
+                <div className="tot"><span>Trip cost</span><span>{money(cost.total)}</span></div>
+                <div className="tot"><span>Profit</span><span className={cost.margin >= 0 ? 'green' : 'red'}>{money(cost.margin)} · {cost.rate ? Math.round((cost.margin / cost.rate) * 100) : 0}%</span></div>
+                <div className="footnote secondary">{money2(cost.rate / dist)} per km earned · {money2(cost.total / dist)} per km cost</div>
+              </div>
+            )}
           </div>
           <div className="ar-actions">
             <button className="btn" onClick={onClose}>Cancel</button>

@@ -812,3 +812,16 @@ table.table { width: 100%; border-collapse: collapse; font-size: 0.93rem; font-v
 .ar-sum dd { margin: 0; font-weight: 500; font-variant-numeric: tabular-nums; }
 .ar-actions { display: flex; gap: 8px; }
 .ar-actions .btn.primary { flex: 1; }
+
+.ar-trip { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; padding: 12px 14px; border-radius: 10px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--blue) 20%, transparent); transition: opacity 0.2s; }
+.ar-trip.busy { opacity: 0.6; }
+.ar-trip > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ar-trip span { font-size: 0.74rem; color: var(--label-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ar-trip b { font-size: 1rem; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ar-trip em { grid-column: 1 / -1; font-style: normal; font-size: 0.72rem; color: var(--label-3); }
+@media (max-width: 760px) { .ar-trip { grid-template-columns: repeat(2, 1fr); } }
+.ar-cost { display: flex; flex-direction: column; gap: 4px; font-size: 0.88rem; font-variant-numeric: tabular-nums; }
+.ar-cost > div { display: flex; justify-content: space-between; gap: 8px; }
+.ar-cost > div > span:first-child { color: var(--label-2); }
+.ar-cost .tot { border-top: 1px solid var(--separator); padding-top: 4px; font-weight: 600; }
+.ar-cost .tot span:first-child { color: var(--label); }
