@@ -677,3 +677,36 @@ table.table { width: 100%; border-collapse: collapse; font-size: 0.93rem; font-v
   .gcal-title { font-size: 1.1rem; }
   .mg-ev .truncate { display: none; }
 }
+
+/* Google-calendar details */
+.gcal { font-family: 'Google Sans', Roboto, var(--font); }
+.gcal { --g-blue: #1a73e8; --g-blue-soft: #d2e3fc; }
+:root[data-theme='dark'] .gcal { --g-blue: #8ab4f8; --g-blue-soft: rgba(138, 180, 248, 0.24); }
+.gcal .tg-dayhead.today .tg-num, .gcal .mg-num.today { background: var(--g-blue); color: #fff; }
+:root[data-theme='dark'] .gcal .tg-dayhead.today .tg-num, :root[data-theme='dark'] .gcal .mg-num.today { color: #202124; }
+.gcal .tg-dayhead.today .tg-wd { color: var(--g-blue); }
+.gcal-title { font-size: 1.5rem; font-weight: 400; }
+.mini-grid { grid-template-columns: 30px repeat(7, 1fr); row-gap: 4px; }
+.mini-head { font-size: 0.95rem; padding: 0 2px 8px 10px; }
+.mini-day { width: 30px; height: 30px; font-size: 0.78rem; }
+.mini-day.today { background: var(--g-blue); color: #fff; width: 30px; }
+:root[data-theme='dark'] .mini-day.today { color: #202124; }
+.mini-day.sel:not(.today) { background: var(--g-blue-soft); color: var(--g-blue); width: 30px; }
+.mini-day.range:not(.today):not(.sel) { background: var(--bg-hover); border-radius: 0; width: 100%; }
+.mini-wk { display: grid; place-items: center; font-size: 0.72rem; color: var(--label-2); background: var(--bg-fill); height: 30px; }
+.mini-wk.first { border-radius: 8px 8px 0 0; }
+.mini-wk.last { border-radius: 0 0 8px 8px; }
+.rail-search { display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 14px; border-radius: 6px; background: var(--bg-fill); color: var(--label-2); }
+.rail-search input { border: 0; background: none; outline: none; flex: 1; min-width: 0; font-size: 0.95rem; color: var(--label); }
+.rail-sec-head { display: flex; align-items: center; justify-content: space-between; font-size: 1rem; font-weight: 500; padding: 0 0 4px 8px; }
+.gcal-cal { padding: 6px 8px; font-size: 0.95rem; gap: 14px; }
+.gcheck { width: 18px; height: 18px; border-radius: 3px; border: 2px solid var(--c); display: grid; place-items: center; flex: none; box-sizing: border-box; }
+.gcheck[data-on] { background: var(--c); }
+.gcal-cal:focus-within .gcheck { outline: 2px solid var(--g-blue); outline-offset: 2px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.hol-chip { display: block; background: #0b8043; color: #fff; border-radius: 4px; padding: 1px 8px; font-size: 0.74rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 1px 0; }
+.tg-allday { display: grid; border-bottom: 1px solid var(--border); padding-right: 10px; }
+.tg-allday-cell { border-left: 1px solid var(--separator); padding: 3px 4px; min-height: 26px; }
+.gcal-create { height: 56px; border-radius: 16px; font-size: 0.95rem; padding: 0 24px 0 16px; }
+.tg-ev { border-radius: 4px; }
+.tg-now, .tg-now i { background: #ea4335; }

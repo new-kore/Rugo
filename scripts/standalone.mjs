@@ -12,7 +12,7 @@ const js = [...html.matchAll(/<script type="module"[^>]*src="([^"]+)"[^>]*><\/sc
 const icon = fs.readFileSync('public/icon.svg', 'utf8');
 const out = `<title>Rugo Freight</title>
 <meta name="theme-color" content="#ffffff">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Roboto:wght@400;500;700&display=swap">
 <link rel="icon" href="data:image/svg+xml,${encodeURIComponent(icon)}">
 <style>${css}</style>
 <div id="root"></div>

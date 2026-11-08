@@ -26,6 +26,53 @@ const shortTime = (t) => {
 };
 const hourLabel = (h) => (h === 0 ? '' : `${h % 12 || 12} ${h < 12 ? 'AM' : 'PM'}`);
 
+// Canadian statutory holidays (federal + Ontario) — handy for dock closures.
+const HOLIDAYS = [
+  ['2026-01-01', "New Year's Day"], ['2026-02-16', 'Family Day'], ['2026-04-03', 'Good Friday'], ['2026-05-18', 'Victoria Day'],
+  ['2026-07-01', 'Canada Day'], ['2026-08-03', 'Civic Holiday'], ['2026-09-07', 'Labour Day'], ['2026-09-30', 'Truth and Reconciliation Day'],
+  ['2026-10-12', 'Thanksgiving'], ['2026-11-11', 'Remembrance Day'], ['2026-12-25', 'Christmas Day'], ['2026-12-26', 'Boxing Day'],
+  ['2027-01-01', "New Year's Day"], ['2027-02-15', 'Family Day'], ['2027-03-26', 'Good Friday'], ['2027-05-24', 'Victoria Day'],
+  ['2027-07-01', 'Canada Day'], ['2027-08-02', 'Civic Holiday'], ['2027-09-06', 'Labour Day'], ['2027-09-30', 'Truth and Reconciliation Day'],
+  ['2027-10-11', 'Thanksgiving'], ['2027-11-11', 'Remembrance Day'], ['2027-12-25', 'Christmas Day'], ['2027-12-26', 'Boxing Day'],
+].map(([d, name]) => { const [y, m, dd] = d.split('-').map(Number); return { day: new Date(y, m - 1, dd).getTime(), name }; });
+const HOLIDAY_COLOR = '#0b8043';
+const holidaysOn = (d) => HOLIDAYS.filter((h) => h.day === d);
+const weekNumber = (t) => {
+  const d = new Date(t); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
+  const w1 = new Date(d.getFullYear(), 0, 4);
+  return 1 + Math.round(((d - w1) / 864e5 - 3 + ((w1.getDay() + 6) % 7)) / 7);
+};
+
+/** Google-style coloured checkbox. */
+function CalCheck({ color, checked, onChange, children }) {
+  return (
+    <label className="gcal-cal">
+      <input type="checkbox" checked={checked} onChange={onChange} className="sr-only" />
+      <span className="gcheck" style={{ '--c': color }} data-on={checked || undefined}>
+        {checked && <svg width="14" height="14" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+      </span>
+      <span className="truncate">{children}</span>
+    </label>
+  );
+}
+
+function RailSection({ title, open, onToggle, action, children }) {
+  return (
+    <div className="rail-sec">
+      <div className="rail-sec-head">
+        <span>{title}</span>
+        <span className="row" style={{ gap: 2 }}>
+          {action}
+          <button className="icon-btn" aria-label={open ? `Collapse ${title}` : `Expand ${title}`} onClick={onToggle}>
+            <Icon name="chevron" size={15} style={{ transform: open ? 'rotate(-90deg)' : 'rotate(90deg)' }} />
+          </button>
+        </span>
+      </div>
+      {open && children}
+    </div>
+  );
+}
+
 /** A load as a calendar event: pickup to delivery (actual, ETA or planned). */
 function tripOf(l) {
   if (l.status === 'cancelled') return null;
@@ -69,6 +116,10 @@ export default function Calendar() {
   const [cursor, setCursor] = useState(() => startOfDay(Date.now()));
   const [hidden, setHidden] = useState(() => new Set());
   const [pop, setPop] = useState(null);
+  const [who, setWho] = useState('');
+  const [secOpen, setSecOpen] = useState({ mine: true, other: true });
+  const toggle = (id) => setHidden((h) => { const n = new Set(h); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const showHolidays = !hidden.has('holidays');
   useEffect(() => { try { localStorage.setItem('rugo.calView', view); } catch { /* ignore */ } }, [view]);
 
   // Calendars: one per driver for dispatch, by stage for everyone else.
@@ -133,16 +184,21 @@ export default function Calendar() {
           </button>
         )}
         <MiniMonth cursor={cursor} view={view} days={days} trips={trips} onPick={(d) => { setCursor(d); if (view === 'month') setView('day'); }} />
-        <div className="gcal-cals">
-          <div className="gcal-cals-head">{isDispatch ? 'Drivers' : 'My calendars'}</div>
-          {calendars.map((cal) => (
-            <label key={cal.id} className="gcal-cal">
-              <input type="checkbox" checked={!hidden.has(cal.id)} style={{ accentColor: cal.color }}
-                onChange={() => setHidden((h) => { const n = new Set(h); if (n.has(cal.id)) n.delete(cal.id); else n.add(cal.id); return n; })} />
-              <span className="truncate">{cal.name}</span>
-            </label>
+        {isDispatch && (
+          <label className="rail-search">
+            <Icon name="people" size={18} />
+            <input value={who} onChange={(e) => setWho(e.target.value)} placeholder="Search for drivers" />
+          </label>
+        )}
+        <RailSection title={isDispatch ? 'Drivers' : 'My calendars'} open={secOpen.mine} onToggle={() => setSecOpen((o) => ({ ...o, mine: !o.mine }))}
+          action={isDispatch ? <button className="icon-btn" aria-label="Add driver" title="Add driver" onClick={() => go('/drivers')}><Icon name="plus" size={16} /></button> : null}>
+          {calendars.filter((cal) => !who || cal.name.toLowerCase().includes(who.toLowerCase())).map((cal) => (
+            <CalCheck key={cal.id} color={cal.color} checked={!hidden.has(cal.id)} onChange={() => toggle(cal.id)}>{cal.name}</CalCheck>
           ))}
-        </div>
+        </RailSection>
+        <RailSection title="Other calendars" open={secOpen.other} onToggle={() => setSecOpen((o) => ({ ...o, other: !o.other }))}>
+          <CalCheck color={HOLIDAY_COLOR} checked={!hidden.has('holidays')} onChange={() => toggle('holidays')}>Holidays in Canada</CalCheck>
+        </RailSection>
       </aside>
 
       <section className="gcal-main">
@@ -154,8 +210,8 @@ export default function Calendar() {
           <div className="spacer" />
           <Segmented value={view} onChange={setView} options={[{ value: 'day', label: 'Day' }, { value: 'week', label: 'Week' }, { value: 'month', label: 'Month' }, { value: 'map', label: 'Map' }]} />
         </header>
-        {(view === 'week' || view === 'day') && <TimeGrid days={days} trips={trips} now={now} onEvent={showEvent} onDay={openDay} />}
-        {view === 'month' && <MonthGrid days={days} month={c.getMonth()} trips={trips} onEvent={showEvent} onDay={openDay} />}
+        {(view === 'week' || view === 'day') && <TimeGrid days={days} trips={trips} now={now} onEvent={showEvent} onDay={openDay} holidays={showHolidays} />}
+        {view === 'month' && <MonthGrid days={days} month={c.getMonth()} trips={trips} onEvent={showEvent} onDay={openDay} holidays={showHolidays} />}
         {view === 'map' && <div style={{ padding: 16 }}><CalendarMap days={weekDays} byDay={byDay} /></div>}
       </section>
 
@@ -184,19 +240,23 @@ function MiniMonth({ cursor, view, days, trips, onPick }) {
         </span>
       </div>
       <div className="mini-grid">
+        <span className="mini-wd" />
         {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((w, i) => <span key={i} className="mini-wd">{w}</span>)}
-        {cells.map((d) => (
-          <button key={d} onClick={() => onPick(d)}
-            className={`mini-day ${new Date(d).getMonth() !== m.getMonth() ? 'out' : ''} ${sameDay(d, Date.now()) ? 'today' : ''} ${d === cursor ? 'sel' : ''} ${inRange(d) ? 'range' : ''}`}>
-            {new Date(d).getDate()}{busy.has(d) && <i />}
-          </button>
+        {cells.map((d, i) => (
+          <span key={d} style={{ display: 'contents' }}>
+            {i % 7 === 0 && <span className={`mini-wk ${i === 0 ? 'first' : ''} ${i === 35 ? 'last' : ''}`}>{weekNumber(addDays(d, 1))}</span>}
+            <button onClick={() => onPick(d)} title={holidaysOn(d)[0]?.name}
+              className={`mini-day ${new Date(d).getMonth() !== m.getMonth() ? 'out' : ''} ${sameDay(d, Date.now()) ? 'today' : ''} ${d === cursor ? 'sel' : ''} ${inRange(d) ? 'range' : ''}`}>
+              {new Date(d).getDate()}{busy.has(d) && <i />}
+            </button>
+          </span>
         ))}
       </div>
     </div>
   );
 }
 
-function TimeGrid({ days, trips, now, onEvent, onDay }) {
+function TimeGrid({ days, trips, now, onEvent, onDay, holidays }) {
   const scroller = useRef(null);
   useLayoutEffect(() => {
     // Open around the current time.
@@ -222,6 +282,16 @@ function TimeGrid({ days, trips, now, onEvent, onDay }) {
           </button>
         ))}
       </div>
+      {holidays && days.some((d) => holidaysOn(d).length) && (
+        <div className="tg-allday" style={{ gridTemplateColumns: template }}>
+          <div />
+          {days.map((d) => (
+            <div key={d} className="tg-allday-cell">
+              {holidaysOn(d).map((h) => <span key={h.name} className="hol-chip">{h.name}</span>)}
+            </div>
+          ))}
+        </div>
+      )}
       <div className="tg-body" ref={scroller}>
         <div className="tg-inner" style={{ gridTemplateColumns: template, height: 24 * HOUR_PX }}>
           <div className="tg-hours">
@@ -253,7 +323,7 @@ function TimeGrid({ days, trips, now, onEvent, onDay }) {
   );
 }
 
-function MonthGrid({ days, month, trips, onEvent, onDay }) {
+function MonthGrid({ days, month, trips, onEvent, onDay, holidays }) {
   const max = 3;
   return (
     <div className="mg">
@@ -266,6 +336,7 @@ function MonthGrid({ days, month, trips, onEvent, onDay }) {
               <button className={`mg-num ${sameDay(d, Date.now()) ? 'today' : ''}`} onClick={(e) => { e.stopPropagation(); onDay(d); }}>
                 {new Date(d).getDate() === 1 ? new Date(d).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' }) : new Date(d).getDate()}
               </button>
+              {holidays && holidaysOn(d).map((h) => <span key={h.name} className="hol-chip">{h.name}</span>)}
               {evs.slice(0, max).map((t) => {
                 const multi = !sameDay(t.start, t.end);
                 return (
