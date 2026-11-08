@@ -43,9 +43,13 @@ export function Tracker({ status }) {
   );
 }
 
-export function Avatar({ user, size = '' }) {
-  if (!user) return <div className={`avatar ${size}`} style={{ background: 'var(--label-3)' }}>?</div>;
-  return <div className={`avatar ${size}`} style={{ background: user.color || 'var(--blue)' }}>{initials(user.name)}</div>;
+/** `online`: true shows a green dot (driver is on shift). */
+export function Avatar({ user, size = '', online }) {
+  const a = !user
+    ? <div className={`avatar ${size}`} style={{ background: 'var(--label-3)' }}>?</div>
+    : <div className={`avatar ${size}`} style={{ background: user.color || 'var(--blue)' }}>{initials(user.name)}</div>;
+  if (!online) return a;
+  return <div className="avatar-wrap" title="On shift">{a}<span className="presence" aria-label="On shift" /></div>;
 }
 
 export function Switch({ checked, onChange, label }) {

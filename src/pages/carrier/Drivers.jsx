@@ -7,7 +7,7 @@ import { money, money2, num, date } from '../../lib/format.js';
 import { post, patch, del } from '../../lib/api.js';
 import { compressImage } from '../../lib/image.js';
 import { Tabs } from '../../components/LoadList.jsx';
-import { messageDriver } from '../../lib/chat.js';
+import { messageDriver, openShift } from '../../lib/chat.js';
 import { ScorecardView, ScorecardTable } from './Scorecard.jsx';
 import { hosStatus, hm, clockTone, hosLeft } from '../../lib/hos.js';
 import { DAYS, weekSchedule, shiftHours, weeklyHours, scheduleText, expiry, driverAlerts } from '../../lib/drivers.js';
@@ -108,7 +108,7 @@ export default function Drivers() {
               const lic = docs.some((x) => x.kind === 'licence'); const abs = docs.some((x) => x.kind === 'abstract');
               return (
                 <tr key={d.id} className="click" onClick={() => setEdit(d)}>
-                  <td><div className="row"><Avatar user={d} size="sm" /><div><div className="headline">{d.name}</div><div className="caption secondary">{d.phone} · Class {d.licenseClass}</div></div></div></td>
+                  <td><div className="row"><Avatar user={d} size="sm" online={!!openShift(data, d.id)} /><div><div className="headline">{d.name}</div><div className="caption secondary">{d.phone} · Class {d.licenseClass}</div></div></div></td>
                   <td><span className={`pill ${st[0]}`}>{st[1]}</span>{onJob.has(d.id) && ['denied', 'unavailable', 'stopped'].includes(d.gps?.state) && <span className="pill red" style={{ marginLeft: 4 }} title="The driver app isn’t sending location">GPS off</span>}</td>
                   {hasHos && <td><HosCell h={d.hos} /></td>}
                   <td>{idx.trucks[d.truckId] ? `Unit ${idx.trucks[d.truckId].unit}` : '—'}</td>

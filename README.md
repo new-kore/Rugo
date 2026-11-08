@@ -172,6 +172,7 @@ Use **Messages** (sidebar, or the tab bar in the driver app) for the office and 
 - **Delivery and read receipts on every message you send:** ✓ Sent, ✓✓ Delivered (the recipient's app received it) and blue ✓✓ Read (they opened the conversation), each with its time. In groups it shows "Read by 3 of 5 · delivered to 4"; tap the status to see each person's delivered and read time.
 - **Attachments:** photos (from the camera on phones) and a link to a load.
 - **Quick replies** in one tap, such as "On my way", "Running late" and "At the dock".
+- **On-shift status:** a green dot on a driver's picture (in Messages and Drivers) means they're on shift right now. The chat header shows "On shift since 6:02 a.m." or "Off shift · last on 3 h ago", and groups show how many members are on shift.
 - **Calling:** the office can call the driver, and drivers can call the office.
 - **Starting a chat:** the Chat button on Drivers, in each driver's details, and in Live fleet opens that driver's conversation.
 

@@ -33,3 +33,7 @@ export async function messageDriver(driverId) {
 }
 
 export const currentThreadParam = () => new URLSearchParams(window.location.hash.split('?')[1] || '').get('t');
+
+/** The driver's open shift (on shift = online), or null. */
+export const openShift = (data, userId) => (data.shifts || []).find((x) => x.driverId === userId && !x.end) || null;
+export const lastShiftEnd = (data, userId) => Math.max(0, ...(data.shifts || []).filter((x) => x.driverId === userId && x.end).map((x) => x.end));

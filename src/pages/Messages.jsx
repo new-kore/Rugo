@@ -7,12 +7,19 @@ import { post, del } from '../lib/api.js';
 import { compressImage } from '../lib/image.js';
 import { go } from '../lib/router.js';
 import { time, ago } from '../lib/format.js';
-import { unread, threadTitle, openThread, currentThreadParam } from '../lib/chat.js';
+import { unread, threadTitle, openThread, currentThreadParam, openShift, lastShiftEnd } from '../lib/chat.js';
 
 const QUICK = {
   driver: ['On my way', 'Running late', 'At the dock', 'Loaded and rolling', 'Delayed at shipper', 'Please call me'],
   dispatcher: ['Please send an update', 'Call me when you can', 'Take your break', 'Check your next load', 'Thanks 👍'],
 };
+
+function shiftText(data, id) {
+  const s = openShift(data, id);
+  if (s) return `● On shift since ${time(s.start)}`;
+  const end = lastShiftEnd(data, id);
+  return end ? `Off shift · last on ${ago(end)}` : 'Off shift';
+}
 
 function dayHeader(t) {
   const d = new Date(t); const today = new Date(); const y = new Date(Date.now() - 864e5);
@@ -24,7 +31,7 @@ function dayHeader(t) {
 function ThreadIcon({ t, data, size = '' }) {
   if (t.kind === 'driver') {
     const u = data.me.role === 'driver' ? null : data.users.find((x) => x.id === t.driverId);
-    if (u) return <Avatar user={u} size={size} />;
+    if (u) return <Avatar user={u} size={size} online={!!openShift(data, u.id)} />;
     return <div className={`avatar ${size}`} style={{ background: 'var(--blue)' }}><Icon name="building" size={16} /></div>;
   }
   return <div className={`avatar ${size}`} style={{ background: t.kind === 'announce' ? 'var(--orange)' : 'var(--indigo)' }}><Icon name={t.kind === 'announce' ? 'bell' : 'people'} size={16} /></div>;
@@ -117,8 +124,8 @@ function Conversation({ t }) {
   const audience = audienceOf(t, data);
 
   const subtitle = t.kind === 'driver'
-    ? (isDispatch && driver ? [idx.trucks[driver.truckId] ? `Unit ${idx.trucks[driver.truckId].unit}` : null, driverLoads[0] ? `On ${driverLoads[0].ref}` : 'No active load', driver.gps?.state === 'on' ? 'GPS on' : null].filter(Boolean).join(' · ') : 'Dispatch team')
-    : t.kind === 'announce' ? 'Every driver · only the office can post' : `${t.memberIds.length} drivers + office · ${t.memberIds.map((x) => idx.users[x]?.name.split(' ')[0]).filter(Boolean).join(', ')}`;
+    ? (isDispatch && driver ? [shiftText(data, driver.id), idx.trucks[driver.truckId] ? `Unit ${idx.trucks[driver.truckId].unit}` : null, driverLoads[0] ? `On ${driverLoads[0].ref}` : 'No active load', driver.gps?.state === 'on' ? 'GPS on' : null].filter(Boolean).join(' · ') : 'Dispatch team')
+    : t.kind === 'announce' ? `Every driver · only the office can post${isDispatch ? ` · ${data.users.filter((u) => u.role === 'driver' && openShift(data, u.id)).length} on shift` : ''}` : `${t.memberIds.length} drivers + office · ${t.memberIds.map((x) => idx.users[x]?.name.split(' ')[0]).filter(Boolean).join(', ')}${isDispatch ? ` · ${t.memberIds.filter((x) => openShift(data, x)).length} on shift` : ''}`;
 
   let lastDay = '';
   return (
@@ -128,7 +135,7 @@ function Conversation({ t }) {
         <ThreadIcon t={t} data={data} />
         <div className="spacer" style={{ minWidth: 0 }}>
           <div className="headline truncate">{threadTitle(t, data)}</div>
-          <div className="caption secondary truncate">{subtitle}</div>
+          <div className="caption secondary truncate">{subtitle.startsWith('● On shift') ? <><span className="green">{subtitle.split(' · ')[0]}</span>{subtitle.slice(subtitle.split(' · ')[0].length)}</> : subtitle}</div>
         </div>
         {isDispatch && driver?.phone && <a className="btn small" href={`tel:${driver.phone}`}><Icon name="phone" size={14} />Call</a>}
         {!isDispatch && (data.me.company?.phone || data.companies.find((c) => c.id === me.companyId)?.phone) && <a className="btn small" href={`tel:${data.me.company?.phone || data.companies.find((c) => c.id === me.companyId)?.phone}`}><Icon name="phone" size={14} />Call office</a>}
