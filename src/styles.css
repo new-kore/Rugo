@@ -889,3 +889,7 @@ table.table { width: 100%; border-collapse: collapse; font-size: 0.93rem; font-v
   .msg-list { border-right: 0; }
   .convo-body .bubble { max-width: 85%; }
 }
+
+.receipt { align-self: flex-end; display: inline-flex; align-items: center; gap: 4px; border: 0; background: none; padding: 1px 4px; font: inherit; font-size: 0.72rem; color: var(--label-3); cursor: pointer; }
+.receipt.read { color: var(--blue); }
+.receipt-info { align-self: flex-end; min-width: 240px; max-width: 320px; display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-elevated); margin-bottom: 4px; }

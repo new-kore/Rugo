@@ -113,19 +113,8 @@ function Conversation({ t }) {
     try { await post(`/chat/threads/${t.id}/messages`, payload); } catch (e) { if (!body) setText(payload.text); toast({ title: 'Not sent', body: e.message, tone: 'error' }); }
   };
 
-  // Read receipts for my last message.
-  const mineLast = last?.userId === me.id ? last : null; // receipt only under my latest message
-  const seen = (() => {
-    if (!mineLast) return null;
-    const readers = Object.entries(t.reads || {}).filter(([uid, at]) => uid !== me.id && at >= mineLast.t).map(([uid]) => uid);
-    if (t.kind === 'driver') {
-      if (isDispatch) return readers.includes(t.driverId) ? `Seen by ${driver?.name.split(' ')[0] || 'driver'}` : 'Delivered';
-      return readers.length ? 'Seen by the office' : 'Delivered';
-    }
-    const drivers = t.kind === 'announce' ? data.users.filter((u) => u.role === 'driver').map((u) => u.id) : t.memberIds;
-    const n = readers.filter((x) => drivers.includes(x)).length;
-    return isDispatch ? `Seen by ${n} of ${drivers.length} drivers` : null;
-  })();
+  const [openInfo, setOpenInfo] = useState(null);
+  const audience = audienceOf(t, data);
 
   const subtitle = t.kind === 'driver'
     ? (isDispatch && driver ? [idx.trucks[driver.truckId] ? `Unit ${idx.trucks[driver.truckId].unit}` : null, driverLoads[0] ? `On ${driverLoads[0].ref}` : 'No active load', driver.gps?.state === 'on' ? 'GPS on' : null].filter(Boolean).join(' · ') : 'Dispatch team')
@@ -167,10 +156,10 @@ function Conversation({ t }) {
                 )}
                 {m.text && <div>{m.text}</div>}
               </div>
+              {mine && <Receipt m={m} t={t} audience={audience} open={openInfo === m.id} onToggle={() => setOpenInfo(openInfo === m.id ? null : m.id)} />}
             </div>
           );
         })}
-        {seen && <div className="bubble-meta me" style={{ marginTop: -2 }}>{seen}</div>}
       </div>
 
       {readOnly ? (
@@ -208,6 +197,75 @@ function Conversation({ t }) {
       )}
       {lightbox && <Lightbox photo={lightbox} onClose={() => setLightbox(null)} />}
     </div>
+  );
+}
+
+/** Who should receive my messages in this thread: 'office' or driver ids. */
+function audienceOf(t, data) {
+  const me = data.me;
+  if (t.kind === 'driver') return me.role === 'driver' ? ['office'] : [t.driverId];
+  const drivers = t.kind === 'announce' ? data.users.filter((u) => u.role === 'driver').map((u) => u.id) : t.memberIds || [];
+  return [...drivers.filter((x) => x !== me.id), ...(me.role === 'driver' ? ['office'] : [])];
+}
+
+/** Delivered / read status for one of my messages. The office counts as one recipient (first dispatcher to get it). */
+function receiptsFor(m, audience) {
+  const rs = Object.entries(m.receipts || {}).map(([uid, v]) => ({ uid, ...v }));
+  const office = rs.filter((r) => r.role === 'dispatcher');
+  const first = (xs, k) => xs.map((x) => x[k]).filter(Boolean).sort((a, b) => a - b)[0] || null;
+  return audience.map((a) => {
+    if (a === 'office') return { key: 'office', name: 'Office', d: first(office, 'd'), r: first(office, 'r'), by: office.find((x) => x.r)?.name };
+    const r = rs.find((x) => x.uid === a);
+    return { key: a, name: r?.name, d: r?.d || null, r: r?.r || null };
+  });
+}
+
+function Ticks({ state }) {
+  // sent: one grey tick · delivered: two grey ticks · read: two blue ticks
+  return (
+    <svg width={state === 'sent' ? 12 : 17} height="11" viewBox={state === 'sent' ? '0 0 12 11' : '0 0 17 11'} fill="none" stroke={state === 'read' ? 'var(--blue)' : 'var(--label-3)'} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flex: 'none' }}>
+      <path d="M1 6l3.2 3.2L11 2" />
+      {state !== 'sent' && <path d="M7.2 8.4l.8.8L16 2" />}
+    </svg>
+  );
+}
+
+function Receipt({ m, t, audience, open, onToggle }) {
+  const { data } = useStore();
+  const list = receiptsFor(m, audience);
+  const n = list.length;
+  const read = list.filter((x) => x.r).length;
+  const delivered = list.filter((x) => x.d).length;
+  const state = n && read === n ? 'read' : n && delivered === n ? 'delivered' : delivered ? 'partial' : 'sent';
+  let label;
+  if (n <= 1) {
+    const x = list[0] || {};
+    label = x.r ? `Read ${time(x.r)}` : x.d ? `Delivered ${time(x.d)}` : 'Sent';
+  } else {
+    label = read === n ? `Read by all ${n}` : read ? `Read by ${read} of ${n}${delivered > read ? ` · delivered to ${delivered}` : ''}` : delivered ? `Delivered to ${delivered} of ${n}` : 'Sent';
+  }
+  const nameOf = (x) => x.name || data.users.find((u) => u.id === x.key)?.name || 'Driver';
+  return (
+    <>
+      <button className={`receipt ${state}`} onClick={onToggle} title="Message info">
+        <Ticks state={state === 'partial' ? 'delivered' : state} />{label}
+      </button>
+      {open && (
+        <div className="receipt-info">
+          <div className="caption secondary">Sent {time(m.t)}</div>
+          {list.map((x) => (
+            <div key={x.key} className="row between" style={{ gap: 12 }}>
+              <span className="footnote">{x.key === 'office' ? `Office${x.by ? ` (${x.by.split(' ')[0]})` : ''}` : nameOf(x)}</span>
+              <span className="footnote secondary row" style={{ gap: 5 }}>
+                <Ticks state={x.r ? 'read' : x.d ? 'delivered' : 'sent'} />
+                {x.r ? `Read ${time(x.r)}` : x.d ? `Delivered ${time(x.d)}` : 'Not delivered yet'}
+              </span>
+            </div>
+          ))}
+          {list.length === 1 && list[0].d && list[0].r && <div className="caption secondary">Delivered {time(list[0].d)}</div>}
+        </div>
+      )}
+    </>
   );
 }
 

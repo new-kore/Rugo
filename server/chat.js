@@ -36,6 +36,7 @@ export function postMessage(thread, user, { text = '', photo = null, loadId = nu
   const load = loadId ? find('loads', loadId) : null;
   const m = {
     id: id('msg'), threadId: thread.id, companyId: thread.companyId, userId: user.id, name: user.name, role: user.role,
+    receipts: {},
     text: body, photoUrl, loadId: load && load.carrierId === thread.companyId ? load.id : null, loadRef: load?.ref || null, quick: !!quick, t: at || Date.now(),
   };
   db.chat.push(m);
@@ -118,11 +119,38 @@ export function chatRoutes(app, auth, role) {
     res.json(m);
   });
 
+  // The recipient's app got the message (sent automatically by the app on arrival).
+  app.post('/api/chat/delivered', auth, (req, res) => {
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids.slice(0, 500) : [];
+    let n = 0;
+    for (const mid of ids) {
+      const m = find('chat', mid);
+      if (m && canSeeChat(req.user, m) && stamp(m, req.user, 'd')) { publish('chat', m); n++; }
+    }
+    if (n) save();
+    res.json({ ok: true, updated: n });
+  });
+
+  // The conversation was opened: everything in it from others counts as read.
   app.post('/api/chat/threads/:id/read', auth, (req, res) => {
     const t = getThread(req, res); if (!t) return;
-    t.reads = { ...(t.reads || {}), [req.user.id]: Date.now() };
+    const now = Date.now();
+    t.reads = { ...(t.reads || {}), [req.user.id]: now };
+    for (const m of db.chat) if (m.threadId === t.id && stamp(m, req.user, 'r', now)) publish('chat', m);
     save();
     publish('threads', t);
     res.json({ ok: true });
   });
+}
+
+/** Record delivery ('d') or read ('r') of a message by a user. Read implies delivered. Returns true if anything changed. */
+export function stamp(m, user, kind, at = Date.now()) {
+  if (m.userId === user.id || m.t > at) return false;
+  const r = (m.receipts ||= {});
+  const cur = r[user.id] || { name: user.name, role: user.role };
+  if (cur[kind]) return false;
+  cur[kind] = at;
+  if (kind === 'r' && !cur.d) cur.d = at;
+  r[user.id] = cur;
+  return true;
 }

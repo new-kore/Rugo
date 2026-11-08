@@ -4,7 +4,7 @@ import { route, pathLength, pointAlong, haversine } from './geo.js';
 import { quote, invoice, economics, DEFAULT_SETTINGS } from './pricing.js';
 import { PHOTO_SLOTS } from './constants.js';
 import { newLoadShell, updateEta } from './fleet.js';
-import { driverThread, postMessage } from './chat.js';
+import { driverThread, postMessage, stamp } from './chat.js';
 
 const P = {
   mississauga: { name: 'Northwind DC — Mississauga', address: '6855 Airport Rd', city: 'Mississauga', region: 'ON', lat: 43.6905, lng: -79.6215, contact: 'Receiving desk', phone: '905-555-0142' },
@@ -332,8 +332,21 @@ export async function seed() {
   say(reefer, alex, 'Pre-cool to setpoint before backing in, and photo the reefer display at pickup.', 60 * 30);
   say(reefer, wei, 'Will do. Unit 106 reefer showing a defrost code, can shop look at it Friday?', 60 * 29);
   say(reefer, alex, 'Booked for Friday 7 am.', 60 * 28);
-  // Drivers have read the older messages.
+  // Drivers have read the older messages; newer ones are delivered but not read yet.
   for (const th of db.threads) for (const d of drivers) if (th.lastAt < ago(120)) th.reads[d.id] = th.lastAt;
+  for (const m of db.chat) {
+    const th = db.threads.find((x) => x.id === m.threadId);
+    const audience = m.role === 'driver' ? [alex] : th.kind === 'driver' ? drivers.filter((d) => d.id === th.driverId) : th.kind === 'group' ? drivers.filter((d) => th.memberIds.includes(d.id)) : drivers;
+    audience.forEach((u, i) => {
+      if (u.id === m.userId) return;
+      const d = m.t + (20 + i * 35) * 1000;
+      if (d > Date.now()) return;
+      stamp(m, u, 'd', d);
+      const readBy = th.reads[u.id] >= m.t || (u.role === 'dispatcher');
+      const r = Math.min(Date.now(), d + (3 + i * 7) * 60000);
+      if (readBy && i % 4 !== 3) stamp(m, u, 'r', r);
+    });
+  }
   save();
 }
 

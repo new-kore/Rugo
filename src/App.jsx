@@ -26,6 +26,7 @@ import DriverGps from './components/DriverGps.jsx';
 import DriverFuel from './pages/driver/DriverFuel.jsx';
 import Integrations from './pages/carrier/Integrations.jsx';
 import Messages from './pages/Messages.jsx';
+import ChatDelivery from './components/ChatDelivery.jsx';
 import { unread } from './lib/chat.js';
 import DriverHours from './pages/driver/DriverHours.jsx';
 
@@ -152,6 +153,7 @@ export default function App() {
       </nav>
       <Toasts />
       {role === 'driver' && <DriverGps />}
+      {(role === 'driver' || role === 'dispatcher') && <ChatDelivery />}
     </div>
   );
 }

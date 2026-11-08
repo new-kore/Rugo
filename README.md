@@ -169,7 +169,7 @@ Use **Messages** (sidebar, or the tab bar in the driver app) for the office and 
   - **announcement channels** go to every driver, and only the office can post in them.
 - **Live delivery:** messages arrive instantly (SSE) and show a pop-up that opens the conversation.
 - **Unread counts** appear on the nav item and on each conversation.
-- **Read receipts:** "Seen by Marcus", or "Seen by 3 of 5 drivers" in groups.
+- **Delivery and read receipts on every message you send:** ✓ Sent, ✓✓ Delivered (the recipient's app received it) and blue ✓✓ Read (they opened the conversation), each with its time. In groups it shows "Read by 3 of 5 · delivered to 4"; tap the status to see each person's delivered and read time.
 - **Attachments:** photos (from the camera on phones) and a link to a load.
 - **Quick replies** in one tap, such as "On my way", "Running late" and "At the dock".
 - **Calling:** the office can call the driver, and drivers can call the office.
