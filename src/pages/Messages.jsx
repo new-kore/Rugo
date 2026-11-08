@@ -346,7 +346,6 @@ function GroupSheet({ kind, thread, onClose }) {
   const shown = all.filter((d) => !q || d.name.toLowerCase().includes(q.toLowerCase()));
   const toggle = (id, on) => setPick((s) => { const n = new Set(s); if (on) n.add(id); else n.delete(id); return n; });
   const addSet = (ids) => setPick((s) => new Set([...s, ...ids]));
-  const eqs = [...new Set(all.map(eqOf).filter(Boolean))];
   const save = async () => {
     try {
       if (editing) { await api(`/chat/threads/${thread.id}`, { method: 'PATCH', body: { name, memberIds: [...pick] } }); toast({ title: 'Group updated' }); onClose(); return; }
@@ -366,7 +365,6 @@ function GroupSheet({ kind, thread, onClose }) {
             <div className="row wrap" style={{ gap: 6 }}>
               <button className="qchip" onClick={() => addSet(all.map((d) => d.id))}>Everyone</button>
               <button className="qchip" onClick={() => addSet(all.filter((d) => openShift(data, d.id)).map((d) => d.id))}><span className="dot-green" />On shift now</button>
-              {eqs.map((e) => <button key={e} className="qchip" onClick={() => addSet(all.filter((d) => eqOf(d) === e).map((d) => d.id))}>{data.meta.equipment[e]?.label || e} drivers</button>)}
             </div>
             {pick.size > 0 && (
               <div className="row wrap" style={{ gap: 6 }}>
