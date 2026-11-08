@@ -11,6 +11,7 @@ export default function Fuel() {
   const { data } = useStore();
   const idx = useIndex();
   const [adding, setAdding] = useState(false);
+  const [viewing, setViewing] = useState(null);
   const [days, setDays] = useState(30);
   const since = Date.now() - days * 864e5;
   const logs = data.fuelLogs.filter((f) => f.t > since).sort((a, b) => b.t - a.t);
@@ -49,19 +50,20 @@ export default function Fuel() {
       <div className="card table-wrap">
         {logs.length === 0 ? <Empty icon="fuel" title="No fill-ups in this period" /> : (
           <table className="table">
-            <thead><tr><th>When</th><th>Truck</th><th>Driver</th><th>Station</th><th className="r">Litres</th><th className="r">$/L</th><th className="r">Total</th><th className="r">Odometer</th><th>Job</th><th /></tr></thead>
+            <thead><tr><th>When</th><th>Truck</th><th>Driver</th><th>Station</th><th className="r">Litres</th><th className="r">$/L</th><th className="r">Total</th><th className="r">Odometer</th><th>Job</th><th>Receipt</th><th /></tr></thead>
             <tbody>
               {logs.map((f) => (
                 <tr key={f.id}>
                   <td>{dateTime(f.t)}</td>
                   <td>Unit {idx.trucks[f.truckId]?.unit}</td>
                   <td>{idx.users[f.driverId]?.name || f.by}</td>
-                  <td>{f.station}{f.receiptUrl && <a href={f.receiptUrl} target="_blank" rel="noreferrer" style={{ marginLeft: 6 }}><Icon name="receipt" size={14} /></a>}</td>
+                  <td>{f.station}</td>
                   <td className="r">{num(f.litres, 1)}</td>
                   <td className="r">{f.pricePerL.toFixed(3)}</td>
                   <td className="r">{money2(f.total)}</td>
                   <td className="r">{km(f.odometerKm)}</td>
                   <td className="mono">{idx.loads[f.loadId]?.ref || '—'}</td>
+                  <td>{f.receiptUrl ? <button className="pill green" style={{ cursor: 'pointer' }} onClick={() => setViewing(f)}><Icon name="receipt" size={12} />View</button> : <span className="pill orange">Missing</span>}</td>
                   <td><ConfirmButton className="btn small danger" confirmLabel="Delete?" aria-label="Delete fill-up" onConfirm={() => del(`/fuel/${f.id}`)}><Icon name="trash" size={14} /></ConfirmButton></td>
                 </tr>
               ))}
@@ -69,6 +71,12 @@ export default function Fuel() {
           </table>
         )}
       </div>
+      {viewing && (
+        <Sheet title={`Receipt · ${viewing.station}`} onClose={() => setViewing(null)}>
+          <div className="footnote secondary" style={{ marginBottom: 10 }}>{dateTime(viewing.t)} · Unit {idx.trucks[viewing.truckId]?.unit} · {idx.users[viewing.driverId]?.name || viewing.by} · {num(viewing.litres, 1)} L · {money2(viewing.total)}</div>
+          <img src={viewing.receiptUrl} alt="Fuel receipt" style={{ width: '100%', maxHeight: '70vh', objectFit: 'contain', borderRadius: 8, border: '1px solid var(--border)', background: '#fff' }} />
+        </Sheet>
+      )}
       {adding && <Sheet title="Add fill-up" onClose={() => setAdding(false)}><FuelForm onDone={() => setAdding(false)} /></Sheet>}
     </div>
   );

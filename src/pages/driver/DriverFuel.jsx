@@ -8,7 +8,7 @@ export default function DriverFuel() {
   const mine = data.fuelLogs.filter((f) => f.driverId === data.me.id).sort((a, b) => b.t - a.t).slice(0, 10);
   return (
     <div className="page" style={{ maxWidth: 680 }}>
-      <PageHead title="Log fuel" sub="Fill in the two big boxes and tap Save." />
+      <PageHead title="Log fuel" sub="Photograph the receipt, fill in litres and price, tap Save." />
       <div className="card pad-lg"><FuelForm /></div>
       <div className="section-header">My recent fill-ups</div>
       <div className="list">

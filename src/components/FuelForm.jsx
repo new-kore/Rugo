@@ -15,6 +15,7 @@ export default function FuelForm({ onDone, truckId: fixedTruck }) {
   const truck = data.trucks.find((t) => t.id === truckId0);
   const [f, setF] = useState({ truckId: truckId0, litres: '', pricePerL: data.settings.fuelPricePerL, odometerKm: truck ? Math.round(truck.odometerKm) : '', station: 'Petro-Canada', defLitres: '' });
   const [receipt, setReceipt] = useState(null);
+  const needReceipt = isDriver;
   const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }));
   const total = Number(f.litres) * Number(f.pricePerL) || 0;
   const job = data.loads.find((l) => l.truckId === f.truckId && isActive(l));
@@ -35,8 +36,12 @@ export default function FuelForm({ onDone, truckId: fixedTruck }) {
           </select>
         </Field>
       )}
+      <label className="photo-slot empty" data-testid="receipt-slot" style={{ aspectRatio: 'auto', height: receipt ? 180 : 110, borderColor: needReceipt && !receipt ? 'var(--orange)' : undefined }}>
+        {receipt ? <><img src={receipt} alt="Receipt" /><div className="cap">Receipt attached · tap to retake</div></> : <><Icon name="camera" size={28} /><div className="slot-label">{needReceipt ? 'Take photo of fuel receipt (required)' : 'Photo of receipt (optional)'}</div></>}
+        <input type="file" accept="image/*" capture="environment" onChange={async (e) => { const file = e.target.files[0]; if (file) setReceipt(await compressImage(file, 1400, 0.75)); }} />
+      </label>
       <div className="grid grid-2">
-        <Field label="Litres"><input className="input" style={{ fontSize: '1.4rem', height: 60 }} type="number" inputMode="decimal" placeholder="0" value={f.litres} onChange={set('litres')} autoFocus /></Field>
+        <Field label="Litres"><input className="input" style={{ fontSize: '1.4rem', height: 60 }} type="number" inputMode="decimal" placeholder="0" value={f.litres} onChange={set('litres')} /></Field>
         <Field label="Price per litre ($)"><input className="input" style={{ fontSize: '1.4rem', height: 60 }} type="number" inputMode="decimal" step="0.001" value={f.pricePerL} onChange={set('pricePerL')} /></Field>
       </div>
       <div className="row between card pad" style={{ background: 'var(--bg-fill-2)', boxShadow: 'none' }}>
@@ -49,13 +54,9 @@ export default function FuelForm({ onDone, truckId: fixedTruck }) {
         </Field>
       </div>
       <Field label="DEF litres (optional)"><input className="input" type="number" inputMode="decimal" value={f.defLitres} onChange={set('defLitres')} placeholder="0" /></Field>
-      <label className="photo-slot empty" style={{ aspectRatio: 'auto', height: receipt ? 160 : 90 }}>
-        {receipt ? <><img src={receipt} alt="Receipt" /><div className="cap">Receipt · tap to retake</div></> : <><Icon name="camera" size={26} /><div className="slot-label">Photo of receipt (optional)</div></>}
-        <input type="file" accept="image/*" capture="environment" onChange={async (e) => { const file = e.target.files[0]; if (file) setReceipt(await compressImage(file, 1400, 0.75)); }} />
-      </label>
       {job && <div className="footnote secondary">This fill-up will be counted against job {job.ref}.</div>}
-      <ActionButton className="btn primary xl" disabled={!(Number(f.litres) > 0) || !(Number(f.pricePerL) > 0)} onClick={save}>
-        <Icon name="check" size={22} stroke={2.4} />Save fuel
+      <ActionButton className="btn primary xl" disabled={(needReceipt && !receipt) || !(Number(f.litres) > 0) || !(Number(f.pricePerL) > 0)} onClick={save}>
+        <Icon name={needReceipt && !receipt ? 'camera' : 'check'} size={22} stroke={2.4} />{needReceipt && !receipt ? 'Receipt photo required' : 'Save fuel'}
       </ActionButton>
     </div>
   );

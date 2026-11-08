@@ -365,6 +365,9 @@ export function routes(app) {
     if (!truck || truck.carrierId !== req.user.companyId) return res.status(400).json({ error: 'Choose a truck.' });
     const litres = Number(b.litres);
     const pricePerL = Number(b.pricePerL);
+    // Every driver fill-up needs a photo of the receipt.
+    const receiptUrl = b.receipt ? saveUpload(b.receipt) : null;
+    if (req.user.role === 'driver' && !receiptUrl) return res.status(400).json({ error: 'Take a photo of the fuel receipt to log this fill-up.' });
     if (!(litres > 0) || !(pricePerL > 0)) return res.status(400).json({ error: 'Enter litres and price per litre.' });
     const active = db.loads.find((l) => l.truckId === truck.id && ACTIVE.includes(l.status));
     const odo = Number(b.odometerKm) || truck.odometerKm;
@@ -374,7 +377,7 @@ export function routes(app) {
       loadId: b.loadId === undefined ? active?.id || null : b.loadId || null,
       t: b.t ? Number(b.t) : Date.now(), litres, pricePerL, total: Math.round(litres * pricePerL * 100) / 100,
       odometerKm: odo, station: b.station || '', fuelType: b.fuelType || 'diesel', def: Number(b.defLitres) || 0,
-      receiptUrl: b.receipt ? saveUpload(b.receipt) : null, location: truck.location ? { lat: truck.location.lat, lng: truck.location.lng } : null,
+      receiptUrl, location: truck.location ? { lat: truck.location.lat, lng: truck.location.lng } : null,
       by: req.user.name,
     };
     if (odo > truck.odometerKm) truck.odometerKm = odo;

@@ -214,7 +214,7 @@ export async function seed() {
       t: load.departedPickupAt + (load.arrivedDeliveryAt - load.departedPickupAt) / 2, litres: +litres.toFixed(1), pricePerL: +price.toFixed(3),
       total: +(litres * price).toFixed(2), odometerKm: load.odometer.start + Math.round(loaded / 2),
       station: ['Petro-Canada', 'Esso', 'Pilot Flying J', 'Husky', 'Shell', 'Ultramar'][i % 6], fuelType: 'diesel', def: i % 4 === 0 ? 20 : 0,
-      receiptUrl: null, location: mid, by: driver.name,
+      receiptUrl: sampleReceipt(['Petro-Canada', 'Esso', 'Pilot Flying J', 'Husky', 'Shell', 'Ultramar'][i % 6], litres, price), location: mid, by: driver.name,
     });
     load.economics = economics(load, driver, truck, db.fuelLogs, s);
     db.loads.push(load);
@@ -303,4 +303,16 @@ function placeAlong(load, truck, legKey, progress, phase) {
 
 function updateEtaSafe(load) {
   try { updateEta(load); } catch { /* trucks not yet indexed */ }
+}
+
+// Sample receipt image (SVG data URL) for seeded fill-ups.
+function sampleReceipt(station, litres, price) {
+  const row = (y, k, v, bold) => `<text x="20" y="${y}"${bold ? ' font-weight="bold"' : ''}>${k}</text><text x="280" y="${y}" text-anchor="end"${bold ? ' font-weight="bold"' : ''}>${v}</text>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="400"><rect width="300" height="400" fill="#fff"/><g font-family="monospace" font-size="16" fill="#222">`
+    + `<text x="150" y="50" text-anchor="middle" font-size="20" font-weight="bold">${station.toUpperCase()}</text>`
+    + row(110, 'DIESEL', '') + row(150, 'LITRES', litres.toFixed(1)) + row(180, '$/L', price.toFixed(3))
+    + '<line x1="20" y1="210" x2="280" y2="210" stroke="#222" stroke-dasharray="4"/>'
+    + row(245, 'TOTAL', `$${(litres * price).toFixed(2)}`, true)
+    + '<text x="150" y="350" text-anchor="middle" font-size="13">THANK YOU</text></g></svg>';
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }

@@ -1,5 +1,5 @@
 // Browser replacement for server/db.js: same API, data kept in memory and (best effort) in localStorage.
-const KEY = 'rugo.demo.db.v1';
+const KEY = 'rugo.demo.db.v2';
 const empty = () => ({ companies: [], users: [], sessions: [], trucks: [], trailers: [], loads: [], fuelLogs: [], shifts: [], settings: {} });
 
 let saved = null;
