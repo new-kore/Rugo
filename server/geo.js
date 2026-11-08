@@ -103,7 +103,7 @@ export async function route(a, b) {
         const r = j.routes?.[0];
         if (r) {
           const points = r.geometry.coordinates.map(([lng, lat]) => ({ lat, lng }));
-          return { points: thin(points, 400), distanceKm: r.distance / 1000, source: 'road' };
+          return { points: thin(points, 400), distanceKm: r.distance / 1000, durationH: r.duration / 3600, source: 'road' };
         }
       }
     } catch {

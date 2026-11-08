@@ -177,12 +177,21 @@ export async function seed() {
     load.metrics = { deadheadKm: +deadhead.toFixed(1), loadedKm: +loaded.toFixed(1), driveHours: (deadhead + loaded) / rnd(74, 86), dwellHours: { pickup: dwellP, delivery: dwellD } };
     const t0 = created + rnd(0.2, 0.6) * H;
     // Each driver has habits, so scorecards differ: [minutes late vs appointment, minutes to start after dispatch, unpaid-looking idle hours].
-    const habit = [[-80, 6, 0.3], [-8, 22, 0.9], [18, 14, 0.5], [-45, 4, 0.2], [40, 48, 1.6], [2, 11, 0.6]][di];
+    // [min late vs appointment, min to start after dispatch, idle hours before start, drive time vs projected]
+    const habit = [[-80, 6, 0.3, 0.97], [-8, 22, 0.9, 1.08], [18, 14, 0.5, 1.04], [-45, 4, 0.2, 0.99], [40, 48, 1.6, 1.42], [2, 11, 0.6, 1.02]][di];
     load.acceptedAt = t0;
     load.startedAt = t0 + Math.max(2, habit[1] + rnd(-4, 10)) / 60 * H;
     load.arrivedPickupAt = load.startedAt + (deadhead / 80) * H;
     load.departedPickupAt = load.arrivedPickupAt + dwellP * H;
-    load.arrivedDeliveryAt = load.departedPickupAt + (loaded / 80) * H;
+    load.arrivedDeliveryAt = load.departedPickupAt + (loaded / s.avgSpeedKmh) * habit[3] * rnd(0.97, 1.05) * H;
+    if (habit[3] > 1.3) { // the slow driver also wandered off the planned route once
+      const mid = leg.points[Math.floor(leg.points.length * 0.55)];
+      const tOff = load.departedPickupAt + (load.arrivedDeliveryAt - load.departedPickupAt) * 0.5;
+      load.routeEvents = [
+        { id: id('rte'), kind: 'off', t: tOff, leg: 'toDropoff', km: 6.4, lat: mid.lat + 0.05, lng: mid.lng },
+        { id: id('rte'), kind: 'back', t: tOff + 52 * 60000, leg: 'toDropoff', km: 14.8, minutes: 52, lat: mid.lat + 0.02, lng: mid.lng + 0.1 },
+      ];
+    }
     load.deliveredAt = load.arrivedDeliveryAt + dwellD * H;
     // Appointments set around the driver's habit: arrival = window close + deviation.
     const devP = habit[0] + rnd(-25, 25);
@@ -275,6 +284,7 @@ export async function seed() {
         );
         load.photos.pickup = photoSet('pickup', load.arrivedPickupAt + 0.2 * H, P[L.a], driver.name);
         placeAlong(load, truck, 'toDropoff', L.progress, 'loaded');
+        load.simDetour = { leg: 'toDropoff', from: 0.45, to: 0.8, km: 22 }; // demo: shows the off-route alert
         load.metrics.loadedKm = +(load.legs.toDropoff.distanceKm * L.progress).toFixed(1);
         load.messages.push(
           { id: id('msg'), userId: dana.id, name: dana.name, role: 'shipper', text: 'Hi Marcus — receiving in Ottawa closes at 6pm today.', t: load.departedPickupAt + 0.3 * H },

@@ -1,5 +1,6 @@
 // Driver scorecards: punctuality, responsiveness, idle paid time, money in/out, quality and safety.
 // Pure functions over plain data so the server (auto-dispatch) and the browser (Drivers page) share them.
+import { planVsActual } from './routecheck.js';
 
 const H = 3.6e6;
 const MIN = 60000;
@@ -96,6 +97,11 @@ export function scorecard(driver, ctx, from, to = Date.now()) {
   const receipts = myFuel.filter((f) => f.receiptUrl).length;
   const hosViolations = (driver.hosEvents || []).filter((e) => e.kind === 'violation' && e.t >= from && e.t < to).length;
   const days = Math.max(1, (to - from) / (24 * H));
+  // Projected vs actual drive time to delivery, and route changes.
+  const legs = done.map((l) => planVsActual(l, ctx.settings || {}).rows.find((r) => r.key === 'toDropoff')).filter((r) => r?.done && r.projH > 0);
+  const driveVsPlanPct = legs.length ? avg(legs.map((r) => ((r.actH - r.projH) / r.projH) * 100)) : null;
+  const wayOff = legs.filter((r) => r.verdict?.key === 'way_off').length;
+  const routeChanges = done.concat(active).flatMap((l) => (l.routeEvents || []).filter((e) => e.kind === 'off' && e.t >= from && e.t < to)).length;
 
   const card = {
     driverId: driver.id, from, to,
@@ -107,6 +113,7 @@ export function scorecard(driver, ctx, from, to = Date.now()) {
     time: {
       dutyH, driveH, idleH, idlePct: pct(idleH, dutyH), idleCost,
       avgDwellPickupH: avg(dwellP), avgDwellDeliveryH: avg(dwellD), utilizationPct: pct(driveH, dutyH),
+      driveVsPlanPct, wayOff, routeChanges, plannedTrips: legs.length,
     },
     money: {
       revenue, cost, driverPay, fuelCost, profit: revenue - cost, marginPct: revenue ? ((revenue - cost) / revenue) * 100 : null,
@@ -179,6 +186,9 @@ export function insights(c, fleet) {
   if (fleet?.marginPct != null && c.money.marginPct != null && c.money.marginPct < fleet.marginPct - 5) work.push(`Margin ${f(c.money.marginPct)}% vs fleet ${f(fleet.marginPct)}%`);
   if (fleet?.lPer100 && c.fuel.lPer100 && c.fuel.lPer100 < fleet.lPer100 * 0.96) good.push(`Fuel-efficient: ${f(c.fuel.lPer100, 1)} L/100 km vs fleet ${f(fleet.lPer100, 1)}`);
   if (fleet?.lPer100 && c.fuel.lPer100 && c.fuel.lPer100 > fleet.lPer100 * 1.05) work.push(`Uses more fuel: ${f(c.fuel.lPer100, 1)} L/100 km vs fleet ${f(fleet.lPer100, 1)}`);
+  if (c.time.driveVsPlanPct != null && c.time.driveVsPlanPct > 15) work.push(`Drives ${f(c.time.driveVsPlanPct)}% longer than the projected time${c.time.wayOff ? ` (${c.time.wayOff} trip${c.time.wayOff > 1 ? 's' : ''} way off)` : ''}`);
+  if (c.time.plannedTrips >= 2 && c.time.driveVsPlanPct != null && Math.abs(c.time.driveVsPlanPct) <= 5) good.push('Drive times match the projection');
+  if (c.time.routeChanges) work.push(`Left the planned route ${c.time.routeChanges}×`);
   if (c.quality.damage) work.push(`${c.quality.damage} damage report${c.quality.damage > 1 ? 's' : ''}`);
   if (c.quality.hosViolations) work.push(`${c.quality.hosViolations} HOS violation${c.quality.hosViolations > 1 ? 's' : ''}`);
   if (c.fuel.fillUps && c.fuel.receiptPct < 100) work.push(`${100 - c.fuel.receiptPct}% of fill-ups missing receipts`);

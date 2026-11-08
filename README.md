@@ -146,6 +146,21 @@ Choose the mode in **Settings → AI dispatch**:
 
 Each driver also gets a weighted score with a grade (A–F), a rank, a trend versus the previous period, and plain-language "Doing well" and "Work on" notes.
 
+### Projected vs actual, and route changes
+**Projected vs actual.** Every job's detail page compares projected time with actual time for each part of the trip: drive to pickup, loading, drive to delivery and unloading.
+- **Projected time** is the fastest-route time from Google when a server key is set, otherwise from OSRM or an estimate. Loading and unloading are each allowed 1 hour.
+- **Verdict:** each part is marked faster, about the same (within 15 min or 10%), a bit slower or way off (more than 45 min or 30% slower).
+- **Kilometres:** planned and driven km are shown for each driving part.
+- **Live loads** also show how far ahead of or behind plan they are.
+
+**Route changes.** Every GPS, ELD or simulated position is checked against the planned route line. Two readings in a row off the line mark the truck as off-route.
+- **Threshold:** 1.2 km away on a real road route, or 12 km when the route is only an estimate.
+- **Alerts:** the office gets a "Driver changed route" alert immediately, and a "Back on the planned route" alert when the truck rejoins.
+- **Where it shows:** in the bell, as "Off route" on the job list, in Live fleet, and as a red banner on the job map.
+- **History:** each event is kept with a link to its location.
+
+**Scorecards** gain three metrics: average drive time versus projected, trips that were way off, and the number of route changes.
+
 ### Maps & routing
 - Map tiles come from CARTO/OpenStreetMap and change with light and dark mode.
 - Road routes come from the public OSRM router. If it can't be reached, Rugo uses an estimated route with a road factor. Set `RUGO_OFFLINE_ROUTING=1` to always use the estimate.

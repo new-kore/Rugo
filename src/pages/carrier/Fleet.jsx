@@ -1,4 +1,5 @@
 // Live fleet: map + every truck with kilometres left and arrival time; click a truck for its full file.
+import { OffRouteBanner } from '../../components/PlanVsActual.jsx';
 import { useEffect, useMemo, useState } from 'react';
 import Icon from '../../components/Icon.jsx';
 import MapView from '../../components/MapView.jsx';
@@ -147,6 +148,7 @@ function TruckFile({ truck: t, job, onClose }) {
             )}
             {p.stage === 'Loading' && <div className="footnote secondary">{km(p.totalKmLeft)} to {job.dropoff.city} after loading · delivery around <b>{etaText(p.deliveryAt)}</b></div>}
             <Tracker status={job.status} />
+            <OffRouteBanner load={job} />
             <RouteLine pickup={job.pickup} dropoff={job.dropoff} compact />
             <div className="footnote secondary">
               <span className="mono">{job.ref}</span> · {job.cargo.description} · {idx.companies[job.shipperId]?.name}

@@ -105,6 +105,9 @@ export function ScorecardView({ driver }) {
           <div className="section-header" style={{ margin: '4px 0 6px' }}>Time & response</div>
           <Row k="Time to start after dispatch" v={fmtMin(c.response.avgMin)} cls={c.response.avgMin == null ? '' : c.response.avgMin <= 15 ? 'green' : c.response.avgMin <= 30 ? 'orange' : 'red'} />
           <Row k="Started within 15 min" v={fmtPct(c.response.within15Pct)} />
+          <Row k="Drive time vs projected" v={c.time.driveVsPlanPct == null ? '—' : `${c.time.driveVsPlanPct >= 0 ? '+' : '−'}${Math.abs(Math.round(c.time.driveVsPlanPct))}%`} cls={c.time.driveVsPlanPct == null ? '' : c.time.driveVsPlanPct <= 10 ? 'green' : c.time.driveVsPlanPct <= 25 ? 'orange' : 'red'} />
+          <Row k="Trips way off projected time" v={c.time.plannedTrips ? `${c.time.wayOff} of ${c.time.plannedTrips}` : '—'} cls={c.time.wayOff ? 'red' : ''} />
+          <Row k="Left the planned route" v={c.time.routeChanges} cls={c.time.routeChanges ? 'red' : 'green'} />
           <Row k="Paid on-duty time" v={fmtH(c.time.dutyH)} />
           <Row k="Driving" v={`${fmtH(c.time.driveH)} (${fmtPct(c.time.utilizationPct)})`} />
           <Row k="Paid but not moving" v={`${fmtH(c.time.idleH)} (${fmtPct(c.time.idlePct)})`} cls={tone(100 - (c.time.idlePct ?? 0), 60, 45)} />
@@ -157,7 +160,7 @@ export function ScorecardTable({ onOpen }) {
       </div>
       <div className="card table-wrap">
         <table className="table">
-          <thead><tr><th>#</th><th>Driver</th><th>Score</th><th className="r">Loads</th><th className="r">On-time pickup</th><th className="r">On-time delivery</th><th className="r">Start after dispatch</th><th className="r">Paid not moving</th><th className="r">Made</th><th className="r">Cost</th><th className="r">Profit</th></tr></thead>
+          <thead><tr><th>#</th><th>Driver</th><th>Score</th><th className="r">Loads</th><th className="r">On-time pickup</th><th className="r">On-time delivery</th><th className="r">Start after dispatch</th><th className="r">Drive vs projected</th><th className="r">Paid not moving</th><th className="r">Made</th><th className="r">Cost</th><th className="r">Profit</th></tr></thead>
           <tbody>
             {rows.map(({ d, c }) => (
               <tr key={d.id} className="click" onClick={() => onOpen(d)}>
@@ -168,6 +171,7 @@ export function ScorecardTable({ onOpen }) {
                 <td className={`r num ${tone(c.pickup.onTimePct, 95, 80)}`}>{c.pickup.n ? `${c.pickup.onTimePct}%` : '—'}{c.pickup.late ? <span className="caption secondary"> · {c.pickup.late} late</span> : ''}</td>
                 <td className={`r num ${tone(c.delivery.onTimePct, 95, 80)}`}>{c.delivery.n ? `${c.delivery.onTimePct}%` : '—'}</td>
                 <td className="r num">{fmtMin(c.response.avgMin)}</td>
+                <td className={`r num ${c.time.driveVsPlanPct == null ? '' : c.time.driveVsPlanPct <= 10 ? 'green' : c.time.driveVsPlanPct <= 25 ? 'orange' : 'red'}`}>{c.time.driveVsPlanPct == null ? '—' : `${c.time.driveVsPlanPct >= 0 ? '+' : '−'}${Math.abs(Math.round(c.time.driveVsPlanPct))}%`}{c.time.routeChanges ? <span className="caption red"> · {c.time.routeChanges} off-route</span> : ''}</td>
                 <td className="r num">{fmtH(c.time.idleH)}{d.payType === 'hourly' && c.time.idleCost ? <span className="caption secondary"> · {money(c.time.idleCost)}</span> : ''}</td>
                 <td className="r num">{money(c.money.revenue)}</td>
                 <td className="r num">{money(c.money.cost)}</td>

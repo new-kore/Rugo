@@ -3,6 +3,7 @@ import { db, save, find, id } from './db.js';
 import { haversine, pathLength, pointAlong, route } from './geo.js';
 import { invoice, economics, DEFAULT_SETTINGS } from './pricing.js';
 import { ACTIVE, MOVING, PHOTO_SLOTS } from './constants.js';
+import { distanceToPath, offRouteKm } from './routecheck.js';
 
 export const settings = () => ({ ...DEFAULT_SETTINGS, ...db.settings, googleMapsKey: globalThis.process?.env?.GOOGLE_MAPS_BROWSER_KEY || globalThis.process?.env?.GOOGLE_MAPS_API_KEY || '' });
 const ARRIVAL_RADIUS_KM = 0.3;
@@ -63,6 +64,7 @@ export function view(viewer, col, item) {
   if (col === 'loads') {
     const out = { ...item };
     delete out.sim;
+    delete out.simDetour;
     if (viewer.role === 'shipper') delete out.economics;
     if (viewer.role !== 'shipper' && item.status === 'requested' && item.carrierId !== viewer.companyId) {
       // Carriers browsing the board only see the payout, not the shipper's invoice.
@@ -296,12 +298,47 @@ function recordMovement(load, truck, pos, kmDelta, hoursDelta, speedKmh) {
       load.track.push({ lat: +pos.lat.toFixed(5), lng: +pos.lng.toFixed(5), t: Date.now(), phase: key === 'loadedKm' ? 'loaded' : 'empty', speed: Math.round(speedKmh) });
       if (load.track.length > 3000) load.track.splice(1, 1);
     }
+    checkRoute(load, pos);
     updateEta(load);
     load.updatedAt = Date.now();
     publish('loads', load);
   }
   publish('trucks', truck);
   save();
+}
+
+/** Alert the office the moment a truck leaves the planned (fastest) route, and again when it rejoins. */
+function checkRoute(load, pos) {
+  const legKey = load.status === 'in_transit' ? 'toDropoff' : load.status === 'en_route_pickup' ? 'toPickup' : null;
+  const leg = legKey && load.legs?.[legKey];
+  if (!leg?.points?.length) return;
+  let w = load.routeWatch;
+  if (!w || w.leg !== legKey) w = load.routeWatch = { leg: legKey, off: false, n: 0 };
+  const target = legKey === 'toPickup' ? load.pickup : load.dropoff;
+  if (haversine(pos, target) < 3 || haversine(pos, leg.points[0]) < 3) return; // yards and local streets near the stops
+  const d = distanceToPath(pos, leg.points);
+  const lim = offRouteKm(leg);
+  const driver = find('users', load.driverId);
+  const office = (v) => v.role === 'dispatcher' && v.companyId === load.carrierId;
+  const where = legKey === 'toPickup' ? 'route to the pickup' : 'route to the delivery';
+  const log = (ev) => { load.routeEvents = [...(load.routeEvents || []), { id: id('rte'), t: Date.now(), leg: legKey, lat: +pos.lat.toFixed(5), lng: +pos.lng.toFixed(5), ...ev }].slice(-50); };
+  if (!w.off) {
+    w.n = d > lim ? w.n + 1 : 0; // two fixes in a row, so one bad GPS reading doesn't alert
+    if (w.n >= 2) {
+      Object.assign(w, { off: true, n: 0, since: Date.now(), maxKm: d });
+      log({ kind: 'off', km: Math.round(d * 10) / 10 });
+      notify(office, { title: 'Driver changed route', body: `${driver?.name || 'The driver'} left the planned fastest ${where} on ${load.ref} — ${d.toFixed(1)} km off route.`, loadId: load.id, tone: 'warn' });
+    }
+  } else {
+    w.maxKm = Math.max(w.maxKm || 0, d);
+    w.n = d < lim * 0.5 ? w.n + 1 : 0;
+    if (w.n >= 2) {
+      const min = Math.round((Date.now() - w.since) / 60000);
+      log({ kind: 'back', km: Math.round(w.maxKm * 10) / 10, minutes: min });
+      notify(office, { title: 'Back on the planned route', body: `${driver?.name || 'The driver'} rejoined the ${where} on ${load.ref} after ${min} min (up to ${w.maxKm.toFixed(1)} km off).`, loadId: load.id });
+      Object.assign(w, { off: false, n: 0, since: null, maxKm: 0 });
+    }
+  }
 }
 
 /** Location pushed from the driver's phone. */
@@ -360,7 +397,16 @@ async function tick() {
     const credited = moved * scale;
     load.sim.creditedKm += credited;
     const arrived = load.sim.cursorKm >= len - 1e-6;
-    const pos = pointAlong(leg.points, arrived ? len : load.sim.cursorKm);
+    let pos = pointAlong(leg.points, arrived ? len : load.sim.cursorKm);
+    // Demo: a scripted detour off the planned route, to show the off-route alert.
+    const dt = load.simDetour;
+    if (dt && dt.leg === legKey && !arrived) {
+      const f = (load.sim.cursorKm / len - dt.from) / (dt.to - dt.from);
+      if (f > 0 && f < 1) {
+        const off = dt.km * Math.sin(Math.PI * f); const b = ((pos.heading || 0) + 90) * Math.PI / 180;
+        pos = { ...pos, lat: pos.lat + (off / 111) * Math.cos(b), lng: pos.lng + (off / (111 * Math.cos((pos.lat * Math.PI) / 180))) * Math.sin(b) };
+      }
+    }
     const speed = arrived ? 0 : 78 + Math.random() * 22;
     recordMovement(load, truck, pos, credited, credited / 85, speed);
     if (arrived) {

@@ -126,6 +126,7 @@ export function LoadRow({ load, showPay }) {
       <span title={data.meta.statuses.find((s) => s.key === load.status)?.label}><StatusIcon status={load.status} /></span>
       <span className="ttl">
         {placeShort(load.pickup)} → {placeShort(load.dropoff)}
+        {load.routeWatch?.off && <span className="pill red" style={{ marginLeft: 6, height: 18, fontSize: '0.7rem' }}>Off route</span>}
         <span className="sub">{load.cargo.description}{showPay ? ` · $${Math.round(load.quote.carrierPayout).toLocaleString()}` : ''}</span>
       </span>
       <span className="tag"><i style={{ background: EQ_COLOR[load.cargo.equipment] }} />{eq}</span>

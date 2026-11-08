@@ -197,6 +197,17 @@ function useNotifications() {
         items.push({ id: al.id, t: al.kind === 'hos' ? al.at : Math.min(Date.now(), al.at - 30 * 864e5), title: al.kind === 'hos' ? (al.level === 'expired' ? 'HOS violation' : 'Hours running low') : `${al.label} ${al.level === 'expired' ? 'expired' : 'expiring'}`, body: `${u.name} — ${al.text.toLowerCase()}`, driver: u, kind: 'expiry', warn: true, pin: true });
       }
     }
+    // Route changes (dispatch only).
+    if (me.role === 'dispatcher') {
+      for (const l of data.loads) {
+        for (const e of l.routeEvents || []) {
+          const who = data.users.find((u) => u.id === l.driverId)?.name || 'Driver';
+          items.push(e.kind === 'off'
+            ? { id: e.id, t: e.t, title: 'Driver changed route', body: `${who} left the planned fastest route on ${l.ref} — ${e.km} km off`, load: l, kind: 'route', warn: true }
+            : { id: e.id, t: e.t, title: 'Back on the planned route', body: `${who} rejoined the route on ${l.ref} after ${e.minutes} min`, load: l, kind: 'route' });
+        }
+      }
+    }
     for (const tr of data.trucks) {
       for (const n of tr.notes || []) {
         if (n.by === me.name) continue;
@@ -268,7 +279,7 @@ export function NotificationBell() {
                 <div key={n.id} className={`pop-item notif ${un ? 'unread' : ''}`} role="button" tabIndex={0}
                   onClick={() => openItem(n)} onKeyDown={(e) => e.key === 'Enter' && openItem(n)}>
                   <span className="pop-icon">
-                    {n.kind === 'message' ? <Icon name="message" size={15} /> : n.kind === 'note' ? <Icon name="doc" size={15} /> : n.kind === 'expiry' ? <Icon name="warning" size={15} style={{ color: 'var(--orange)' }} /> : <StatusIcon status={n.kind} />}
+                    {n.kind === 'message' ? <Icon name="message" size={15} /> : n.kind === 'note' ? <Icon name="doc" size={15} /> : n.kind === 'expiry' ? <Icon name="warning" size={15} style={{ color: 'var(--orange)' }} /> : n.kind === 'route' ? <Icon name="route" size={15} style={{ color: n.warn ? 'var(--red)' : 'var(--green)' }} /> : <StatusIcon status={n.kind} />}
                   </span>
                   <span className="pop-text">
                     <span className={n.warn ? 'orange' : ''} style={{ fontWeight: un ? 600 : 500 }}>{n.title}</span>

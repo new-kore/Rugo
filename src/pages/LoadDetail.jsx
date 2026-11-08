@@ -9,6 +9,7 @@ import { useStore, useIndex, useNow, isActive } from '../lib/store.jsx';
 import { money, money2, km, time, dayLabel, duration, ago, placeShort } from '../lib/format.js';
 import { post } from '../lib/api.js';
 import { back } from '../lib/router.js';
+import PlanVsActual, { OffRouteBanner } from '../components/PlanVsActual.jsx';
 
 export default function LoadDetail({ id }) {
   const { data, upsert, toast } = useStore();
@@ -81,6 +82,7 @@ export default function LoadDetail({ id }) {
               </div>
               {load.status !== 'requested' && load.status !== 'cancelled' && <div style={{ marginTop: 12 }}><Tracker status={load.status} /></div>}
               {truck?.location?.updatedAt && isActive(load) && <div className="caption tertiary" style={{ marginTop: 8 }}>Live GPS · updated {ago(truck.location.updatedAt)}</div>}
+              {role !== 'shipper' && <OffRouteBanner load={load} />}
             </div>
           </div>
 
@@ -120,6 +122,8 @@ export default function LoadDetail({ id }) {
               {load.odometer?.end ? <div><div className="k">Odometer end</div><div className="v">{km(load.odometer.end)}</div></div> : null}
             </div>
           </div>
+
+          {role !== 'shipper' && <PlanVsActual load={load} />}
 
           {(driver || (role === 'dispatcher' && load.carrierId === data.me.companyId && isActive(load))) && (
             <DriversCard load={load} driver={driver} truck={truck} carrier={carrier} canEdit={role === 'dispatcher' && isActive(load)} />
