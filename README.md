@@ -189,6 +189,22 @@ Rugo works in Safari and Chrome on iPhone, Android, iPad and Android tablets. It
   - the calendar opens in Day view.
 - **Home-screen app:** add it with **Share → Add to Home Screen** (iPhone/iPad) or **⋮ → Add to Home screen / Install app** (Android). It then opens full-screen with the Rugo icon.
 
+### Reports (company owners)
+**Reports** (in Fleet) covers any period: this or last week, this or last month, the last 30 or 90 days, this quarter, year to date, or a custom range. Every number is compared with the previous period of the same length.
+- **Summary:** 12 headline numbers with change arrows, "Where we're doing really well" and "Where we can improve" talking points, a profit trend, and meeting notes that print with the report.
+- **Money:** profit and loss (revenue, detention, driver pay, fuel, truck cost), each as a share of revenue and per km. It also has a trend chart and table, receivables with aging, and unpaid invoices.
+- **Payroll:** gross pay per driver, a weekly pay register and CSV export.
+  - Hourly drivers are paid for on-duty hours, with overtime at ×1.5 after 60 h in a week.
+  - Per-km drivers are paid for km driven.
+  - Also shown per driver: driving vs non-driving hours, pay per load, and pay as a share of the revenue they brought in.
+- **Drivers:** scorecard table and a talking point for each driver.
+- **Trucks:** per unit revenue, profit, revenue per km, utilization, fuel, L/100 km and when service is due.
+- **Operations:** on-time pickups and deliveries, dock time, drive time vs projected, and empty km. Lists the late stops, trips way over plan, route changes, damage claims and cancellations.
+- **Fuel:** spend, litres, average $/L, receipt compliance, and breakdowns by truck and by station.
+- **Customers & lanes:** revenue, rate per km, profit, margin and on-time % for each customer and each lane.
+
+**Print report** lets you pick sections. It prints a cover header and each section on its own page; use "Save as PDF" to email it. CSV exports are available for loads and payroll.
+
 ### Maps & routing
 - Map tiles come from CARTO/OpenStreetMap and change with light and dark mode.
 - Road routes come from the public OSRM router. If it can't be reached, Rugo uses an estimated route with a road factor. Set `RUGO_OFFLINE_ROUTING=1` to always use the estimate.
