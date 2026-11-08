@@ -1006,15 +1006,15 @@ img, svg, video { max-width: 100%; }
 /* KPI strip: one card split into equal cells (no wrapping cards). */
 .dkpis { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(112px, 1fr); border: 1px solid var(--border); border-radius: 14px; background: var(--bg-elevated); overflow-x: auto; overflow-y: hidden; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
 .dkpis::-webkit-scrollbar { display: none; }
-.dkpi { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "icon k" "v v" "d d"; column-gap: 8px; row-gap: 2px; align-items: center; padding: 14px 16px 13px; border: 0; background: none; text-align: left; font: inherit; color: inherit; min-width: 0; box-shadow: 1px 0 0 var(--border), 0 1px 0 var(--border); }
+.dkpi { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "icon k" "v v" "d d"; column-gap: 8px; row-gap: 2px; align-items: center; align-content: start; padding: 14px 16px 13px; border: 0; background: none; text-align: left; font: inherit; color: inherit; min-width: 0; box-shadow: 1px 0 0 var(--border), 0 1px 0 var(--border); }
 .dkpi > div:last-child { display: contents; }
 .dkpi.click { cursor: pointer; transition: background .12s; }
 .dkpi.click:hover { background: var(--bg-hover); }
-.dkpi-icon { grid-area: icon; width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; flex: none; }
-.dkpi-icon svg { width: 17px; height: 17px; }
-.dkpi-k { grid-area: k; font-size: 0.8rem; font-weight: 500; color: var(--label-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dkpi-icon { grid-area: icon; width: 24px; height: 24px; border-radius: 7px; display: grid; place-items: center; flex: none; }
+.dkpi-icon svg { width: 14px; height: 14px; }
+.dkpi-k { grid-area: k; font-size: 0.8rem; font-weight: 500; color: var(--label-2); line-height: 1.2; }
 .dkpi-v { grid-area: v; font-size: 1.65rem; font-weight: 650; line-height: 1.15; letter-spacing: -0.02em; margin-top: 6px; white-space: nowrap; }
-.dkpi-d { grid-area: d; font-size: 0.75rem; color: var(--label-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dkpi-d { grid-area: d; font-size: 0.75rem; color: var(--label-3); line-height: 1.25; }
 .dkpi.alert .dkpi-v { color: var(--red); }
 .dkpi.alert .dkpi-k::after { content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--red); margin-left: 6px; vertical-align: middle; }
 .dash-main { display: grid; grid-template-columns: minmax(0, 2.1fr) minmax(300px, 1fr); gap: 14px; height: 560px; }
@@ -1105,13 +1105,6 @@ img, svg, video { max-width: 100%; }
   .weekstrip { grid-template-columns: repeat(7, minmax(44px, 1fr)); overflow-x: auto; }
 }
 
-/* Glossy app-style icon tiles: colour gradient, soft shadow, top highlight, white glyph. */
-.gloss { position: relative; color: #fff !important; background: linear-gradient(160deg, color-mix(in srgb, var(--c) 62%, #fff) 0%, var(--c) 55%, color-mix(in srgb, var(--c) 82%, #000) 100%) !important;
-  box-shadow: 0 3px 8px -2px color-mix(in srgb, var(--c) 55%, transparent), 0 1px 2px rgba(0,0,0,.12), inset 0 1px 0 rgba(255,255,255,.45), inset 0 -1px 0 rgba(0,0,0,.12); overflow: hidden; }
-.gloss::after { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 48%; background: linear-gradient(180deg, rgba(255,255,255,.28), rgba(255,255,255,0)); pointer-events: none; }
-.gloss svg { position: relative; z-index: 1; stroke-width: 2.3; filter: drop-shadow(0 1px 1px rgba(0,0,0,.22)); }
-.attn .attn-icon { --c: var(--blue); }
-.attn.red .attn-icon { --c: var(--red); } .attn.orange .attn-icon { --c: var(--orange); } .attn.blue .attn-icon { --c: var(--blue); }
 
 /* Integration cards: equal height, Connect button pinned to the bottom of every card. */
 .provider-card { display: flex; flex-direction: column; gap: 10px; height: 100%; }

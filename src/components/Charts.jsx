@@ -74,7 +74,7 @@ export function KpiTile({ icon, tone = 'blue', k, v, d, onClick, alert }) {
   const Tag = onClick ? 'button' : 'div';
   return (
     <Tag className={`dkpi ${alert ? 'alert' : ''} ${onClick ? 'click' : ''}`} onClick={onClick}>
-      <div className="dkpi-icon gloss" style={{ '--c': `var(--${tone})` }}>{icon}</div>
+      <div className="dkpi-icon" style={{ background: `color-mix(in srgb, var(--${tone}) 14%, transparent)`, color: `var(--${tone})` }}>{icon}</div>
       <div style={{ minWidth: 0 }}>
         <div className="dkpi-v num">{v}</div>
         <div className="dkpi-k">{k}</div>

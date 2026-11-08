@@ -167,7 +167,7 @@ export default function Dashboard() {
             {attention.length === 0 && <div className="empty-mini"><Icon name="checkCircle" size={28} style={{ color: 'var(--green)' }} /><div>All clear — nothing needs you right now.</div></div>}
             {attention.map((a) => (
               <button key={a.id} className={`attn ${a.tone}`} onClick={() => go(a.load ? `/loads/${a.load.id}` : a.driver ? '/drivers' : a.truck ? '/inventory' : a.to || '/board')}>
-                <div className="attn-icon gloss"><Icon name={a.icon} size={16} /></div>
+                <div className="attn-icon"><Icon name={a.icon} size={16} /></div>
                 <div style={{ minWidth: 0 }}><div className="subhead" style={{ fontWeight: 600 }}>{a.title}</div><div className="footnote secondary">{a.body}</div></div>
               </button>
             ))}
