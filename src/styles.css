@@ -713,3 +713,6 @@ table.table { width: 100%; border-collapse: collapse; font-size: 0.93rem; font-v
 
 .ev-map { border-radius: 8px; overflow: hidden; border: 1px solid var(--border); margin: 0 0 2px; }
 .ev-map .leaflet-control-zoom { display: none; }
+
+.sticky-col { position: sticky; align-self: start; }
+@media (max-width: 1100px) { .sticky-col { position: static; } }

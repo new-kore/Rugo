@@ -117,6 +117,7 @@ export function LoadRow({ load, showPay }) {
   const people = [
     data.me.role === 'shipper' ? (carrier && { name: carrier.name, color: '#8b8f97' }) : (shipper && { name: shipper.name, color: '#8b8f97' }),
     driver,
+    ...(load.teamDriverIds || []).map((x) => idx.users[x]),
   ].filter(Boolean);
   return (
     <div className="irow" role="link" tabIndex={0} onClick={() => go(`/loads/${load.id}`)} onKeyDown={(e) => e.key === 'Enter' && go(`/loads/${load.id}`)}>

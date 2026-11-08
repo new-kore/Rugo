@@ -31,7 +31,7 @@ export function canSee(viewer, col, item) {
     case 'loads':
       if (viewer.role === 'shipper') return item.shipperId === c;
       if (viewer.role === 'dispatcher') return item.carrierId === c || item.status === 'requested';
-      if (viewer.role === 'driver') return item.driverId === viewer.id;
+      if (viewer.role === 'driver') return item.driverId === viewer.id || (item.teamDriverIds || []).includes(viewer.id);
       return false;
     case 'trucks':
       if (item.carrierId === c) return viewer.role !== 'driver' || item.id === viewer.truckId;
@@ -39,7 +39,7 @@ export function canSee(viewer, col, item) {
       return false;
     case 'users':
       if (item.companyId === c) return viewer.role !== 'driver' || item.id === viewer.id;
-      if (viewer.role === 'shipper') return db.loads.some((l) => l.shipperId === c && l.driverId === item.id);
+      if (viewer.role === 'shipper') return db.loads.some((l) => l.shipperId === c && (l.driverId === item.id || (l.teamDriverIds || []).includes(item.id)));
       return false;
     case 'companies':
       return true;
@@ -214,10 +214,11 @@ export async function advance(load, to, actor, extra = {}) {
     load.deliveredAt = now;
     load.metrics.dwellHours.delivery = (now - (load.arrivedDeliveryAt || now)) / 3.6e6;
     load.invoice = invoice(load, settings());
-    load.economics = economics(load, driver, truck, db.fuelLogs, settings());
+    const team = (load.teamDriverIds || []).map((x) => find('users', x)).filter(Boolean);
+    load.economics = economics(load, driver, truck, db.fuelLogs, settings(), team);
     load.eta = null;
     delete load.sim;
-    if (driver) { driver.status = 'available'; publish('users', driver); }
+    for (const d of [driver, ...team]) if (d) { d.status = 'available'; publish('users', d); }
   }
   load.status = to;
   addTimeline(load, to, actor, extra.note || (extra.auto ? 'Detected automatically by GPS geofence' : undefined));

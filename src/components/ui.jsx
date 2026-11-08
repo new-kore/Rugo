@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Icon from './Icon.jsx';
 import { initials, placeShort, time, dayLabel } from '../lib/format.js';
 import { useStore } from '../lib/store.jsx';
@@ -223,3 +223,22 @@ export function Field({ label, children, hint }) {
 }
 
 export const timeOnly = time;
+
+/**
+ * A column that follows the page as you scroll. If it's taller than the screen it scrolls
+ * with the page until its bottom is visible, then stays put — so neither side leaves an empty gap.
+ */
+export function StickyCol({ children, className = "", style, top = 64 }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return undefined;
+    const set = () => { el.style.top = `${Math.min(top, window.innerHeight - el.offsetHeight - 16)}px`; };
+    set();
+    const ro = new ResizeObserver(set);
+    ro.observe(el);
+    window.addEventListener('resize', set);
+    return () => { ro.disconnect(); window.removeEventListener('resize', set); };
+  }, [top]);
+  return <div ref={ref} className={`sticky-col ${className}`} style={style}>{children}</div>;
+}

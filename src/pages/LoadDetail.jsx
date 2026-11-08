@@ -3,8 +3,8 @@ import Icon from '../components/Icon.jsx';
 import MapView from '../components/MapView.jsx';
 import Chat from '../components/Chat.jsx';
 import { PhotoCompare } from '../components/Inspection.jsx';
-import { StatusPill, Tracker, RouteLine, Avatar, ActionButton, ConfirmButton, Empty, STATUS_STYLE } from '../components/ui.jsx';
-import { AcceptSheet, CargoFacts, PriceBreakdown, Economics, InvoiceDoc } from '../components/LoadBits.jsx';
+import { StatusPill, Tracker, RouteLine, Avatar, ActionButton, ConfirmButton, Empty, STATUS_STYLE, StickyCol } from '../components/ui.jsx';
+import { AcceptSheet, CargoFacts, PriceBreakdown, Economics, InvoiceDoc, DriverPicker } from '../components/LoadBits.jsx';
 import { useStore, useIndex, useNow, isActive } from '../lib/store.jsx';
 import { money, money2, km, time, dayLabel, duration, ago, placeShort } from '../lib/format.js';
 import { post } from '../lib/api.js';
@@ -68,7 +68,7 @@ export default function LoadDetail({ id }) {
       </div>
 
       <div className="split">
-        <div className="stack" style={{ gap: 20 }}>
+        <StickyCol className="stack" style={{ gap: 20 }}>
           <div className="map-card">
             <MapView height={460} trucks={mapTrucks} places={places} route={routePts} track={load.track} fitKey={`${load.id}:${load.status === 'delivered'}`} />
             <div className="map-overlay glass" style={{ left: 14, right: 14, bottom: 14, padding: 16, maxWidth: 520 }}>
@@ -103,9 +103,9 @@ export default function LoadDetail({ id }) {
               ))}
             </ul>
           </div>
-        </div>
+        </StickyCol>
 
-        <div className="stack sticky-top" style={{ gap: 16 }}>
+        <StickyCol className="stack" style={{ gap: 16 }}>
           <div className="card pad-lg stack">
             <RouteLine pickup={load.pickup} dropoff={load.dropoff}
               pickupNote={load.departedPickupAt ? `Left ${time(load.departedPickupAt)}` : load.pickup.contact}
@@ -121,24 +121,8 @@ export default function LoadDetail({ id }) {
             </div>
           </div>
 
-          {driver && (
-            <div className="card pad-lg stack">
-              <div className="row">
-                <Avatar user={driver} size="lg" />
-                <div className="spacer">
-                  <div className="title3">{driver.name}</div>
-                  <div className="subhead secondary">{carrier?.name}{driver.rating ? ` · ★ ${driver.rating}` : ''}</div>
-                </div>
-                {driver.phone && <a className="icon-btn" style={{ width: 44, height: 44 }} href={`tel:${driver.phone}`} aria-label="Call driver"><Icon name="phone" size={20} /></a>}
-              </div>
-              {truck && (
-                <div className="kv">
-                  <div><div className="k">Truck</div><div className="v">Unit {truck.unit}</div></div>
-                  <div><div className="k">Vehicle</div><div className="v">{truck.year} {truck.make}</div></div>
-                  <div><div className="k">Plate</div><div className="v mono">{truck.plate}</div></div>
-                </div>
-              )}
-            </div>
+          {(driver || (role === 'dispatcher' && load.carrierId === data.me.companyId && isActive(load))) && (
+            <DriversCard load={load} driver={driver} truck={truck} carrier={carrier} canEdit={role === 'dispatcher' && isActive(load)} />
           )}
 
           <div className="card pad-lg stack">
@@ -165,7 +149,7 @@ export default function LoadDetail({ id }) {
               <Chat load={load} />
             </div>
           )}
-        </div>
+        </StickyCol>
       </div>
       {accepting && <AcceptSheet load={load} onClose={() => setAccepting(false)} />}
       {invoice && <InvoiceDoc load={load} company={carrier} shipper={shipper} onClose={() => setInvoice(false)} />}
@@ -188,6 +172,57 @@ function Rating({ load }) {
         ))}
       </div>
       {load.rating?.comment && <div className="subhead secondary">“{load.rating.comment}”</div>}
+    </div>
+  );
+}
+
+/** Who drives this load. Dispatch can replace, add a team driver, or remove. */
+function DriversCard({ load, driver, truck, carrier, canEdit }) {
+  const { upsert, toast } = useStore();
+  const idx = useIndex();
+  const [pick, setPick] = useState(null); // 'replace' | 'add'
+  const team = (load.teamDriverIds || []).map((x) => idx.users[x]).filter(Boolean);
+  const loaded = ['at_pickup', 'in_transit', 'at_delivery'].includes(load.status);
+  const act = async (action, driverId) => {
+    const r = await post(`/loads/${load.id}/drivers`, { action, driverId });
+    upsert('loads', r);
+    toast({ title: action === 'add' ? 'Team driver added' : action === 'replace' ? 'Driver replaced' : 'Driver removed', body: r.status === 'requested' ? `${load.ref} is back on the load board.` : undefined });
+  };
+  const Row = ({ d, main }) => (
+    <div className="row" style={{ alignItems: 'center' }}>
+      <Avatar user={d} size={main ? 'lg' : ''} />
+      <div className="spacer" style={{ minWidth: 0 }}>
+        <div className={main ? 'title3' : 'headline'}>{d.name} {!main && <span className="pill gray" style={{ marginLeft: 4 }}>Team</span>}</div>
+        <div className="subhead secondary">{main ? `${carrier?.name || ''}${d.rating ? ` · ★ ${d.rating}` : ''}` : (d.phone || '')}</div>
+      </div>
+      {d.phone && <a className="icon-btn" style={{ width: 36, height: 36 }} href={`tel:${d.phone}`} aria-label={`Call ${d.name}`}><Icon name="phone" size={18} /></a>}
+      {canEdit && main && <button className="btn small" onClick={() => setPick('replace')}>Replace</button>}
+      {canEdit && (
+        <ConfirmButton className="btn small danger" confirmLabel={main && !team.length && !loaded ? 'Back to board?' : 'Remove?'}
+          disabled={main && !team.length && loaded} title={main && !team.length && loaded ? 'Loaded — replace the driver instead' : undefined}
+          onConfirm={() => act('remove', d.id)}>Remove</ConfirmButton>
+      )}
+    </div>
+  );
+  return (
+    <div className="card pad-lg stack">
+      <div className="row between">
+        <div className="title3">{team.length ? 'Drivers' : 'Driver'}</div>
+        {canEdit && driver && <button className="btn small" onClick={() => setPick('add')}><Icon name="plus" size={14} stroke={2.4} />Add driver</button>}
+      </div>
+      {driver ? <Row d={driver} main /> : <div className="subhead secondary">No driver on this load.</div>}
+      {team.map((d) => <Row key={d.id} d={d} />)}
+      {truck && (
+        <div className="kv">
+          <div><div className="k">Truck</div><div className="v">Unit {truck.unit}</div></div>
+          <div><div className="k">Vehicle</div><div className="v">{truck.year} {truck.make}</div></div>
+          <div><div className="k">Plate</div><div className="v mono">{truck.plate}</div></div>
+        </div>
+      )}
+      {pick && (
+        <DriverPicker load={load} mode={pick} onClose={() => setPick(null)}
+          onPick={async (d) => { await act(pick, d.id); setPick(null); }} />
+      )}
     </div>
   );
 }

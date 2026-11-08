@@ -8,6 +8,8 @@ import {
   gpsUpdate, clockIn, clockOut, nextRef, newLoadShell, publicUser, updateEta,
 } from './fleet.js';
 
+const driverBusy = (driverId, exceptLoadId) => db.loads.some((l) => l.id !== exceptLoadId && ACTIVE.includes(l.status) && (l.driverId === driverId || (l.teamDriverIds || []).includes(driverId)));
+
 export function routes(app) {
   /* -------------------------------- auth -------------------------------- */
 
@@ -113,7 +115,7 @@ export function routes(app) {
     const u = req.user;
     const ok = (u.role === 'shipper' && load.shipperId === u.companyId) ||
       (u.role === 'dispatcher' && (load.carrierId === u.companyId || load.status === 'requested')) ||
-      (u.role === 'driver' && load.driverId === u.id);
+      (u.role === 'driver' && (load.driverId === u.id || (load.teamDriverIds || []).includes(u.id)));
     if (!ok) { res.status(403).json({ error: 'You don’t have access to this load.' }); return null; }
     return load;
   }
@@ -125,7 +127,7 @@ export function routes(app) {
     const truck = find('trucks', req.body.truckId);
     if (!driver || driver.companyId !== req.user.companyId || driver.role !== 'driver') return res.status(400).json({ error: 'Choose one of your drivers.' });
     if (!truck || truck.carrierId !== req.user.companyId) return res.status(400).json({ error: 'Choose one of your trucks.' });
-    if (db.loads.some((l) => l.driverId === driver.id && ACTIVE.includes(l.status))) return res.status(409).json({ error: `${driver.name} is already on a job.` });
+    if (driverBusy(driver.id)) return res.status(409).json({ error: `${driver.name} is already on a job.` });
     await accept(load, req.user, driver, truck);
     res.json(load);
   });
@@ -134,6 +136,74 @@ export function routes(app) {
     const load = getLoad(req, res); if (!load) return;
     const err = await advance(load, req.body.status, req.user, { odometer: req.body.odometer, note: req.body.note });
     if (err) return res.status(400).json({ error: err });
+    res.json(load);
+  });
+
+  // Change who drives a load: replace the main driver, add a team driver, or remove one.
+  app.post('/api/loads/:id/drivers', auth, role('dispatcher'), async (req, res) => {
+    const load = getLoad(req, res); if (!load) return;
+    if (load.carrierId !== req.user.companyId || !ACTIVE.includes(load.status)) return res.status(409).json({ error: 'Drivers can only be changed on your loads that are in progress.' });
+    const { action, driverId } = req.body || {};
+    const d = find('users', driverId);
+    if (!d || d.role !== 'driver' || d.companyId !== req.user.companyId) return res.status(400).json({ error: 'Choose one of your drivers.' });
+    load.teamDriverIds = load.teamDriverIds || [];
+    const onLoad = (id) => load.driverId === id || load.teamDriverIds.includes(id);
+    const free = (x) => { if (x && !driverBusy(x.id, load.id)) { x.status = 'available'; publish('users', x); } };
+    const loaded = ['at_pickup', 'in_transit', 'at_delivery'].includes(load.status);
+
+    if (action === 'replace' || action === 'add') {
+      if (onLoad(d.id) && !(action === 'replace' && load.teamDriverIds.includes(d.id))) return res.status(409).json({ error: `${d.name} is already on this load.` });
+      if (driverBusy(d.id, load.id)) return res.status(409).json({ error: `${d.name} is on another job.` });
+    }
+    if (action === 'replace') {
+      const old = find('users', load.driverId);
+      load.teamDriverIds = load.teamDriverIds.filter((x) => x !== d.id);
+      load.driverId = d.id;
+      d.status = 'on_job';
+      // Before loading, the new driver brings their own truck; once loaded the truck stays (relay swap).
+      if (!loaded && d.truckId && d.truckId !== load.truckId) {
+        const t = find('trucks', d.truckId);
+        if (t) {
+          load.truckId = t.id;
+          if (t.location) load.legs.toPickup = await route(t.location, load.pickup);
+          if (load.sim?.leg === 'toPickup') load.sim = { leg: 'toPickup', cursorKm: 0, creditedKm: 0, source: 'sim' };
+        }
+      }
+      free(old);
+      addTimeline(load, load.status, req.user, `Driver changed: ${old?.name || '—'} → ${d.name}${loaded ? ` (takes over unit ${find('trucks', load.truckId)?.unit})` : ''}`);
+      notify((v) => v.id === d.id, { title: 'You have been assigned a load', body: `${load.ref}: ${load.pickup.city} → ${load.dropoff.city}`, loadId: load.id });
+      if (old) notify((v) => v.id === old.id, { title: 'Load reassigned', body: `${load.ref} was moved to ${d.name}.`, loadId: load.id });
+    } else if (action === 'add') {
+      load.teamDriverIds.push(d.id);
+      d.status = 'on_job';
+      addTimeline(load, load.status, req.user, `${d.name} added as team driver`);
+      notify((v) => v.id === d.id, { title: 'Added as team driver', body: `${load.ref}: ${load.pickup.city} → ${load.dropoff.city}`, loadId: load.id });
+    } else if (action === 'remove') {
+      if (!onLoad(d.id)) return res.status(400).json({ error: `${d.name} isn’t on this load.` });
+      if (load.teamDriverIds.includes(d.id)) {
+        load.teamDriverIds = load.teamDriverIds.filter((x) => x !== d.id);
+        addTimeline(load, load.status, req.user, `${d.name} removed from the team`);
+      } else if (load.teamDriverIds.length) {
+        load.driverId = load.teamDriverIds.shift();
+        addTimeline(load, load.status, req.user, `${d.name} removed · ${find('users', load.driverId)?.name} is now the main driver`);
+      } else if (!loaded) {
+        Object.assign(load, { status: 'requested', carrierId: null, driverId: null, truckId: null, eta: null });
+        delete load.sim;
+        addTimeline(load, 'requested', req.user, `${d.name} removed — load is back on the board`);
+      } else {
+        return res.status(409).json({ error: 'This load is already loaded. Replace the driver instead of removing them.' });
+      }
+      free(d);
+      notify((v) => v.id === d.id, { title: 'Removed from a load', body: `${load.ref}`, loadId: load.id });
+    } else {
+      return res.status(400).json({ error: 'Unknown action.' });
+    }
+    updateEta(load);
+    load.updatedAt = Date.now();
+    save();
+    publish('loads', load);
+    for (const t of db.trucks.filter((x) => x.id === load.truckId)) publish('trucks', t);
+    notify((v) => v.companyId === load.shipperId, { title: 'Driver update', body: `${load.ref} — driver details changed.`, loadId: load.id });
     res.json(load);
   });
 

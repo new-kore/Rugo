@@ -48,7 +48,7 @@ export function LoadCard({ load, showPay }) {
 export function AcceptSheet({ load, onClose }) {
   const { data, toast, upsert } = useStore();
   const idx = useIndex();
-  const busy = new Set(data.loads.filter(isActive).map((l) => l.driverId));
+  const busy = new Set(data.loads.filter(isActive).flatMap((l) => [l.driverId, ...(l.teamDriverIds || [])]));
   const options = useMemo(() => data.users
     .filter((u) => u.role === 'driver')
     .map((d) => {
@@ -102,6 +102,49 @@ export function AcceptSheet({ load, onClose }) {
         <ActionButton className="btn primary xl" disabled={!chosen?.t} onClick={accept}>
           <Icon name="check" size={22} stroke={2.4} />Accept & dispatch {chosen ? chosen.d.name.split(' ')[0] : ''}
         </ActionButton>
+      </div>
+    </Sheet>
+  );
+}
+
+/** Pick a driver to replace the main driver or to join as a team driver. */
+export function DriverPicker({ load, mode, onPick, onClose }) {
+  const { data, toast } = useStore();
+  const idx = useIndex();
+  const [busyId, setBusyId] = useState(null);
+  const onLoad = new Set([load.driverId, ...(load.teamDriverIds || [])]);
+  const busy = new Set(data.loads.filter((l) => isActive(l) && l.id !== load.id).flatMap((l) => [l.driverId, ...(l.teamDriverIds || [])]));
+  const loaded = ['at_pickup', 'in_transit', 'at_delivery'].includes(load.status);
+  const target = loaded ? idx.trucks[load.truckId]?.location : load.pickup;
+  const rows = data.users.filter((u) => u.role === 'driver' && !onLoad.has(u.id)).map((d) => {
+    const t = idx.trucks[d.truckId];
+    const dist = t?.location && target ? haversine(t.location, target) * 1.2 : null;
+    return { d, t, dist, free: !busy.has(d.id) && d.status !== 'off_duty' };
+  }).sort((a, b) => (b.free - a.free) || ((a.dist ?? 1e9) - (b.dist ?? 1e9)));
+  const title = mode === 'add' ? 'Add a team driver' : 'Replace driver';
+  const hint = mode === 'add'
+    ? 'The team driver shares the same truck. Both are paid for the job.'
+    : loaded ? `The new driver takes over unit ${idx.trucks[load.truckId]?.unit} where it is now.` : 'The new driver goes to the pickup in their own truck.';
+  return (
+    <Sheet title={title} onClose={onClose}>
+      <div className="stack">
+        <div className="subhead secondary">{load.ref} · {placeShort(load.pickup)} → {placeShort(load.dropoff)}. {hint}</div>
+        <div className="list">
+          {rows.map(({ d, t, dist, free }) => (
+            <button key={d.id} className="list-row" disabled={!free || busyId} style={{ opacity: free ? 1 : 0.45 }}
+              onClick={async () => { setBusyId(d.id); try { await onPick(d); } catch (e) { toast({ title: 'Couldn’t change driver', body: e.message, tone: 'error' }); } finally { setBusyId(null); } }}>
+              <Avatar user={d} />
+              <div className="label">
+                <div className="headline">{d.name}</div>
+                <div className="footnote secondary truncate">
+                  {t ? `Unit ${t.unit}` : 'No truck'}{dist != null ? ` · ${km(dist)} ${loaded ? 'from the truck' : 'from pickup'}` : ''}{!free ? ' · busy' : ''}
+                </div>
+              </div>
+              {busyId === d.id ? <span className="spinner" /> : <Icon name="chevron" size={15} className="chev" />}
+            </button>
+          ))}
+          {rows.length === 0 && <div className="list-row secondary">No other drivers.</div>}
+        </div>
       </div>
     </Sheet>
   );

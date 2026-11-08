@@ -75,11 +75,12 @@ export function invoice(load, s) {
 }
 
 /** What the job cost the carrier: driver pay + fuel, versus payout. */
-export function economics(load, driver, truck, fuelLogs, s) {
+export function economics(load, driver, truck, fuelLogs, s, team = []) {
   const m = load.metrics;
   const totalKm = (m.deadheadKm || 0) + (m.loadedKm || 0);
   const hours = (m.driveHours || 0) + (m.dwellHours?.pickup || 0) + (m.dwellHours?.delivery || 0);
-  const pay = driver?.payType === 'per_km' ? totalKm * (driver.perKmRate || 0) : hours * (driver?.hourlyRate || 0);
+  const payOf = (d) => (d?.payType === 'per_km' ? totalKm * (d.perKmRate || 0) : hours * (d?.hourlyRate || 0));
+  const pay = [driver, ...team].filter(Boolean).reduce((a, d) => a + payOf(d), 0);
   const linked = fuelLogs.filter((f) => f.loadId === load.id);
   const litresEst = (totalKm * (truck?.fuelLPer100 || 36)) / 100;
   const fuel = linked.length ? linked.reduce((a, f) => a + f.total, 0) : litresEst * s.fuelPricePerL;
