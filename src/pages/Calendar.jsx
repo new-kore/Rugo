@@ -5,6 +5,7 @@ import Icon from '../components/Icon.jsx';
 import { Segmented, Avatar } from '../components/ui.jsx';
 import { StatusIcon, EQ_COLOR } from '../components/LoadList.jsx';
 import CalendarMap from './CalendarMap.jsx';
+import MapView from '../components/MapView.jsx';
 import { useStore, useIndex, useNow } from '../lib/store.jsx';
 import { go } from '../lib/router.js';
 import { time, placeShort, km, duration } from '../lib/format.js';
@@ -374,6 +375,12 @@ function EventCard({ pop, idx, data, onClose }) {
   const d = idx.users[l.driverId]; const tr = idx.trucks[l.truckId];
   const fmt = (x) => new Date(x).toLocaleString('en-CA', { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' });
   const status = data.meta.statuses.find((s) => s.key === l.status)?.label;
+  const live = tr && ['accepted', 'en_route_pickup', 'at_pickup', 'in_transit', 'at_delivery'].includes(l.status);
+  const places = useMemo(() => [
+    { ...l.pickup, kind: 'pickup', label: `Pickup · ${l.pickup.city}` },
+    { ...l.dropoff, kind: 'dropoff', label: `Delivery · ${l.dropoff.city}` },
+  ], [l.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const trucks = useMemo(() => (live ? [{ ...tr, color: d?.color, moving: true, label: `Unit ${tr.unit}` }] : []), [live, tr, d]);
   return (
     <div ref={ref} className="ev-card" style={pos} role="dialog" aria-label={l.ref}>
       <div className="ev-card-tools">
@@ -386,6 +393,9 @@ function EventCard({ pop, idx, data, onClose }) {
           <div className="title3">{l.ref} · {placeShort(l.pickup)} → {placeShort(l.dropoff)}</div>
           <div className="subhead secondary">{fmt(t.start)} – {sameDay(t.start, t.end) ? time(t.end) : fmt(t.end)}</div>
         </div>
+      </div>
+      <div className="ev-map">
+        <MapView height={180} places={places} route={l.legs?.toDropoff?.points} track={l.track} trucks={trucks} fitKey={`ev-${l.id}`} padding={28} />
       </div>
       <div className="ev-row"><StatusIcon status={l.status} size={16} /><span>{status}{t.planned && l.status !== 'requested' ? ' · arrival is an estimate' : ''}</span></div>
       <div className="ev-row"><Icon name="pin" size={16} /><span>{l.pickup.name}<br /><span className="secondary">to {l.dropoff.name}</span></span></div>
