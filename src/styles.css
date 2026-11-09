@@ -1140,3 +1140,9 @@ img, svg, video { max-width: 100%; }
 /* Multi-line text boxes: real height and inner padding so text/placeholder sits comfortably inside. */
 textarea.input { height: auto; min-height: 84px; padding: 11px 14px; line-height: 1.45; }
 .composer textarea.input { min-height: 40px; padding: 9px 14px; line-height: 1.35; }
+
+/* Selected sidebar item: solid blue box, white text and a white, filled-in icon. */
+.nav-item.active, .nav-item.active:hover { background: var(--blue); color: #fff; box-shadow: 0 2px 6px color-mix(in srgb, var(--blue) 35%, transparent); }
+.nav-item.active svg { color: #fff; fill: #fff; fill-opacity: 0.28; }
+.nav-item.active .count { color: rgba(255, 255, 255, 0.85); }
+.nav-item.active .badge { background: #fff; color: var(--blue); }
