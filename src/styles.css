@@ -1240,3 +1240,4 @@ textarea.input { height: auto; min-height: 84px; padding: 11px 14px; line-height
 .wx-widget.danger { box-shadow: inset 0 0 0 2px rgba(255, 69, 58, .9), 0 2px 8px rgba(0,0,0,.08); }
 .wx-widget.warn { box-shadow: inset 0 0 0 2px rgba(255, 204, 0, .9), 0 2px 8px rgba(0,0,0,.08); }
 .wx .wxi-wrap { margin: -2px 0; }
+.dash-legend .legend-hint { color: var(--label-3); border-left: 1px solid var(--border); padding-left: 10px; }

@@ -13,10 +13,6 @@ import { unread, openShift } from '../../lib/chat.js';
 import { useMatches } from '../../lib/ai.js';
 import { stopWindow, punctuality } from '../../../server/scorecard.js';
 import { post } from '../../lib/api.js';
-import { weatherTitle } from '../../components/WeatherChip.jsx';
-import WeatherIcon, { skyOf } from '../../components/WeatherIcon.jsx';
-import { kindOfW } from '../../lib/weatherPopup.js';
-import { nearest } from './Fleet.jsx';
 
 const H = 3.6e6;
 const MOVING = ['en_route_pickup', 'in_transit'];
@@ -166,6 +162,7 @@ export default function Dashboard() {
           <div className="map-overlay glass dash-legend">
             {[['To pickup', STATUS_COLOR.en_route_pickup], ['Loaded', STATUS_COLOR.in_transit], ['Assigned', STATUS_COLOR.accepted], ['Problem', '#ef4444']].map(([l, c]) => <span key={l}><i style={{ background: c }} />{l}</span>)}
             <span><i className="pin-new" />New load</span>
+            <span className="legend-hint">Right-click for weather</span>
           </div>
         </div>
 
@@ -182,8 +179,6 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
-
-      <WeatherStrip data={data} idx={idx} active={active} />
 
       <div className="dash-row3">
         <div className="card">
@@ -282,37 +277,6 @@ function IncomingLoad({ l }) {
       <div style={{ textAlign: 'right' }}>
         <div className="headline green num">{money(l.quote.carrierPayout)}</div>
         {best && <button className="btn small primary send-btn" onClick={send} title={`Send ${best.driver.name} · match ${best.score}/100`}><Icon name="sparkles" size={12} /><span className="truncate">Send {best.driver.name.split(' ')[0]}</span></button>}
-      </div>
-    </div>
-  );
-}
-
-/** Weather at every truck, worst conditions first. */
-function WeatherStrip({ data, idx, active }) {
-  const rank = { danger: 0, warn: 1, ok: 2 };
-  const rows = data.trucks.filter((t) => t.weather).map((t) => ({ t, w: t.weather, l: active.find((x) => x.truckId === t.id) }))
-    .sort((a, b) => rank[a.w.severity] - rank[b.w.severity] || (b.l ? 1 : 0) - (a.l ? 1 : 0));
-  if (!rows.length) return null;
-  const bad = rows.filter((r) => r.w.severity !== 'ok').length;
-  return (
-    <div className="card pad-lg">
-      <div className="dash-card-head" style={{ padding: 0, border: 0 }}>
-        <WeatherIcon kind="partly" size={20} /><span className="headline">Weather where your trucks are</span>
-        <span className={`footnote ${bad ? 'orange' : 'secondary'}`}>{bad ? `${bad} truck${bad > 1 ? 's' : ''} in rough weather` : 'Good driving conditions'}{rows.some((r) => r.w.simulated) ? ' · sample weather (offline)' : ''} · right-click the map for weather anywhere</span>
-      </div>
-      <div className="wx-strip" style={{ marginTop: 10 }}>
-        {rows.map(({ t, w, l }) => (
-          <button key={t.id} className={`wx-card wx-widget sky-${skyOf({ ...w, kind: kindOfW(w) })} ${w.severity}`} onClick={() => go(l ? `/loads/${l.id}` : '/fleet')} title={weatherTitle(w)}>
-            <div className="w-top">
-              <div style={{ minWidth: 0 }}><div className="w-unit">Unit {t.unit}</div><div className="w-sub truncate">{nearest(t.location)} · {l ? l.ref : 'available'}</div></div>
-              <WeatherIcon kind={kindOfW(w)} size={40} />
-            </div>
-            <div className="w-temp">{w.tempC}°</div>
-            <div className="w-cond">{w.label}</div>
-            <div className="w-meta">Feels {w.feelsC}° · wind {w.windKph}{w.gustKph >= 40 ? `, gusts ${w.gustKph}` : ''} km/h</div>
-            {w.tips?.length > 0 && <div className="w-alert">⚠︎ {w.tips.join(', ')}</div>}
-          </button>
-        ))}
       </div>
     </div>
   );
