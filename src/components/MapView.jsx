@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { standalone } from '../lib/api.js';
-import { WATER, RIVERS, CITIES } from '../lib/basemap.js';
+import { WATER, RIVERS, CITIES, ROADS, PARKS, URBAN, BORDERS } from '../lib/basemap.js';
 import { useState } from 'react';
 import GoogleMapView from './GoogleMapView.jsx';
 import { getKey, googleFailed, onGoogleFailure } from '../lib/google.js';
@@ -39,17 +39,35 @@ let tilesOk = !standalone;
 function drawBasemap(m) {
   const group = L.layerGroup().addTo(m);
   m.attributionControl.addAttribution('Simplified offline map');
-  WATER.forEach((ring) => L.polygon(ring, { className: 'bm-water', weight: 1, interactive: false, smoothFactor: 0 }).addTo(group));
-  RIVERS.forEach((line) => L.polyline(line, { className: 'bm-river', weight: 3, interactive: false }).addTo(group));
-  const labels = CITIES.map(([name, lat, lng, rank]) => ({
+  const off = { interactive: false };
+  URBAN.forEach(([lat, lng, km]) => L.circle([lat, lng], { ...off, radius: km * 1000, className: 'bm-urban', stroke: false }).addTo(group));
+  PARKS.forEach((ring) => L.polygon(ring, { ...off, className: 'bm-park', weight: 0, smoothFactor: 0 }).addTo(group));
+  WATER.forEach((ring) => L.polygon(ring, { ...off, className: 'bm-water', weight: 0, smoothFactor: 0 }).addTo(group));
+  RIVERS.forEach((line) => L.polyline(line, { ...off, className: 'bm-river', weight: 3 }).addTo(group));
+  BORDERS.forEach((line) => L.polyline(line, { ...off, className: 'bm-border', weight: 1.4, dashArray: '5 4' }).addTo(group));
+  const roadLines = [];
+  ['main', 'hwy'].forEach((kind) => {
+    const rs = ROADS.filter((r) => r[2] === kind);
+    rs.forEach(([, pts]) => roadLines.push({ kind, casing: true, ln: L.polyline(pts, { ...off, className: `bm-road-case ${kind}` }).addTo(group) }));
+    rs.forEach(([, pts]) => roadLines.push({ kind, ln: L.polyline(pts, { ...off, className: `bm-road ${kind}` }).addTo(group) }));
+  });
+  const shields = ROADS.map(([ref, pts, kind, at]) => ({
+    rank: kind === 'hwy' ? 2 : 3,
+    mk: L.marker(pts[at ?? Math.floor(pts.length / 2)], { interactive: false, keyboard: false, icon: L.divIcon({ className: `bm-shield ${kind}`, iconSize: [0, 0], html: `<span>${ref}</span>` }) }),
+  }));
+  const labels = CITIES.map(([name, lat, lng, rank, side]) => ({
     rank,
     mk: L.marker([lat, lng], {
       interactive: false, keyboard: false,
-      icon: L.divIcon({ className: `bm-city r${rank}`, iconSize: [0, 0], html: `<i></i><span>${name}</span>` }),
+      icon: L.divIcon({ className: `bm-city r${rank} ${side || ''}`, iconSize: [0, 0], html: `<i></i><span>${name}</span>` }),
     }),
-  }));
+  })).concat(shields);
   const sync = () => {
     const z = m.getZoom();
+    roadLines.forEach(({ kind, casing, ln }) => {
+      const w = (kind === 'hwy' ? 2.2 : 1.4) + Math.max(0, z - 6) * (kind === 'hwy' ? 0.9 : 0.6);
+      ln.setStyle({ weight: casing ? w + 2 : w });
+    });
     labels.forEach(({ rank, mk }) => {
       const show = rank === 1 || (rank === 2 && z >= 6) || (rank === 3 && z >= 8);
       if (show && !group.hasLayer(mk)) mk.addTo(group);
@@ -76,10 +94,11 @@ function LeafletMapView({ trucks = [], places = [], route, track, lines = [], hi
 
   useEffect(() => {
     const m = L.map(el.current, {
-      zoomControl: interactive, attributionControl: true, scrollWheelZoom: interactive, dragging: interactive,
+      zoomControl: false, attributionControl: true, scrollWheelZoom: interactive, dragging: interactive,
       doubleClickZoom: interactive, touchZoom: interactive, keyboard: interactive,
     }).setView([44.2, -78.5], 6);
     map.current = m;
+    if (interactive) L.control.zoom({ position: 'bottomright' }).addTo(m);
     let removeBasemap = tilesOk ? null : drawBasemap(m);
     if (removeBasemap) el.current.classList.add('offline');
     const setTiles = () => {

@@ -44,7 +44,7 @@
   --sidebar: 212px;
   --tabbar: 60px;
 
-  --land: #f1f1ee; --water: #d6e4f0; --water-edge: #b9cfe3; --map-label: rgba(27, 28, 31, 0.6);
+  --land: #f5f3ef; --water: #9fcdfc; --water-edge: #8cc2f8; --map-label: #3c4043; --urban: #ebe8e3; --park: #c8e8c0; --road: #fcd779; --road-case: #e3b146; --road-main: #ffffff; --road-main-case: #d7d3cc; --border-line: #9c9a97;
   color-scheme: light;
 }
 :root[data-theme='dark'] {
@@ -54,7 +54,7 @@
   --label: #e6e6e8; --label-2: #8b8f97; --label-3: #5c6068;
   --blue: #7480e6; --accent-soft: rgba(116, 128, 230, 0.14); --green-text: #5fc792; --orange-text: #f2a65f; --red-text: #f07070;
   --shadow: none; --shadow-lg: 0 10px 34px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.06);
-  --land: #15171a; --water: #142130; --water-edge: #203750; --map-label: rgba(230, 230, 232, 0.55);
+  --land: #1f2328; --water: #17263c; --water-edge: #1d3350; --map-label: rgba(235, 235, 240, 0.8); --urban: #262a30; --park: #1e2e23; --road: #8a7442; --road-case: #5c4d2c; --road-main: #3c4148; --road-main-case: #2c3036; --border-line: #6b6f76;
   color-scheme: dark;
 }
 
@@ -332,12 +332,27 @@ button.list-row:hover, a.list-row:hover { background: var(--bg-hover); }
 .smooth-marker { transition: transform 1.9s linear; }
 .zooming .smooth-marker { transition: none; }
 .map.offline, .map.offline.leaflet-container { background: var(--land); }
-.bm-water { fill: var(--water); fill-opacity: 1; stroke: var(--water-edge); }
-.bm-river { stroke: var(--water-edge); fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.bm-water { fill: var(--water); fill-opacity: 1; stroke: none; }
+.bm-river { stroke: var(--water); fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.bm-urban { fill: var(--urban); fill-opacity: 1; }
+.bm-park { fill: var(--park); fill-opacity: 1; stroke: none; }
+.bm-border { stroke: var(--border-line); fill: none; opacity: .8; }
+.bm-road, .bm-road-case { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.bm-road.hwy { stroke: var(--road); } .bm-road-case.hwy { stroke: var(--road-case); }
+.bm-road.main { stroke: var(--road-main); } .bm-road-case.main { stroke: var(--road-main-case); }
+.bm-shield span { position: absolute; transform: translate(-50%, -50%); padding: 1px 4px; border-radius: 4px; background: #fff; border: 1.2px solid #5f6368; color: #202124; font: 700 9.5px/1.2 -apple-system, system-ui, sans-serif; white-space: nowrap; }
+.bm-shield.main span { border-radius: 3px; border-color: #9aa0a6; color: #3c4043; }
 .bm-city { pointer-events: none; }
 .bm-city i { position: absolute; width: 5px; height: 5px; border-radius: 50%; background: var(--map-label); left: -2.5px; top: -2.5px; }
-.bm-city span { position: absolute; left: 6px; top: -8px; white-space: nowrap; font-size: 11px; font-weight: 500; color: var(--map-label); text-shadow: 0 0 3px var(--land), 0 0 3px var(--land); }
-.bm-city.r1 span { font-size: 12px; font-weight: 600; }
+.bm-city span { position: absolute; left: 6px; top: -8px; white-space: nowrap; font-size: 11.5px; font-weight: 500; color: var(--map-label); text-shadow: -1.5px 0 var(--land), 1.5px 0 var(--land), 0 -1.5px var(--land), 0 1.5px var(--land), 0 0 4px var(--land); }
+.bm-city i { background: #fff !important; border: 1.5px solid #5f6368; width: 7px !important; height: 7px !important; left: -3.5px !important; top: -3.5px !important; box-sizing: border-box; }
+.bm-city.r1 span { font-size: 13.5px; font-weight: 600; color: #202124; }
+.bm-city.left span { left: auto; right: 6px; }
+:root[data-theme="dark"] .bm-city.r1 span { color: #f1f3f4; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .bm-city.r1 span { color: #f1f3f4; } }
+/* Google-style zoom buttons */
+.leaflet-bottom.leaflet-right .leaflet-control-zoom { margin: 0 12px 30px 0 !important; border: 0 !important; border-radius: 8px !important; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.3) !important; }
+.leaflet-bottom.leaflet-right .leaflet-control-zoom a { width: 36px !important; height: 36px !important; line-height: 36px !important; font-size: 20px !important; color: #5f6368 !important; background: #fff !important; border-bottom: 1px solid #e8eaed !important; }
 
 /* ------------------------------- sheet ---------------------------------- */
 .scrim { position: fixed; inset: 0; background: rgba(10, 11, 13, 0.32); z-index: 1000; display: flex; align-items: flex-start; justify-content: center; animation: fade 0.15s ease; padding: 10vh 20px 20px; }
