@@ -9,11 +9,6 @@ import { go } from '../lib/router.js';
 import { time, ago } from '../lib/format.js';
 import { unread, threadTitle, openThread, currentThreadParam, openShift, lastShiftEnd, messageDriver } from '../lib/chat.js';
 
-const QUICK = {
-  driver: ['On my way', 'Running late', 'At the dock', 'Loaded and rolling', 'Delayed at shipper', 'Please call me'],
-  dispatcher: ['Please send an update', 'Call me when you can', 'Take your break', 'Check your next load', 'Thanks 👍'],
-};
-
 function shiftText(data, id) {
   const s = openShift(data, id);
   if (s) return `● On shift since ${time(s.start)}`;
@@ -178,9 +173,6 @@ function Conversation({ t }) {
         <div className="convo-foot footnote secondary" style={{ textAlign: 'center' }}>Only the office can post announcements. Reply to the office in your own chat.</div>
       ) : (
         <div className="convo-foot">
-          <div className="quick-row">
-            {QUICK[me.role]?.map((qtext) => <button key={qtext} className="qchip" onClick={() => send({ text: qtext, quick: true })}>{qtext}</button>)}
-          </div>
           {(photo || loadId) && (
             <div className="row" style={{ gap: 8, marginBottom: 6 }}>
               {photo && <div className="attach-thumb"><img src={photo} alt="" /><button aria-label="Remove photo" onClick={() => setPhoto(null)}><Icon name="close" size={12} /></button></div>}
