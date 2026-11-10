@@ -171,6 +171,26 @@ export function SignaturePad({ load }) {
   );
 }
 
+/** Horizontal, swipeable photo strip (3 across) with arrow buttons and a photo-count chip. */
+function PhotoStrip({ children, count, onAll }) {
+  const ref = useRef(null);
+  const [edge, setEdge] = useState({ start: true, end: true });
+  const update = () => {
+    const el = ref.current; if (!el) return;
+    setEdge({ start: el.scrollLeft <= 2, end: el.scrollLeft + el.clientWidth >= el.scrollWidth - 2 });
+  };
+  useEffect(() => { update(); const ro = new ResizeObserver(update); if (ref.current) ro.observe(ref.current); return () => ro.disconnect(); }, []);
+  const go = (dir) => { const el = ref.current; el?.scrollBy({ left: dir * el.clientWidth * 0.9, behavior: 'smooth' }); };
+  return (
+    <div className="photo-strip-wrap">
+      <div className="photo-strip" ref={ref} onScroll={update}>{children}</div>
+      {!edge.start && <button className="photo-arrow left" aria-label="Previous photos" onClick={() => go(-1)}><Icon name="chevronLeft" size={18} /></button>}
+      {!edge.end && <button className="photo-arrow right" aria-label="More photos" onClick={() => go(1)}><Icon name="chevron" size={18} /></button>}
+      <button className="photo-count" onClick={onAll} aria-label={`See all ${count} photos`}><Icon name="camera" size={16} />{count}</button>
+    </div>
+  );
+}
+
 export function PhotoCompare({ load }) {
   const { data } = useStore();
   const [open, setOpen] = useState(null);
@@ -201,19 +221,14 @@ export function PhotoCompare({ load }) {
       {view !== 'compare' && (list.length === 0
         ? <div className="photo-row-empty">{view === 'delivery' ? 'Delivery photos appear when the driver arrives at the customer.' : 'No pickup photos yet.'}</div>
         : (
-          <div className="photo-row">
-            {list.slice(0, 3).map((p, i) => (
+          <PhotoStrip key={view} count={total} onAll={() => setAll(true)}>
+            {list.map((p) => (
               <button key={p.id} className={`photo-tile ${p.slot === 'damage' ? 'damage' : ''}`} onClick={() => setOpen({ ...p, label: label(p, view === 'pickup' ? 'Pickup' : 'Delivery') })}>
-                <img src={p.url} alt={label(p, view)} loading="lazy" />
+                <img src={p.url} alt={label(p, view)} loading="lazy" draggable={false} />
                 <span className="photo-tag">{p.slot === 'damage' ? 'Damage' : slots.find((s) => s.key === p.slot)?.label}</span>
-                {i === Math.min(2, list.length - 1) && (
-                  <span className="photo-count" role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); setAll(true); }} onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); setAll(true); } }}>
-                    <Icon name="camera" size={16} />{total}
-                  </span>
-                )}
               </button>
             ))}
-          </div>
+          </PhotoStrip>
         ))}
 
       {view === 'compare' && (
