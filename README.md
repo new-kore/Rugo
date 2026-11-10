@@ -211,6 +211,11 @@ Rugo checks the live weather where each truck is, using Open-Meteo, a free weath
   - the driver's job screen;
   - the customer's live loads.
 - **Rough-weather warnings:** freezing rain or drizzle, snow, fog, thunderstorms, gusts of 50 km/h or more, and extreme cold. These turn amber or red, show road advice (for example "black ice likely" or "chains may be needed"), appear under "Needs attention", and notify the office when a truck on a load runs into them.
+- **Right-click any map** (long-press on phones) for an Apple-Weather-style card:
+  - **On a truck:** the weather where it is right now.
+  - **On a truck's route, ahead of it:** the forecast for the moment that truck will get there (for example "When Unit 101 gets here · ~5:40 p.m., 86 km ahead"). If the truck has already passed, it shows the weather there now.
+  - **Anywhere else:** the weather there now.
+  - The card shows custom multicolour weather icons on a sky-coloured background, with feels-like, wind, gusts and precipitation. The dashboard's truck weather tiles use the same style. Forecasts are available up to 2 days ahead.
 - **When the service can't be reached:** if the simulator is on, as in the offline demo, trucks show clearly-labelled sample weather instead. Set `RUGO_WEATHER_URL` to use another provider that has the same API.
 
 ### Dashboards

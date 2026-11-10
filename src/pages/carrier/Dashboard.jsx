@@ -14,6 +14,8 @@ import { useMatches } from '../../lib/ai.js';
 import { stopWindow, punctuality } from '../../../server/scorecard.js';
 import { post } from '../../lib/api.js';
 import { weatherTitle } from '../../components/WeatherChip.jsx';
+import WeatherIcon, { skyOf } from '../../components/WeatherIcon.jsx';
+import { kindOfW } from '../../lib/weatherPopup.js';
 import { nearest } from './Fleet.jsx';
 
 const H = 3.6e6;
@@ -105,7 +107,7 @@ export default function Dashboard() {
 
   // Map.
   const shown = active.filter((l) => filter === 'all' || (filter === 'moving' && MOVING.includes(l.status)) || (filter === 'problems' && problemIds.has(l.id)));
-  const lines = useMemo(() => (filter === 'new' ? [] : shown).map((l) => ({ id: l.id, points: legOf(l)?.points || [l.pickup, l.dropoff], color: problemIds.has(l.id) ? '#ef4444' : STATUS_COLOR[l.status], tooltip: `${l.ref} · ${idx.users[l.driverId]?.name || ''} · ${data.meta.statuses.find((s) => s.key === l.status)?.short}${l.eta?.remainingKm ? ` · ${Math.round(l.eta.remainingKm)} km left` : ''}` })), [shown, filter, idx, data.meta]); // eslint-disable-line react-hooks/exhaustive-deps
+  const lines = useMemo(() => (filter === 'new' ? [] : shown).map((l) => ({ id: l.id, truckId: l.truckId, points: legOf(l)?.points || [l.pickup, l.dropoff], color: problemIds.has(l.id) ? '#ef4444' : STATUS_COLOR[l.status], tooltip: `${l.ref} · ${idx.users[l.driverId]?.name || ''} · ${data.meta.statuses.find((s) => s.key === l.status)?.short}${l.eta?.remainingKm ? ` · ${Math.round(l.eta.remainingKm)} km left` : ''}` })), [shown, filter, idx, data.meta]); // eslint-disable-line react-hooks/exhaustive-deps
   const trucks = useMemo(() => data.trucks.filter((t) => t.location).map((t) => {
     const l = active.find((x) => x.truckId === t.id); const d = idx.users[t.driverId];
     return { ...t, color: d?.color, moving: !!l && MOVING.includes(l.status), label: `Unit ${t.unit} · ${d?.name || 'No driver'}${l ? ` · ${l.ref}` : ' · available'}` };
@@ -295,17 +297,20 @@ function WeatherStrip({ data, idx, active }) {
   return (
     <div className="card pad-lg">
       <div className="dash-card-head" style={{ padding: 0, border: 0 }}>
-        <span style={{ fontSize: 16 }}>🌤️</span><span className="headline">Weather where your trucks are</span>
-        <span className={`footnote ${bad ? 'orange' : 'secondary'}`}>{bad ? `${bad} truck${bad > 1 ? 's' : ''} in rough weather` : 'Good driving conditions'}{rows.some((r) => r.w.simulated) ? ' · sample weather (offline)' : ''}</span>
+        <WeatherIcon kind="partly" size={20} /><span className="headline">Weather where your trucks are</span>
+        <span className={`footnote ${bad ? 'orange' : 'secondary'}`}>{bad ? `${bad} truck${bad > 1 ? 's' : ''} in rough weather` : 'Good driving conditions'}{rows.some((r) => r.w.simulated) ? ' · sample weather (offline)' : ''} · right-click the map for weather anywhere</span>
       </div>
       <div className="wx-strip" style={{ marginTop: 10 }}>
         {rows.map(({ t, w, l }) => (
-          <button key={t.id} className={`wx-card ${w.severity}`} onClick={() => go(l ? `/loads/${l.id}` : '/fleet')} title={weatherTitle(w)}>
-            <div className="row between" style={{ gap: 8 }}><b className="subhead">Unit {t.unit}</b><span className="footnote secondary truncate">{l ? l.ref : 'available'}</span></div>
-            <div className="wx-big"><span className="e">{w.emoji}</span><span className="t num">{w.tempC}°</span><span className="subhead secondary truncate">{w.label}</span></div>
-            <div className="footnote secondary truncate">near {nearest(t.location)} · {idx.users[t.driverId]?.name.split(' ')[0] || 'no driver'}</div>
-            <div className="footnote secondary">Feels {w.feelsC}° · wind {w.windKph}{w.gustKph >= 40 ? `, gusts ${w.gustKph}` : ''} km/h</div>
-            {w.tips?.length > 0 && <div className={`footnote ${w.severity === 'danger' ? 'red' : 'orange'}`} style={{ fontWeight: 600 }}>{w.tips.join(', ')}</div>}
+          <button key={t.id} className={`wx-card wx-widget sky-${skyOf({ ...w, kind: kindOfW(w) })} ${w.severity}`} onClick={() => go(l ? `/loads/${l.id}` : '/fleet')} title={weatherTitle(w)}>
+            <div className="w-top">
+              <div style={{ minWidth: 0 }}><div className="w-unit">Unit {t.unit}</div><div className="w-sub truncate">{nearest(t.location)} · {l ? l.ref : 'available'}</div></div>
+              <WeatherIcon kind={kindOfW(w)} size={40} />
+            </div>
+            <div className="w-temp">{w.tempC}°</div>
+            <div className="w-cond">{w.label}</div>
+            <div className="w-meta">Feels {w.feelsC}° · wind {w.windKph}{w.gustKph >= 40 ? `, gusts ${w.gustKph}` : ''} km/h</div>
+            {w.tips?.length > 0 && <div className="w-alert">⚠︎ {w.tips.join(', ')}</div>}
           </button>
         ))}
       </div>

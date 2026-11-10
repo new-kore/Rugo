@@ -8,6 +8,7 @@ import { useState } from 'react';
 import GoogleMapView from './GoogleMapView.jsx';
 import { getKey, googleFailed, onGoogleFailure } from '../lib/google.js';
 import { truckTipHtml } from './WeatherChip.jsx';
+import { weatherForClick, weatherForTruck, loadingCardHtml, pxToKm } from '../lib/weatherPopup.js';
 
 const truckSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 16.5V7a1.5 1.5 0 0 1 1.5-1.5h9A1.5 1.5 0 0 1 14.5 7v9.5"/><path d="M14.5 10h3.6l3.4 4v2.5h-1.6"/><circle cx="6.8" cy="17" r="2"/><circle cx="17.6" cy="17" r="2"/></svg>';
 
@@ -69,6 +70,9 @@ function LeafletMapView({ trucks = [], places = [], route, track, lines = [], hi
   const map = useRef(null);
   const layers = useRef({ trucks: new Map(), places: L.layerGroup(), route: null, track: null, tiles: null });
   const fitted = useRef(null);
+  const wxCtx = useRef({});
+  wxCtx.current = { lines, route, trucks };
+  const wxOpen = useRef(null);
 
   useEffect(() => {
     const m = L.map(el.current, {
@@ -97,6 +101,12 @@ function LeafletMapView({ trucks = [], places = [], route, track, lines = [], hi
     mq.addEventListener('change', setTiles);
     const obs = new MutationObserver(setTiles);
     obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    // Right-click (long-press on phones): weather at that spot — or when the truck will get there, on a route.
+    wxOpen.current = (latlng, build) => {
+      const pop = L.popup({ className: 'wxp-popup', maxWidth: 320, minWidth: 270, autoPanPadding: [24, 24] }).setLatLng(latlng).setContent(loadingCardHtml()).openOn(m);
+      build().then((r) => { if (m.hasLayer(pop)) { pop.setContent(r.html); pop.update(); } });
+    };
+    m.on('contextmenu', (e) => wxOpen.current(e.latlng, () => weatherForClick({ lat: e.latlng.lat, lng: e.latlng.lng }, { ...wxCtx.current, tolKm: pxToKm(14, m.getZoom(), e.latlng.lat) })));
     m.on('zoomstart', () => el.current?.classList.add('zooming'));
     m.on('zoomend', () => el.current?.classList.remove('zooming'));
     const ro = new ResizeObserver(() => m.invalidateSize());
@@ -118,6 +128,7 @@ function LeafletMapView({ trucks = [], places = [], route, track, lines = [], hi
         mk = L.marker(ll, { icon: truckIcon(t), zIndexOffset: 1000 }).addTo(m);
         if (t.label || t.weather) mk.bindTooltip(truckTipHtml(t), { className: 'rugo-tip', direction: 'top', offset: [0, -18] });
         mk.on('click', () => onTruckClick?.(t.id));
+        mk.on('contextmenu', (e) => { L.DomEvent.stop(e); const cur = wxCtx.current.trucks.find((x) => x.id === t.id) || t; if (cur.location) wxOpen.current?.(e.latlng, () => weatherForTruck(cur)); });
         reg.set(t.id, mk);
       } else {
         mk.setLatLng(ll);

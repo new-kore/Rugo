@@ -1,5 +1,7 @@
 // Weather at a truck's position: emoji, temperature and conditions; amber/red when it matters for driving.
 import { ago } from '../lib/format.js';
+import WeatherIcon from './WeatherIcon.jsx';
+import { kindOfW } from '../lib/weatherPopup.js';
 
 export function weatherTitle(w) {
   if (!w) return '';
@@ -10,7 +12,7 @@ export default function WeatherChip({ w, compact, onDark }) {
   if (!w) return null;
   return (
     <span className={`wx ${w.severity} ${compact ? 'compact' : ''} ${onDark ? 'on-dark' : ''}`} title={weatherTitle(w)}>
-      <span className="wx-e" aria-hidden="true">{w.emoji}</span>
+      <WeatherIcon kind={kindOfW(w)} size={compact ? 18 : 22} />
       <b className="num">{w.tempC}°</b>
       {!compact && <span className="wx-l">{w.label}</span>}
       {!compact && w.gustKph >= 50 && <span className="wx-l">· gusts {w.gustKph}</span>}

@@ -2,6 +2,7 @@
 import { useEffect, useRef } from 'react';
 import { loadGoogle } from '../lib/google.js';
 import { truckTipText } from './WeatherChip.jsx';
+import { weatherForClick, weatherForTruck, loadingCardHtml, pxToKm } from '../lib/weatherPopup.js';
 
 const truckSvg = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 16.5V7a1.5 1.5 0 0 1 1.5-1.5h9A1.5 1.5 0 0 1 14.5 7v9.5"/><path d="M14.5 10h3.6l3.4 4v2.5h-1.6"/><circle cx="6.8" cy="17" r="2"/><circle cx="17.6" cy="17" r="2"/></svg>';
 const isDark = () => document.documentElement.dataset.theme === 'dark';
@@ -45,6 +46,11 @@ export default function GoogleMapView({ trucks = [], places = [], route, track, 
           clickableIcons: false,
         });
         g.current = { maps, map, Marker: AdvancedMarkerElement };
+        // Right-click weather (same as the Leaflet map).
+        const wx = new maps.InfoWindow({ maxWidth: 320 });
+        g.current.openWx = (pos, build) => { wx.setContent(loadingCardHtml()); wx.setPosition(pos); wx.open({ map }); build().then((r) => wx.setContent(r.html)); };
+        g.current.ctxClick = (e) => { const p = { lat: e.latLng.lat(), lng: e.latLng.lng() }; const { lines: l2, route: r2, trucks: t2 } = latest.current; g.current.openWx(p, () => weatherForClick(p, { lines: l2, route: r2, trucks: t2, tolKm: pxToKm(14, map.getZoom(), p.lat) })); };
+        map.addListener('contextmenu', g.current.ctxClick);
         draw();
       } catch (e) {
         onFail?.(e);
@@ -52,6 +58,15 @@ export default function GoogleMapView({ trucks = [], places = [], route, track, 
     })();
     return () => { alive = false; };
   }, [interactive]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Right-click on a truck marker: its weather right now. */
+  function wxTruck(mk, t) {
+    mk.content.addEventListener('contextmenu', (ev) => {
+      ev.preventDefault(); ev.stopPropagation();
+      const cur = latest.current.trucks.find((x) => x.id === t.id) || t;
+      if (cur.location) g.current.openWx({ lat: cur.location.lat, lng: cur.location.lng }, () => weatherForTruck(cur));
+    });
+  }
 
   function draw() {
     if (!g.current) return;
@@ -69,11 +84,13 @@ export default function GoogleMapView({ trucks = [], places = [], route, track, 
       if (!mk) {
         mk = new Marker({ map, position: pos, content: truckEl(t), zIndex: 1000, title: truckTipText(t) });
         mk.addListener('click', () => latest.current.onTruckClick?.(t.id));
+        wxTruck(mk, t);
         r.trucks.set(t.id, mk);
       } else {
         mk.position = pos;
         mk.content = truckEl(t);
         mk.title = truckTipText(t);
+        wxTruck(mk, t);
       }
     }
     for (const [k, mk] of r.trucks) if (!seen.has(k)) { mk.map = null; r.trucks.delete(k); }
@@ -122,6 +139,7 @@ export default function GoogleMapView({ trucks = [], places = [], route, track, 
           pl.addListener('mouseover', (e) => { latest.current.onLineHover?.(ln.id); r.info.setContent(ln.tooltip); r.info.setPosition(e.latLng); r.info.open({ map }); });
           pl.addListener('mouseout', () => { latest.current.onLineHover?.(null); r.info.close(); });
           pl.addListener('click', () => latest.current.onLineClick?.(ln.id));
+          pl.addListener('contextmenu', (e) => g.current.ctxClick(e));
         });
         const end = (pt, kind) => {
           const el = document.createElement('div');

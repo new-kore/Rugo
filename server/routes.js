@@ -10,7 +10,7 @@ import {
 import { PROVIDERS, providerMeta } from './eld/providers.js';
 import { rankDrivers, matchSummary } from './dispatch.js';
 import { chatRoutes, driverThread } from './chat.js';
-import './weather.js'; // live weather at each truck
+import { weatherAt } from './weather.js'; // live weather at each truck + any point
 import { eldFor, publicIntegration, cleanCreds, testConnection, connect, disconnect, setMaps, syncIntegration, syncSoon, importUnlinked } from './eld/sync.js';
 
 /** Weekly schedule: { 0..6: { start: 'HH:MM', end: 'HH:MM' } | null }. Accepts the older { days, start, end } shape too. */
@@ -677,6 +677,16 @@ export function routes(app) {
   });
 
   chatRoutes(app, auth, role);
+
+  // Weather at any map point, now or at a given time (forecast).
+  app.get('/api/weather', auth, async (req, res) => {
+    const lat = Number(req.query.lat); const lng = Number(req.query.lng); const at = Number(req.query.at) || Date.now();
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return res.status(400).json({ error: 'Bad location.' });
+    if (at > Date.now() + 2.5 * 864e5) return res.status(400).json({ error: 'Forecast only covers the next 2 days.' });
+    const w = await weatherAt(lat, lng, at);
+    if (!w) return res.status(503).json({ error: 'Weather service unavailable.' });
+    res.json(w);
+  });
 
   /* ------------------------- ELD / hours of service ------------------------ */
 

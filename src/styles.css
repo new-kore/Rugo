@@ -1176,3 +1176,67 @@ textarea.input { height: auto; min-height: 84px; padding: 11px 14px; line-height
 .rugo-tip .tip-wx.warn { color: #b45309; } .rugo-tip .tip-wx.danger { color: #b91c1c; }
 .rugo-tip .tip-wx-tip { font-size: 0.72rem; opacity: 0.85; }
 .wx.on-dark .wx-s { color: rgba(255,255,255,.85); border-color: rgba(255,255,255,.5); }
+
+/* ======= Apple-Weather-style cards (map right-click, dashboard) ======= */
+.wxi-wrap { display: inline-flex; flex: none; }
+.wxi { display: block; overflow: visible; filter: drop-shadow(0 2px 3px rgba(0,0,0,.18)); }
+.wxi-rays { animation: wxi-spin 24s linear infinite; }
+.wxi-drop { animation: wxi-fall 1.3s ease-in infinite; }
+.wxi-flake { animation: wxi-drift 2.6s ease-in-out infinite; }
+.wxi-bolt { animation: wxi-flash 3.2s ease-in-out infinite; }
+@keyframes wxi-spin { to { transform: rotate(360deg); } }
+@keyframes wxi-fall { 0% { transform: translateY(-3px); opacity: 0; } 25% { opacity: 1; } 100% { transform: translateY(5px); opacity: 0; } }
+@keyframes wxi-drift { 0%, 100% { transform: translate(0, -1px) rotate(0); } 50% { transform: translate(1.5px, 2px) rotate(40deg); } }
+@keyframes wxi-flash { 0%, 70%, 100% { opacity: 1; } 75%, 85% { opacity: .35; } 80% { opacity: 1; } }
+
+.wxp { --wxp-font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", system-ui, sans-serif; font-family: var(--wxp-font); color: #fff; border-radius: 20px; padding: 16px 16px 14px; width: 272px; position: relative; overflow: hidden; box-shadow: inset 0 1px 0 rgba(255,255,255,.25); }
+.wxp.sky-clear { background: linear-gradient(170deg, #1e7cf2 0%, #4aa8ff 55%, #7cc4ff 100%); }
+.wxp.sky-cloudy { background: linear-gradient(170deg, #55687f 0%, #7a8ca1 60%, #93a3b6 100%); }
+.wxp.sky-rain { background: linear-gradient(170deg, #34465c 0%, #50647c 60%, #6c7f96 100%); }
+.wxp.sky-snow { background: linear-gradient(170deg, #5f7ea6 0%, #8aa6c8 60%, #b4c8de 100%); }
+.wxp.sky-storm { background: linear-gradient(170deg, #22253a 0%, #3a3e5a 60%, #555a78 100%); }
+.wxp.sky-fog { background: linear-gradient(170deg, #737f8c 0%, #949fab 60%, #b0b8c1 100%); }
+.wxp.sky-night { background: linear-gradient(170deg, #0a1633 0%, #1a2f5e 60%, #2a4682 100%); }
+.wxp-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.wxp-head { min-width: 0; }
+.wxp-place { font-size: 1.05rem; font-weight: 600; letter-spacing: -0.01em; text-shadow: 0 1px 2px rgba(0,0,0,.15); }
+.wxp-when { font-size: 0.76rem; opacity: 0.88; margin-top: 2px; line-height: 1.3; }
+.wxp-temp { font-size: 3.6rem; font-weight: 200; line-height: 1; letter-spacing: -0.04em; margin-top: 4px; }
+.wxp-cond { font-size: 0.95rem; font-weight: 500; opacity: 0.95; margin-top: 2px; }
+.wxp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 12px; }
+.wxp-cell { background: rgba(255,255,255,.16); border-radius: 12px; padding: 7px 10px; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.wxp-cell .k { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.75; font-weight: 600; }
+.wxp-cell .v { font-size: 1rem; font-weight: 600; margin-top: 1px; }
+.wxp-alert { display: flex; gap: 6px; align-items: flex-start; margin-top: 8px; padding: 8px 10px; border-radius: 12px; background: rgba(255, 204, 0, .22); font-size: 0.8rem; font-weight: 600; line-height: 1.3; }
+.wxp-foot { margin-top: 8px; font-size: 0.7rem; opacity: 0.75; }
+.wxp.loading { min-height: 120px; }
+.wxp-spin { width: 22px; height: 22px; margin-top: 18px; border-radius: 50%; border: 2.5px solid rgba(255,255,255,.35); border-top-color: #fff; animation: wxi-spin .8s linear infinite; }
+/* Leaflet popup chrome around the card */
+.wxp-popup .leaflet-popup-content-wrapper { padding: 0; background: transparent; box-shadow: 0 12px 34px rgba(0,0,0,.28); border-radius: 20px; }
+.wxp-popup .leaflet-popup-content { margin: 0; width: auto !important; }
+.wxp-popup .leaflet-popup-tip { background: #6f8297; }
+.wxp-popup a.leaflet-popup-close-button { color: rgba(255,255,255,.85); top: 8px; right: 8px; font-size: 20px; z-index: 2; }
+/* Google InfoWindow around the card */
+.gm-style .gm-style-iw-c:has(.wxp) { padding: 0 !important; border-radius: 20px; background: transparent; }
+.gm-style .gm-style-iw-d:has(.wxp) { overflow: hidden !important; padding: 0 !important; }
+
+/* Dashboard weather tiles as small Apple widgets */
+.wx-card.wx-widget { color: #fff; border: 0; border-radius: 18px; min-width: 200px; padding: 12px 14px; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", system-ui, sans-serif; box-shadow: inset 0 1px 0 rgba(255,255,255,.25), 0 2px 8px rgba(0,0,0,.08); }
+.wx-card.wx-widget:hover { filter: brightness(1.05); background: inherit; }
+.wx-widget.sky-clear { background: linear-gradient(170deg, #1e7cf2, #6db9ff); }
+.wx-widget.sky-cloudy { background: linear-gradient(170deg, #55687f, #93a3b6); }
+.wx-widget.sky-rain { background: linear-gradient(170deg, #34465c, #6c7f96); }
+.wx-widget.sky-snow { background: linear-gradient(170deg, #5f7ea6, #b4c8de); }
+.wx-widget.sky-storm { background: linear-gradient(170deg, #22253a, #555a78); }
+.wx-widget.sky-fog { background: linear-gradient(170deg, #737f8c, #b0b8c1); }
+.wx-widget.sky-night { background: linear-gradient(170deg, #0a1633, #2a4682); }
+.wx-widget .w-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 6px; }
+.wx-widget .w-unit { font-size: 0.95rem; font-weight: 600; }
+.wx-widget .w-sub { font-size: 0.72rem; opacity: 0.85; }
+.wx-widget .w-temp { font-size: 2.4rem; font-weight: 200; line-height: 1; letter-spacing: -0.03em; margin-top: 4px; }
+.wx-widget .w-cond { font-size: 0.85rem; font-weight: 500; }
+.wx-widget .w-meta { font-size: 0.72rem; opacity: 0.85; margin-top: 2px; }
+.wx-widget .w-alert { margin-top: 6px; font-size: 0.72rem; font-weight: 600; background: rgba(255,204,0,.25); border-radius: 8px; padding: 4px 7px; }
+.wx-widget.danger { box-shadow: inset 0 0 0 2px rgba(255, 69, 58, .9), 0 2px 8px rgba(0,0,0,.08); }
+.wx-widget.warn { box-shadow: inset 0 0 0 2px rgba(255, 204, 0, .9), 0 2px 8px rgba(0,0,0,.08); }
+.wx .wxi-wrap { margin: -2px 0; }
