@@ -1,6 +1,7 @@
 // Live map on Google Maps: same props and behaviour as the Leaflet map (trucks, pins, route, travelled track).
 import { useEffect, useRef } from 'react';
 import { loadGoogle } from '../lib/google.js';
+import { truckTipText } from './WeatherChip.jsx';
 
 const truckSvg = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 16.5V7a1.5 1.5 0 0 1 1.5-1.5h9A1.5 1.5 0 0 1 14.5 7v9.5"/><path d="M14.5 10h3.6l3.4 4v2.5h-1.6"/><circle cx="6.8" cy="17" r="2"/><circle cx="17.6" cy="17" r="2"/></svg>';
 const isDark = () => document.documentElement.dataset.theme === 'dark';
@@ -10,7 +11,7 @@ function truckEl(t) {
   const color = t.color || '#5e6ad2';
   const el = document.createElement('div');
   el.style.transform = 'translateY(50%)'; // anchor the pin's centre on the position
-  el.innerHTML = `<div class="truck-pin ${moving ? 'moving' : 'idle'} ${t.selected ? 'sel' : ''}" style="--pin:${color}" title="${(t.label || '').replace(/"/g, '&quot;')}">
+  el.innerHTML = `<div class="truck-pin ${moving ? 'moving' : 'idle'} ${t.selected ? 'sel' : ''}" style="--pin:${color}" title="${truckTipText(t).replace(/"/g, '&quot;')}">
     <div class="arrow" style="transform:rotate(${Math.round(t.location?.heading || 0)}deg)"></div>
     <div class="core" style="background:${color}">${truckSvg}</div></div>`;
   return el;
@@ -66,12 +67,13 @@ export default function GoogleMapView({ trucks = [], places = [], route, track, 
       const pos = { lat: t.location.lat, lng: t.location.lng };
       let mk = r.trucks.get(t.id);
       if (!mk) {
-        mk = new Marker({ map, position: pos, content: truckEl(t), zIndex: 1000, title: t.label || '' });
+        mk = new Marker({ map, position: pos, content: truckEl(t), zIndex: 1000, title: truckTipText(t) });
         mk.addListener('click', () => latest.current.onTruckClick?.(t.id));
         r.trucks.set(t.id, mk);
       } else {
         mk.position = pos;
         mk.content = truckEl(t);
+        mk.title = truckTipText(t);
       }
     }
     for (const [k, mk] of r.trucks) if (!seen.has(k)) { mk.map = null; r.trucks.delete(k); }

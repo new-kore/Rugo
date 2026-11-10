@@ -1150,3 +1150,29 @@ textarea.input { height: auto; min-height: 84px; padding: 11px 14px; line-height
 /* "Send <driver>" buttons: one fixed size everywhere, centred text, long names shortened. */
 .btn.send-btn { width: 132px; justify-content: center; flex: none; }
 .btn.send-btn .truncate { min-width: 0; }
+
+/* weather chips */
+.wx { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 9px; border-radius: 99px; font-size: 0.8rem; background: var(--bg-fill-2); color: var(--label); white-space: nowrap; border: 1px solid transparent; }
+.wx.compact { height: 22px; padding: 0 7px; font-size: 0.76rem; gap: 3px; }
+.wx-e { font-size: 0.95rem; line-height: 1; }
+.wx-l { color: var(--label-2); }
+.wx-s { font-size: 0.66rem; text-transform: uppercase; letter-spacing: .04em; color: var(--label-3); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; }
+.wx.warn { background: color-mix(in srgb, var(--orange) 14%, var(--bg-elevated)); border-color: color-mix(in srgb, var(--orange) 40%, transparent); }
+.wx.danger { background: color-mix(in srgb, var(--red) 12%, var(--bg-elevated)); border-color: color-mix(in srgb, var(--red) 45%, transparent); }
+.wx.on-dark { background: rgba(255,255,255,.2); color: #fff; } .wx.on-dark .wx-l { color: rgba(255,255,255,.85); }
+.wx.on-dark.warn, .wx.on-dark.danger { background: rgba(255,255,255,.92); color: #b45309; } .wx.on-dark.danger { color: #b91c1c; }
+.wx-strip { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 2px; }
+.wx-strip::-webkit-scrollbar { display: none; }
+.wx-card { flex: none; display: flex; flex-direction: column; gap: 4px; min-width: 190px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-elevated); cursor: pointer; text-align: left; font: inherit; color: inherit; }
+.wx-card:hover { background: var(--bg-hover); }
+.wx-card.warn { border-color: color-mix(in srgb, var(--orange) 50%, var(--border)); background: color-mix(in srgb, var(--orange) 6%, var(--bg-elevated)); }
+.wx-card.danger { border-color: color-mix(in srgb, var(--red) 50%, var(--border)); background: color-mix(in srgb, var(--red) 6%, var(--bg-elevated)); }
+.wx-big { display: flex; align-items: center; gap: 8px; }
+.wx-big .e { font-size: 1.6rem; line-height: 1; }
+.wx-big .t { font-size: 1.35rem; font-weight: 650; }
+
+/* weather line in truck hover tooltips */
+.rugo-tip .tip-wx { margin-top: 3px; font-weight: 500; }
+.rugo-tip .tip-wx.warn { color: #b45309; } .rugo-tip .tip-wx.danger { color: #b91c1c; }
+.rugo-tip .tip-wx-tip { font-size: 0.72rem; opacity: 0.85; }
+.wx.on-dark .wx-s { color: rgba(255,255,255,.85); border-color: rgba(255,255,255,.5); }

@@ -201,6 +201,18 @@ A driver taps one big button at each step. A step tracker shows At pickup → Lo
 
 Each step is added to the load's timeline. Loading, gas stops and off-loading also notify the office, and the customer is told about loading and off-loading.
 
+### Weather at every truck
+Rugo checks the live weather where each truck is, using Open-Meteo, a free weather service that needs no key. It checks every 10 minutes, and again whenever a truck moves 15 km.
+- **Shown on:**
+  - hovering any truck on any map (conditions, temperature, feels-like, wind and gusts, and the time of the reading);
+  - "Weather where your trucks are" on the office dashboard, worst conditions first;
+  - Live fleet rows and the truck panel;
+  - the load page;
+  - the driver's job screen;
+  - the customer's live loads.
+- **Rough-weather warnings:** freezing rain or drizzle, snow, fog, thunderstorms, gusts of 50 km/h or more, and extreme cold. These turn amber or red, show road advice (for example "black ice likely" or "chains may be needed"), appear under "Needs attention", and notify the office when a truck on a load runs into them.
+- **When the service can't be reached:** if the simulator is on, as in the offline demo, trucks show clearly-labelled sample weather instead. Set `RUGO_WEATHER_URL` to use another provider that has the same API.
+
 ### Dashboards
 Each kind of user lands on a live dashboard:
 - **Office (carrier):**

@@ -9,6 +9,7 @@ import { useStore, useIndex, useNow, isActive } from '../lib/store.jsx';
 import { money, money2, km, time, dayLabel, duration, ago, placeShort } from '../lib/format.js';
 import { post } from '../lib/api.js';
 import { back } from '../lib/router.js';
+import WeatherChip from '../components/WeatherChip.jsx';
 import PlanVsActual, { OffRouteBanner } from '../components/PlanVsActual.jsx';
 
 export default function LoadDetail({ id }) {
@@ -81,7 +82,7 @@ export default function LoadDetail({ id }) {
                 {st?.live && truck?.location && <div style={{ textAlign: 'right' }}><div className="title3 num">{Math.round(truck.location.speed || 0)}</div><div className="caption secondary">km/h</div></div>}
               </div>
               {load.status !== 'requested' && load.status !== 'cancelled' && <div style={{ marginTop: 12 }}><Tracker status={load.status} /></div>}
-              {truck?.location?.updatedAt && isActive(load) && <div className="caption tertiary" style={{ marginTop: 8 }}>Live GPS · updated {ago(truck.location.updatedAt)}</div>}
+              {truck?.location?.updatedAt && isActive(load) && <div className="row wrap" style={{ marginTop: 8, gap: 8 }}><span className="caption tertiary">Live GPS · updated {ago(truck.location.updatedAt)}</span>{truck.weather && <WeatherChip w={truck.weather} />}</div>}
               {role !== 'shipper' && <OffRouteBanner load={load} />}
             </div>
           </div>

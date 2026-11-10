@@ -10,6 +10,7 @@ import {
 import { PROVIDERS, providerMeta } from './eld/providers.js';
 import { rankDrivers, matchSummary } from './dispatch.js';
 import { chatRoutes, driverThread } from './chat.js';
+import './weather.js'; // live weather at each truck
 import { eldFor, publicIntegration, cleanCreds, testConnection, connect, disconnect, setMaps, syncIntegration, syncSoon, importUnlinked } from './eld/sync.js';
 
 /** Weekly schedule: { 0..6: { start: 'HH:MM', end: 'HH:MM' } | null }. Accepts the older { days, start, end } shape too. */

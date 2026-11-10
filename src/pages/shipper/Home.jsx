@@ -8,6 +8,7 @@ import { useStore, useIndex, useNow, isActive } from '../../lib/store.jsx';
 import { go } from '../../lib/router.js';
 import { money, time, km, date, ago } from '../../lib/format.js';
 import { punctuality } from '../../../server/scorecard.js';
+import WeatherChip from '../../components/WeatherChip.jsx';
 
 const H = 3.6e6; const DAY = 864e5;
 const COLOR = { requested: '#f59e0b', accepted: '#6366f1', en_route_pickup: '#3b82f6', at_pickup: '#f97316', in_transit: '#10b981', at_delivery: '#14b8a6' };
@@ -84,7 +85,7 @@ export default function ShipperHome() {
               const d = idx.users[l.driverId]; const t = idx.trucks[l.truckId];
               return (
                 <button key={l.id} className="liveload" onMouseEnter={() => setHover(l.id)} onMouseLeave={() => setHover(null)} onClick={() => go(`/loads/${l.id}`)}>
-                  <div className="row between" style={{ gap: 8 }}><b className="subhead truncate">{l.pickup.city} → {l.dropoff.city}</b><StatusPill status={l.status} /></div>
+                  <div className="row between" style={{ gap: 8 }}><b className="subhead truncate">{l.pickup.city} → {l.dropoff.city}</b><span className="row" style={{ gap: 6 }}>{t?.weather && isActive(l) && <WeatherChip w={t.weather} compact />}<StatusPill status={l.status} /></span></div>
                   <Progress value={progressOf(l)} color={COLOR[l.status]} height={6} />
                   <div className="row between footnote secondary" style={{ gap: 8 }}>
                     <span className="truncate">{l.ref}{d ? ` · ${d.name.split(' ')[0]}` : ''}{t ? ` · Unit ${t.unit}` : ''}</span>

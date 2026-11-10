@@ -13,6 +13,8 @@ import { unread, openShift } from '../../lib/chat.js';
 import { useMatches } from '../../lib/ai.js';
 import { stopWindow, punctuality } from '../../../server/scorecard.js';
 import { post } from '../../lib/api.js';
+import { weatherTitle } from '../../components/WeatherChip.jsx';
+import { nearest } from './Fleet.jsx';
 
 const H = 3.6e6;
 const MOVING = ['en_route_pickup', 'in_transit'];
@@ -53,6 +55,10 @@ export function attentionItems(data, idx, now = Date.now()) {
     if (u.hos?.flag === 'violation') out.push({ id: `hos:${u.id}`, sev: 3, icon: 'warning', tone: 'red', title: `HOS violation — ${u.name}`, body: 'Driving past an hours-of-service limit.', driver: u });
     else if (u.hos?.flag === 'low') out.push({ id: `hosl:${u.id}`, sev: 2, icon: 'clock', tone: 'orange', title: `Hours running low — ${u.name}`, body: `${u.hos.driveLeftMin} min of driving left.`, driver: u });
     for (const a of driverAlerts(u).filter((x) => x.kind !== 'hos')) out.push({ id: a.id, sev: a.level === 'expired' ? 2 : 0, icon: 'doc', tone: a.level === 'expired' ? 'red' : 'orange', title: `${a.label} — ${u.name}`, body: a.text, driver: u });
+  }
+  for (const t of data.trucks) {
+    const w = t.weather; const l = data.loads.find((x) => x.truckId === t.id && isActive(x));
+    if (w && l && w.severity !== 'ok') out.push({ id: `wx:${t.id}`, sev: w.severity === 'danger' ? 2 : 1, icon: 'warning', tone: w.severity === 'danger' ? 'red' : 'orange', title: `${w.emoji} ${w.label} — Unit ${t.unit}`, body: `${l.ref} · ${w.tempC}°C${w.tips?.length ? ` · ${w.tips.join(', ')}` : ''}`, load: l });
   }
   for (const t of data.trucks) if ((t.nextServiceKm || 0) - (t.odometerKm || 0) <= 0) out.push({ id: `svc:${t.id}`, sev: 0, icon: 'wrench', tone: 'orange', title: `Service overdue — Unit ${t.unit}`, body: `${km(t.odometerKm - t.nextServiceKm)} past the service mark.`, truck: t });
   const oldInv = data.loads.filter((l) => l.invoice && !l.invoice.paid && now - l.invoice.issuedAt > 30 * 864e5);
@@ -175,6 +181,8 @@ export default function Dashboard() {
         </div>
       </div>
 
+      <WeatherStrip data={data} idx={idx} active={active} />
+
       <div className="dash-row3">
         <div className="card">
           <div className="dash-card-head"><Icon name="calendar" size={16} style={{ color: 'var(--blue)' }} /><span className="headline">Today’s stops</span><span className="footnote secondary">{stops.filter((x) => x.done).length} of {stops.length} done</span></div>
@@ -272,6 +280,34 @@ function IncomingLoad({ l }) {
       <div style={{ textAlign: 'right' }}>
         <div className="headline green num">{money(l.quote.carrierPayout)}</div>
         {best && <button className="btn small primary send-btn" onClick={send} title={`Send ${best.driver.name} · match ${best.score}/100`}><Icon name="sparkles" size={12} /><span className="truncate">Send {best.driver.name.split(' ')[0]}</span></button>}
+      </div>
+    </div>
+  );
+}
+
+/** Weather at every truck, worst conditions first. */
+function WeatherStrip({ data, idx, active }) {
+  const rank = { danger: 0, warn: 1, ok: 2 };
+  const rows = data.trucks.filter((t) => t.weather).map((t) => ({ t, w: t.weather, l: active.find((x) => x.truckId === t.id) }))
+    .sort((a, b) => rank[a.w.severity] - rank[b.w.severity] || (b.l ? 1 : 0) - (a.l ? 1 : 0));
+  if (!rows.length) return null;
+  const bad = rows.filter((r) => r.w.severity !== 'ok').length;
+  return (
+    <div className="card pad-lg">
+      <div className="dash-card-head" style={{ padding: 0, border: 0 }}>
+        <span style={{ fontSize: 16 }}>🌤️</span><span className="headline">Weather where your trucks are</span>
+        <span className={`footnote ${bad ? 'orange' : 'secondary'}`}>{bad ? `${bad} truck${bad > 1 ? 's' : ''} in rough weather` : 'Good driving conditions'}{rows.some((r) => r.w.simulated) ? ' · sample weather (offline)' : ''}</span>
+      </div>
+      <div className="wx-strip" style={{ marginTop: 10 }}>
+        {rows.map(({ t, w, l }) => (
+          <button key={t.id} className={`wx-card ${w.severity}`} onClick={() => go(l ? `/loads/${l.id}` : '/fleet')} title={weatherTitle(w)}>
+            <div className="row between" style={{ gap: 8 }}><b className="subhead">Unit {t.unit}</b><span className="footnote secondary truncate">{l ? l.ref : 'available'}</span></div>
+            <div className="wx-big"><span className="e">{w.emoji}</span><span className="t num">{w.tempC}°</span><span className="subhead secondary truncate">{w.label}</span></div>
+            <div className="footnote secondary truncate">near {nearest(t.location)} · {idx.users[t.driverId]?.name.split(' ')[0] || 'no driver'}</div>
+            <div className="footnote secondary">Feels {w.feelsC}° · wind {w.windKph}{w.gustKph >= 40 ? `, gusts ${w.gustKph}` : ''} km/h</div>
+            {w.tips?.length > 0 && <div className={`footnote ${w.severity === 'danger' ? 'red' : 'orange'}`} style={{ fontWeight: 600 }}>{w.tips.join(', ')}</div>}
+          </button>
+        ))}
       </div>
     </div>
   );

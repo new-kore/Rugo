@@ -78,8 +78,8 @@ export function view(viewer, col, item) {
     return out;
   }
   if (col === 'trucks' && viewer.role === 'shipper') {
-    const { id: tid, unit, make, model, year, plate, location, equipment } = item;
-    return { id: tid, unit, make, model, year, plate, location, equipment };
+    const { id: tid, unit, make, model, year, plate, location, equipment, weather } = item;
+    return { id: tid, unit, make, model, year, plate, location, equipment, weather };
   }
   return item;
 }

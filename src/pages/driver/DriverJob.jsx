@@ -7,6 +7,7 @@ import { PhotoChecklist, SignaturePad } from '../../components/Inspection.jsx';
 import { RouteLine, ActionButton, Empty, Tracker, StatusPill } from '../../components/ui.jsx';
 import { CargoFacts, TaskDetails } from '../../components/LoadBits.jsx';
 import FuelForm from '../../components/FuelForm.jsx';
+import WeatherChip from '../../components/WeatherChip.jsx';
 import { useStore, useIndex, isActive, useNow } from '../../lib/store.jsx';
 import { post } from '../../lib/api.js';
 import { navUrl } from '../../lib/geo.js';
@@ -107,6 +108,7 @@ export default function DriverJob({ loadId }) {
         {load.status === 'accepted' && <div className="subhead secondary" style={{ marginTop: 4 }}>Pickup {dayLabel(load.pickupWindow.from)} · {placeShort(load.pickup)}</div>}
         {load.status === 'delivered' && <div className="subhead secondary" style={{ marginTop: 4 }}>{km(load.metrics.loadedKm, 1)} driven · signed by {load.signature?.name}</div>}
         {h.sub && <div className="subhead" style={{ marginTop: 4, opacity: 0.9 }}>{h.sub}</div>}
+        {truck?.weather && load.status !== 'delivered' && <div style={{ marginTop: 8 }}><WeatherChip w={truck.weather} onDark />{truck.weather.tips?.length ? <span className="footnote" style={{ marginLeft: 8, opacity: 0.95 }}>{truck.weather.tips.join(', ')}</span> : null}</div>}
         <div style={{ marginTop: 14 }}>{stepOf(load) ? <DriverSteps load={load} /> : <Tracker status={load.status} />}</div>
       </div>
 

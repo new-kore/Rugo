@@ -7,6 +7,7 @@ import { WATER, RIVERS, CITIES } from '../lib/basemap.js';
 import { useState } from 'react';
 import GoogleMapView from './GoogleMapView.jsx';
 import { getKey, googleFailed, onGoogleFailure } from '../lib/google.js';
+import { truckTipHtml } from './WeatherChip.jsx';
 
 const truckSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 16.5V7a1.5 1.5 0 0 1 1.5-1.5h9A1.5 1.5 0 0 1 14.5 7v9.5"/><path d="M14.5 10h3.6l3.4 4v2.5h-1.6"/><circle cx="6.8" cy="17" r="2"/><circle cx="17.6" cy="17" r="2"/></svg>';
 
@@ -115,13 +116,13 @@ function LeafletMapView({ trucks = [], places = [], route, track, lines = [], hi
       let mk = reg.get(t.id);
       if (!mk) {
         mk = L.marker(ll, { icon: truckIcon(t), zIndexOffset: 1000 }).addTo(m);
-        if (t.label) mk.bindTooltip(t.label, { className: 'rugo-tip', direction: 'top', offset: [0, -18] });
+        if (t.label || t.weather) mk.bindTooltip(truckTipHtml(t), { className: 'rugo-tip', direction: 'top', offset: [0, -18] });
         mk.on('click', () => onTruckClick?.(t.id));
         reg.set(t.id, mk);
       } else {
         mk.setLatLng(ll);
         mk.setIcon(truckIcon(t));
-        if (t.label) mk.setTooltipContent(t.label);
+        if (t.label || t.weather) { if (mk.getTooltip()) mk.setTooltipContent(truckTipHtml(t)); else mk.bindTooltip(truckTipHtml(t), { className: 'rugo-tip', direction: 'top', offset: [0, -18] }); }
       }
     }
     for (const [k, mk] of reg) if (!seen.has(k)) { mk.remove(); reg.delete(k); }

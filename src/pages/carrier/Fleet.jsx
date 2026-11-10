@@ -1,5 +1,6 @@
 // Live fleet: map + every truck with kilometres left and arrival time; click a truck for its full file.
 import { messageDriver } from '../../lib/chat.js';
+import WeatherChip from '../../components/WeatherChip.jsx';
 import { OffRouteBanner } from '../../components/PlanVsActual.jsx';
 import { useEffect, useMemo, useState } from 'react';
 import Icon from '../../components/Icon.jsx';
@@ -78,6 +79,7 @@ function TruckRow({ truck: t, job, onClick }) {
           <span className="headline">Unit {t.unit}</span>
           {job ? <StatusPill status={job.status} /> : <span className="pill gray">{d?.status === 'off_duty' ? 'Off duty' : 'Available'}</span>}
           {(t.notes?.length || 0) > 0 && <span className="pill gray" title="Notes"><Icon name="doc" size={11} />{t.notes.length}</span>}
+          <span className="spacer" /><WeatherChip w={t.weather} compact />
         </div>
         <div className="footnote secondary truncate">{d?.name || 'No driver'} · {data.meta.equipment[t.equipment]?.label}</div>
         {p && (
@@ -138,6 +140,7 @@ function TruckFile({ truck: t, job, onClose }) {
           </div>
           {job ? <StatusPill status={job.status} long /> : <span className="pill gray">{d?.status === 'off_duty' ? 'Off duty' : 'Available'}</span>}
         </div>
+        {t.weather && <div className="row wrap" style={{ gap: 8 }}><WeatherChip w={t.weather} /><span className="footnote secondary">Feels {t.weather.feelsC}°C · wind {t.weather.windKph} km/h{t.weather.tips?.length ? ` · ${t.weather.tips.join(', ')}` : ''}</span></div>}
         {p ? (
           <>
             <div className="grid grid-3" style={{ gap: 10 }}>
@@ -244,7 +247,7 @@ function Metric({ k, v, strong }) {
 }
 
 const PLACES = [['Brampton yard', 43.73, -79.76], ['Toronto', 43.65, -79.38], ['Hamilton', 43.26, -79.87], ['Mississauga', 43.59, -79.64], ['Ottawa', 45.42, -75.7], ['Montréal', 45.5, -73.57], ['Kingston', 44.23, -76.49], ['London', 42.98, -81.25], ['Windsor', 42.31, -83.04], ['Barrie', 44.39, -79.69], ['Sudbury', 46.49, -80.99], ['Québec', 46.81, -71.21], ['Buffalo', 42.89, -78.88], ['Detroit', 42.33, -83.05]];
-function nearest(loc) {
+export function nearest(loc) {
   let best = PLACES[0]; let bd = Infinity;
   for (const p of PLACES) { const dd = (p[1] - loc.lat) ** 2 + (p[2] - loc.lng) ** 2; if (dd < bd) { bd = dd; best = p; } }
   return best[0];
