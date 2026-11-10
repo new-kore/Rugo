@@ -1,7 +1,7 @@
 // Photo checklist (driver), signature pad, and pickup-vs-delivery comparison (everyone).
 import { useEffect, useRef, useState } from 'react';
 import Icon from './Icon.jsx';
-import { Lightbox } from './ui.jsx';
+import { Lightbox, Sheet } from './ui.jsx';
 import { post, del } from '../lib/api.js';
 import { compressImage, currentPosition } from '../lib/image.js';
 import { useStore } from '../lib/store.jsx';
@@ -174,42 +174,83 @@ export function SignaturePad({ load }) {
 export function PhotoCompare({ load }) {
   const { data } = useStore();
   const [open, setOpen] = useState(null);
+  const [all, setAll] = useState(false);
   const slots = data.meta.photoSlots;
-  const any = load.photos.pickup.length || load.photos.delivery.length;
-  if (!any) return <div className="subhead secondary">Photos appear here when the driver inspects the trailer at pickup.</div>;
-  const damage = load.photos.delivery.filter((p) => p.slot === 'damage');
+  const order = (xs) => [...xs].sort((x, y) => (x.slot === 'damage') - (y.slot === 'damage') || slots.findIndex((s) => s.key === x.slot) - slots.findIndex((s) => s.key === y.slot));
+  const pickup = order(load.photos.pickup); const delivery = order(load.photos.delivery);
+  const [view, setView] = useState(delivery.length ? 'delivery' : 'pickup');
+  if (!pickup.length && !delivery.length) return <div className="subhead secondary">Photos appear here when the driver inspects the trailer at pickup.</div>;
+  const label = (p, phase) => `${p.slot === 'damage' ? 'Damage' : slots.find((s) => s.key === p.slot)?.label || 'Photo'} — ${phase}`;
+  const list = view === 'pickup' ? pickup : delivery;
+  const total = pickup.length + delivery.length;
   return (
     <div className="stack">
-      {load.damage && (
-        <div className={`pill ${load.damage.hasDamage ? 'orange' : 'green'}`} style={{ alignSelf: 'flex-start', padding: '6px 12px' }}>
-          <Icon name={load.damage.hasDamage ? 'warning' : 'shield'} size={15} />
-          {load.damage.hasDamage ? `Damage reported: ${load.damage.notes || 'see photos'}` : 'No damage reported at delivery'}
+      <div className="row between wrap" style={{ gap: 8 }}>
+        <div className="segmented" role="tablist">
+          <button className={view === 'pickup' ? 'on' : ''} onClick={() => setView('pickup')}>Pickup · {pickup.length}</button>
+          <button className={view === 'delivery' ? 'on' : ''} onClick={() => setView('delivery')}>Delivery · {delivery.length}</button>
+          <button className={view === 'compare' ? 'on' : ''} onClick={() => setView('compare')}>Compare</button>
+        </div>
+        {load.damage && (
+          <span className={`pill ${load.damage.hasDamage ? 'orange' : 'green'}`}>
+            <Icon name={load.damage.hasDamage ? 'warning' : 'shield'} size={13} />{load.damage.hasDamage ? 'Damage reported' : 'No damage at delivery'}
+          </span>
+        )}
+      </div>
+
+      {view !== 'compare' && (list.length === 0
+        ? <div className="photo-row-empty">{view === 'delivery' ? 'Delivery photos appear when the driver arrives at the customer.' : 'No pickup photos yet.'}</div>
+        : (
+          <div className="photo-row">
+            {list.slice(0, 3).map((p, i) => (
+              <button key={p.id} className={`photo-tile ${p.slot === 'damage' ? 'damage' : ''}`} onClick={() => setOpen({ ...p, label: label(p, view === 'pickup' ? 'Pickup' : 'Delivery') })}>
+                <img src={p.url} alt={label(p, view)} loading="lazy" />
+                <span className="photo-tag">{p.slot === 'damage' ? 'Damage' : slots.find((s) => s.key === p.slot)?.label}</span>
+                {i === Math.min(2, list.length - 1) && (
+                  <span className="photo-count" role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); setAll(true); }} onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); setAll(true); } }}>
+                    <Icon name="camera" size={16} />{total}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        ))}
+
+      {view === 'compare' && (
+        <div className="stack">
+          {slots.map((s) => {
+            const a = pickup.find((p) => p.slot === s.key); const b = delivery.find((p) => p.slot === s.key);
+            if (!a && !b) return null;
+            return (
+              <div key={s.key}>
+                <div className="subhead" style={{ fontWeight: 600, marginBottom: 6 }}>{s.label}</div>
+                <div className="photo-row two">
+                  {[['Pickup', a], ['Delivery', b]].map(([lbl, p]) => (p
+                    ? <button key={lbl} className="photo-tile" onClick={() => setOpen({ ...p, label: `${s.label} — ${lbl}` })}><img src={p.url} alt={`${s.label} at ${lbl}`} /><span className="photo-tag">{lbl} · {time(p.t)}</span></button>
+                    : <div key={lbl} className="photo-tile empty"><span className="photo-tag">{lbl} · waiting</span></div>))}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
-      {slots.map((s) => {
-        const a = load.photos.pickup.find((p) => p.slot === s.key);
-        const b = load.photos.delivery.find((p) => p.slot === s.key);
-        if (!a && !b) return null;
-        return (
-          <div key={s.key}>
-            <div className="subhead" style={{ fontWeight: 600, marginBottom: 6 }}>{s.label}</div>
-            <div className="compare">
-              {[['Pickup', a], ['Delivery', b]].map(([lbl, p]) => (
-                <figure key={lbl}>
-                  {p ? <img src={p.url} alt={`${s.label} at ${lbl}`} onClick={() => setOpen({ ...p, label: `${s.label} — ${lbl}` })} />
-                    : <div className="skeleton" style={{ aspectRatio: '4/3', animation: 'none' }} />}
-                  <figcaption>{lbl}{p ? ` · ${time(p.t)}` : ' · waiting'}</figcaption>
-                </figure>
-              ))}
+      {load.damage?.hasDamage && load.damage.notes && <div className="footnote orange">{load.damage.notes}</div>}
+
+      {all && (
+        <Sheet title={`All photos · ${total}`} onClose={() => setAll(false)} wide>
+          {[['Pickup', pickup], ['Delivery', delivery]].filter(([, xs]) => xs.length).map(([phase, xs]) => (
+            <div key={phase} style={{ marginBottom: 16 }}>
+              <div className="headline" style={{ marginBottom: 8 }}>{phase} · {xs.length}</div>
+              <div className="photo-grid">
+                {xs.map((p) => (
+                  <button key={p.id} className={`photo-tile ${p.slot === 'damage' ? 'damage' : ''}`} onClick={() => setOpen({ ...p, label: label(p, phase) })}>
+                    <img src={p.url} alt={label(p, phase)} loading="lazy" /><span className="photo-tag">{p.slot === 'damage' ? 'Damage' : slots.find((s) => s.key === p.slot)?.label} · {time(p.t)}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-        );
-      })}
-      {damage.length > 0 && (
-        <div>
-          <div className="subhead orange" style={{ fontWeight: 600, marginBottom: 6 }}>Damage close-ups</div>
-          <div className="compare">{damage.map((p) => <figure key={p.id}><img src={p.url} alt="Damage" onClick={() => setOpen({ ...p, label: 'Damage' })} /><figcaption>{time(p.t)}</figcaption></figure>)}</div>
-        </div>
+          ))}
+        </Sheet>
       )}
       <Lightbox photo={open} onClose={() => setOpen(null)} />
     </div>

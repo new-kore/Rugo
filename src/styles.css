@@ -1241,3 +1241,20 @@ textarea.input { height: auto; min-height: 84px; padding: 11px 14px; line-height
 .wx-widget.warn { box-shadow: inset 0 0 0 2px rgba(255, 204, 0, .9), 0 2px 8px rgba(0,0,0,.08); }
 .wx .wxi-wrap { margin: -2px 0; }
 .dash-legend .legend-hint { color: var(--label-3); border-left: 1px solid var(--border); padding-left: 10px; }
+
+/* Inspection photos: side-by-side gallery row (3 across), photo count chip, all-photos grid */
+.photo-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.photo-row.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.photo-tile { position: relative; display: block; padding: 0; border: 0; border-radius: 16px; overflow: hidden; aspect-ratio: 4 / 3; background: var(--bg-fill-2); cursor: zoom-in; box-shadow: 0 0 0 1px var(--border); }
+.photo-tile img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .35s ease; }
+.photo-tile:hover img { transform: scale(1.03); }
+.photo-tile.empty { cursor: default; background: repeating-linear-gradient(135deg, var(--bg-fill-2) 0 10px, var(--bg-elevated) 10px 20px); }
+.photo-tile.damage { box-shadow: 0 0 0 2px var(--orange); }
+.photo-tag { position: absolute; left: 10px; bottom: 10px; padding: 3px 8px; border-radius: 8px; font-size: 0.72rem; font-weight: 600; color: #fff; background: rgba(0,0,0,.45); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); opacity: 0; transition: opacity .2s; }
+.photo-tile:hover .photo-tag, .photo-tile.empty .photo-tag, .photo-row.two .photo-tag { opacity: 1; }
+.photo-tile.empty .photo-tag { background: rgba(0,0,0,.35); }
+.photo-count { position: absolute; right: 12px; bottom: 12px; display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 10px; background: #fff; color: #1c1c1e; font-size: 0.95rem; font-weight: 500; box-shadow: 0 2px 8px rgba(0,0,0,.18); cursor: pointer; }
+.photo-count:hover { background: #f2f2f7; }
+.photo-row-empty { padding: 28px; border-radius: 16px; text-align: center; color: var(--label-2); background: var(--bg-fill-2); font-size: 0.9rem; }
+@media (max-width: 600px) { .photo-row { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; } .photo-tile { border-radius: 12px; } .photo-count { padding: 5px 9px; font-size: 0.8rem; right: 6px; bottom: 6px; } }
