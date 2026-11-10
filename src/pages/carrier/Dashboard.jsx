@@ -271,7 +271,7 @@ function IncomingLoad({ l }) {
       </div>
       <div style={{ textAlign: 'right' }}>
         <div className="headline green num">{money(l.quote.carrierPayout)}</div>
-        {best && <button className="btn small primary" onClick={send} title={`Match ${best.score}/100`}><Icon name="sparkles" size={12} />Send {best.driver.name.split(' ')[0]}</button>}
+        {best && <button className="btn small primary send-btn" onClick={send} title={`Send ${best.driver.name} · match ${best.score}/100`}><Icon name="sparkles" size={12} /><span className="truncate">Send {best.driver.name.split(' ')[0]}</span></button>}
       </div>
     </div>
   );

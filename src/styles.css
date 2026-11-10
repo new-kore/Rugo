@@ -1146,3 +1146,7 @@ textarea.input { height: auto; min-height: 84px; padding: 11px 14px; line-height
 .nav-item.active svg { color: #fff; fill: #fff; fill-opacity: 0.28; }
 .nav-item.active .count { color: rgba(255, 255, 255, 0.85); }
 .nav-item.active .badge { background: #fff; color: var(--blue); }
+
+/* "Send <driver>" buttons: one fixed size everywhere, centred text, long names shortened. */
+.btn.send-btn { width: 132px; justify-content: center; flex: none; }
+.btn.send-btn .truncate { min-width: 0; }

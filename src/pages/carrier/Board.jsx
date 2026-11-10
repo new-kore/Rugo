@@ -116,7 +116,7 @@ function BoardMatch({ load, onMore }) {
     <div className="row" style={{ gap: 6 }}>
       <ScoreBadge score={best.score} size={30} />
       <button className="btn small" onClick={onMore} title="See all ranked drivers">Compare</button>
-      <button className="btn primary small" onClick={take}><Icon name="sparkles" size={14} />Send {best.driver.name.split(' ')[0]}</button>
+      <button className="btn primary small send-btn" onClick={take} title={`Send ${best.driver.name} · match ${best.score}/100`}><Icon name="sparkles" size={14} /><span className="truncate">Send {best.driver.name.split(' ')[0]}</span></button>
     </div>
   );
 }
