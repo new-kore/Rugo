@@ -10,6 +10,7 @@ import {
 import { PROVIDERS, providerMeta } from './eld/providers.js';
 import { rankDrivers, matchSummary } from './dispatch.js';
 import { chatRoutes, driverThread } from './chat.js';
+import { inspectionRoutes, tripBlocker, INSPECTION_META } from './inspections.js';
 import { weatherAt } from './weather.js'; // live weather at each truck + any point
 import { eldFor, publicIntegration, cleanCreds, testConnection, connect, disconnect, setMaps, syncIntegration, syncSoon, importUnlinked } from './eld/sync.js';
 
@@ -82,7 +83,7 @@ export function routes(app) {
     res.json({
       me: me(req.user),
       settings: settings(),
-      meta: { statuses: STATUSES, photoSlots: PHOTO_SLOTS, damageSlot: DAMAGE_SLOT, equipment: EQUIPMENT },
+      meta: { statuses: STATUSES, photoSlots: PHOTO_SLOTS, damageSlot: DAMAGE_SLOT, equipment: EQUIPMENT, inspection: INSPECTION_META },
       ...snapshot(req.user),
     });
   });
@@ -173,6 +174,7 @@ export function routes(app) {
     const truck = find('trucks', req.body.truckId);
     if (!driver || driver.companyId !== req.user.companyId || driver.role !== 'driver') return res.status(400).json({ error: 'Choose one of your drivers.' });
     if (!truck || truck.carrierId !== req.user.companyId) return res.status(400).json({ error: 'Choose one of your trucks.' });
+    if (truck.outOfService) return res.status(409).json({ error: `Unit ${truck.unit} is out of service (${truck.outOfService.reason}). Pick another truck or close the work order.` });
     if (driverBusy(driver.id)) return res.status(409).json({ error: `${driver.name} is already on a job.` });
     await accept(load, req.user, driver, truck);
     res.json(load);
@@ -187,6 +189,11 @@ export function routes(app) {
 
   app.post('/api/loads/:id/status', auth, role('driver', 'dispatcher'), async (req, res) => {
     const load = getLoad(req, res); if (!load) return;
+    // Law: no trip without a valid pre-trip inspection, and never in a truck that is out of service.
+    if (req.user.role === 'driver' && req.body.status === 'en_route_pickup') {
+      const block = tripBlocker(load.truckId, load.trailerId);
+      if (block) return res.status(409).json({ error: block });
+    }
     const err = await advance(load, req.body.status, req.user, { odometer: req.body.odometer, note: req.body.note });
     if (err) return res.status(400).json({ error: err });
     res.json(load);
@@ -677,6 +684,7 @@ export function routes(app) {
   });
 
   chatRoutes(app, auth, role);
+  inspectionRoutes(app, auth, role);
 
   // Weather at any map point, now or at a given time (forecast).
   app.get('/api/weather', auth, async (req, res) => {

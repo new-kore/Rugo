@@ -11,6 +11,7 @@ import { weekSchedule, hm, shiftHours, driverAlerts, DAYS } from '../../lib/driv
 import { unread, openShift } from '../../lib/chat.js';
 import { punctuality } from '../../../server/scorecard.js';
 import { hm as fmtMin } from '../../lib/hos.js';
+import { PreTripStatus } from '../../components/DailyInspection.jsx';
 
 const H = 3.6e6; const DAY = 864e5;
 const greeting = () => { const h = new Date().getHours(); return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'; };
@@ -101,6 +102,7 @@ export default function DriverToday() {
     return { s0, v, off, loads, today: s0 === t0, past: s0 < t0 };
   });
 
+  const myTruck = data.trucks.find((t) => t.id === me.truckId);
   const clock = async () => { try { await post('/driver/clock', { action: shift ? 'out' : 'in' }); } catch (e) { toast({ title: 'Couldn’t update', body: e.message, tone: 'error' }); } };
   const progress = job ? { accepted: 4, en_route_pickup: 18, at_pickup: 38, in_transit: 40 + Math.min(45, ((job.metrics?.loadedKm || 0) / (job.quote?.distanceKm || 1)) * 45), at_delivery: 92 }[job.status] || 0 : 0;
 
@@ -123,6 +125,7 @@ export default function DriverToday() {
         </div>
         <ActionButton className="btn large" style={{ marginTop: 14, width: '100%', background: 'rgba(255,255,255,.95)', color: shift ? '#1f9e45' : '#0055d4' }} onClick={clock}>{shift ? 'Clock out' : 'Clock in'}</ActionButton>
       </div>
+      {myTruck && <div style={{ marginBottom: 14 }}><PreTripStatus truck={myTruck} onStart={() => go('/inspect')} /></div>}
 
       {job ? (
         <button className="card pad-lg job-card" onClick={() => go('/job')}>

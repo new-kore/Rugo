@@ -55,6 +55,10 @@ export function canSee(viewer, col, item) {
       if (item.carrierId === c) return true;
       if (viewer.role === 'shipper') return db.loads.some((l) => l.shipperId === c && l.trailerId === item.id && ACTIVE.includes(l.status));
       return false;
+    case 'inspections':
+    case 'workOrders':
+      if (item.carrierId !== c) return false;
+      return viewer.role === 'dispatcher' || (viewer.role === 'driver' && (item.driverId === viewer.id || item.reportedById === viewer.id || item.truckId === viewer.truckId));
     case 'fuelLogs':
     case 'shifts':
       if (item.carrierId !== c) return false;
@@ -96,6 +100,8 @@ export function snapshot(viewer) {
     shifts: pick('shifts'),
     threads: pick('threads'),
     chat: pick('chat').slice(-1500),
+    inspections: pick('inspections').sort((a, b) => a.at - b.at).slice(-600),
+    workOrders: pick('workOrders'),
   };
 }
 

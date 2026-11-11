@@ -1,4 +1,5 @@
 // Driver mode: one clear next step, one big button. Designed for gloves, sunlight and any age.
+import { tripBlocker } from '../../lib/inspections.js';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Icon from '../../components/Icon.jsx';
 import MapView from '../../components/MapView.jsx';
@@ -74,7 +75,12 @@ export default function DriverJob({ loadId }) {
   const at = (t) => (t ? time(t) : '');
   const h = (() => {
     switch (load.status) {
-      case 'accepted': return { title: 'You have a new job', button: 'Start driving to pickup', icon: 'navigate', run: status('en_route_pickup') };
+      case 'accepted': {
+        const block = tripBlocker(data, load.truckId, load.trailerId);
+        if (block?.oos) return { tone: 'red', title: 'Truck out of service', sub: `${block.text}. Call the office — don’t drive it.`, button: 'Truck out of service', icon: 'warning', blocker: block.text };
+        if (block) return { title: 'You have a new job', sub: 'Do your pre-trip inspection before you drive.', button: 'Do the pre-trip inspection', icon: 'shield', run: async () => go('/inspect') };
+        return { title: 'You have a new job', button: 'Start driving to pickup', icon: 'navigate', run: status('en_route_pickup') };
+      }
       case 'en_route_pickup': return load.activeStop
         ? { tone: 'orange', title: 'Gas stop', sub: `Stopped at ${at(load.activeStop.start)}`, button: 'Back on the road', icon: 'navigate', run: event('fuel_end') }
         : { title: 'Drive to the pickup', button: 'I’m at the pickup', icon: 'pin', run: status('at_pickup') };

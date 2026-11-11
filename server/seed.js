@@ -5,6 +5,7 @@ import { quote, invoice, economics, DEFAULT_SETTINGS } from './pricing.js';
 import { PHOTO_SLOTS } from './constants.js';
 import { newLoadShell, updateEta } from './fleet.js';
 import { driverThread, postMessage, stamp } from './chat.js';
+import { recordInspection, updateWorkOrder, WALKAROUND } from './inspections.js';
 
 const P = {
   mississauga: { name: 'Northwind DC — Mississauga', address: '6855 Airport Rd', city: 'Mississauga', region: 'ON', lat: 43.6905, lng: -79.6215, contact: 'Receiving desk', phone: '905-555-0142' },
@@ -347,7 +348,70 @@ export async function seed() {
       if (readBy && i % 4 !== 3) stamp(m, u, 'r', r);
     });
   }
+  seedInspections(drivers, trucks, alex);
   save();
+}
+
+/* ---------------- daily inspections & shop ---------------- */
+function signatureSvg(name) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="360" height="110"><rect width="360" height="110" fill="#fff"/><path d="M20 75c25-40 40-45 48-20s10 30 28-5 22-30 30 0 14 25 34-8 30-20 38 6 18 20 40-10 40-14 62-2" fill="none" stroke="#111" stroke-width="3" stroke-linecap="round"/><text x="22" y="100" font-family="Helvetica" font-size="12" fill="#666">${name}</text></svg>`;
+  return writeUpload(`sig_${Math.random().toString(36).slice(2)}.svg`, svg);
+}
+function defectPhoto(label) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5b5f66"/><stop offset="1" stop-color="#2b2d31"/></linearGradient></defs><rect width="800" height="600" fill="url(#g)"/><circle cx="400" cy="330" r="150" fill="none" stroke="#ff9f0a" stroke-width="10" stroke-dasharray="26 16"/><text x="40" y="70" font-family="-apple-system,Helvetica,Arial" font-size="34" font-weight="600" fill="#fff">${label}</text><text x="40" y="112" font-family="-apple-system,Helvetica,Arial" font-size="24" fill="#fff" opacity=".8">Sample defect photo · demo data</text></svg>`;
+  return writeUpload(`dfc_${Math.random().toString(36).slice(2)}.svg`, svg);
+}
+
+function seedInspections(drivers, trucks, alex) {
+  const walk = WALKAROUND.map((w, i) => ({ slot: w.key, url: placeholderPhoto(`Walk-around — ${w.label}`, 'inspection', 200 + i * 25) }));
+  const sigs = Object.fromEntries(drivers.map((d) => [d.id, signatureSvg(d.name)]));
+  const busy = (t) => db.loads.find((l) => l.truckId === t.id && ['accepted', 'en_route_pickup', 'at_pickup', 'in_transit', 'at_delivery'].includes(l.status));
+  const dayStart = (daysAgo, hh) => { const d = new Date(Date.now() - daysAgo * D); d.setHours(hh, 0, 0, 0); return d.getTime(); };
+  const insp = (driver, truck, type, at, defects = [], trailerId = null) => recordInspection(driver, {
+    truckId: truck.id, trailerId, type, defects, photos: walk, odometerKm: truck.odometerKm, signature: { name: driver.name, url: sigs[driver.id] },
+  }, { at, silent: true }).inspection;
+
+  // Six days of clean history for everyone.
+  drivers.forEach((d, i) => {
+    const t = trucks[i];
+    for (let k = 6; k >= 1; k--) {
+      const start = dayStart(k, 5 + (i % 3)) + rnd(0, 40) * 60000;
+      if (new Date(start).getDay() === 0) continue;
+      insp(d, t, 'pre', start);
+      insp(d, t, 'post', start + rnd(9, 11) * H);
+    }
+  });
+  // A repaired defect (matches the loose mirror note on unit 101), confirmed by the driver next morning.
+  const [marcus, sofia, jeanluc, aisha, tom] = drivers;
+  const old = insp(marcus, trucks[0], 'post', dayStart(3, 17), [{ item: 'glass', unit: 'truck', severity: 'minor', defect: 'Mirror or window damaged or loose', note: 'Left mirror bracket loose, mirror vibrates at speed.', photoUrl: defectPhoto('Left mirror bracket') }]);
+  const woA = db.workOrders.find((w) => w.id === old.workOrderIds[0]);
+  updateWorkOrder(woA, alex, { action: 'start', mechanic: 'Brampton Truck Centre' }, dayStart(2, 8));
+  updateWorkOrder(woA, alex, { action: 'repaired', mechanic: 'Brampton Truck Centre', note: 'Replaced left mirror bracket and torqued bolts', cost: 186.4 }, dayStart(2, 11));
+  // Today: pre-trips for drivers already on the road. Tom has not done his yet.
+  drivers.forEach((d, i) => {
+    const t = trucks[i];
+    const l = busy(t);
+    if (d === tom || !l || ['accepted'].includes(l.status)) return;
+    const acks = d === marcus ? [woA.id] : [];
+    const r = recordInspection(d, { truckId: t.id, trailerId: l.trailerId, type: 'pre', photos: walk, odometerKm: t.odometerKm, signature: { name: d.name, url: sigs[d.id] }, ackWorkOrderIds: acks }, { at: Math.min(l.acceptedAt + 0.2 * H, Date.now() - 2 * H), silent: true });
+    void r;
+  });
+  // Idle trucks: one out of service with a major defect, one with a minor defect in the shop.
+  const idle = trucks.filter((t) => !busy(t));
+  const major = idle[0]; const minor = idle[1];
+  if (major) {
+    const d = drivers[trucks.indexOf(major)];
+    insp(d, major, 'post', Date.now() - 14 * H, [
+      { item: 'air_brakes', unit: 'truck', severity: 'major', defect: 'Push-rod stroke beyond adjustment limit', note: 'Right rear drive axle, stroke measured 2.5". Brakes need adjusting.', photoUrl: defectPhoto('Rear drive axle — push-rod') },
+      { item: 'lamps', unit: 'truck', severity: 'minor', defect: 'Marker or clearance lamp out', note: 'Top right clearance lamp.', photoUrl: defectPhoto('Clearance lamp') },
+    ]);
+  }
+  if (minor) {
+    const d = drivers[trucks.indexOf(minor)];
+    const r = insp(d, minor, 'post', Date.now() - 20 * H, [{ item: 'tires', unit: 'truck', severity: 'minor', defect: 'Tread or sidewall damaged', note: 'Cut in sidewall, steer tire left side. Not leaking.', photoUrl: defectPhoto('Left steer tire') }]);
+    updateWorkOrder(db.workOrders.find((w) => w.id === r.workOrderIds[0]), alex, { action: 'start', mechanic: 'In-house — Dave' }, Date.now() - 3 * H);
+  }
+  void sofia; void jeanluc; void aisha;
 }
 
 function placeAlong(load, truck, legKey, progress, phase) {

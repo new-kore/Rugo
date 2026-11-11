@@ -86,6 +86,15 @@ Every driver tracks with the Rugo app on their phone:
 
 Background tracking: a web app can only read GPS while it's open on screen. To keep tracking with the phone locked, package the app as a native app (for example with Capacitor and a background-geolocation plugin). It can post to the same `/api/driver/location` endpoint.
 
+### Daily truck inspections (pre-trip / post-trip)
+Drivers open **Inspection** in the driver app. The checklist follows NSC Standard 13 Schedule 1 (Canada) and covers the FMCSA 396.11 DVIR (US).
+- **Checklist:** every item on the truck and trailer is marked **OK** or **Defect**. A defect needs a photo, and is either **minor** (can drive) or **major** (out of service).
+- **Photos and signature:** a pre-trip needs four walk-around photos, and every report is signed on screen.
+- **Rules enforced:** a driver can't start a trip without a pre-trip from the last 24 hours. A truck or trailer with an open major defect is out of service: it can't be dispatched or driven until the shop closes the work order.
+- **Shop (office):** every defect becomes a work order with photos. The shop starts the repair, then marks it repaired with a note, mechanic and cost. The truck goes back in service and the driver is told.
+- **Driver confirms repairs:** the next inspection asks the driver to confirm each repair (DVIR rule).
+- **Records:** the inspection log keeps every signed report, printable.
+
 ### ELD / hours of service (Samsara, Motive, Geotab, Isaac)
 Rugo doesn't replace a certified ELD. It reads from the one a fleet already uses. Dispatch connects it in **Integrations** with these credentials:
 

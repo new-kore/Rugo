@@ -31,6 +31,9 @@ import Messages from './pages/Messages.jsx';
 import ChatDelivery from './components/ChatDelivery.jsx';
 import { unread } from './lib/chat.js';
 import DriverHours from './pages/driver/DriverHours.jsx';
+import DriverInspect from './pages/driver/DriverInspect.jsx';
+import Shop from './pages/carrier/Shop.jsx';
+import { validPreTrip } from './lib/inspections.js';
 
 const NAV = {
   shipper: [
@@ -50,6 +53,7 @@ const NAV = {
     { path: '/fleet', label: 'Live fleet', icon: 'map', page: Fleet, section: 'Fleet' },
     { path: '/drivers', label: 'Drivers', icon: 'people', page: Drivers, section: 'Fleet' },
     { path: '/inventory', label: 'Inventory', icon: 'truck', page: Inventory, section: 'Fleet' },
+    { path: '/shop', label: 'Shop', icon: 'wrench', page: Shop, section: 'Fleet', badge: (d) => (d.workOrders || []).filter((w) => w.status !== 'repaired' && w.severity === 'major').length || null },
     { path: '/fuel', label: 'Fuel', icon: 'fuel', page: Fuel, section: 'Fleet' },
     { path: '/reports', label: 'Reports', icon: 'chart', page: Reports, section: 'Fleet' },
     { path: '/integrations', label: 'Integrations', icon: 'plug', page: Integrations, section: 'Fleet', desktopOnly: true },
@@ -58,6 +62,7 @@ const NAV = {
   driver: [
     { path: '/', label: 'Today', icon: 'grid', page: DriverToday },
     { path: '/job', label: 'My job', icon: 'truck', page: DriverJob },
+    { path: '/inspect', label: 'Inspection', icon: 'shield', page: DriverInspect, badge: (d) => (d.me.truckId && !validPreTrip(d, d.me.truckId) ? 1 : null) },
     { path: '/messages', label: 'Messages', icon: 'message', page: Messages, badge: (d) => unread(d) },
     { path: '/calendar', label: 'Calendar', icon: 'calendar', page: CalendarPage, section: 'Workspace' },
     { path: '/fuel', label: 'Fuel', icon: 'fuel', page: DriverFuel, section: 'Workspace' },
@@ -98,7 +103,7 @@ export default function App() {
     page = <P />;
   }
   // Phones: 4 main tabs + "More" for everything else (so every page is reachable).
-  const PRIMARY = { dispatcher: ['/', '/board', '/messages', '/fleet'], driver: ['/', '/job', '/messages', '/fuel'], shipper: ['/', '/new', '/shipments', '/billing'] }[role] || [];
+  const PRIMARY = { dispatcher: ['/', '/board', '/messages', '/fleet'], driver: ['/', '/job', '/inspect', '/messages'], shipper: ['/', '/new', '/shipments', '/billing'] }[role] || [];
   const tabs = PRIMARY.map((p) => nav.find((n) => n.path === p)).filter(Boolean);
   const moreNav = nav.filter((n) => !PRIMARY.includes(n.path));
   const deskNav = nav.filter((n) => !n.mobileOnly);
