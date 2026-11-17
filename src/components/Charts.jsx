@@ -73,13 +73,14 @@ export function Progress({ value, color = 'var(--blue)', height = 6 }) {
 export function KpiTile({ icon, tone = 'blue', k, v, d, onClick, alert }) {
   const Tag = onClick ? 'button' : 'div';
   return (
-    <Tag className={`dkpi ${alert ? 'alert' : ''} ${onClick ? 'click' : ''}`} onClick={onClick}>
-      <div className="dkpi-icon" style={{ background: `color-mix(in srgb, var(--${tone}) 14%, transparent)`, color: `var(--${tone})` }}>{icon}</div>
-      <div style={{ minWidth: 0 }}>
-        <div className="dkpi-v num">{v}</div>
-        <div className="dkpi-k">{k}</div>
-        {d && <div className="dkpi-d">{d}</div>}
+    <Tag className={`dkpi ${alert ? 'alert' : ''} ${onClick ? 'click' : ''}`} onClick={onClick} title={d ? `${k}: ${v} — ${d}` : undefined}>
+      <div className="dkpi-head">
+        <span className="dkpi-icon" style={{ background: `color-mix(in srgb, var(--${tone}) 13%, transparent)`, color: `var(--${tone})` }}>{icon}</span>
+        <span className="dkpi-k">{k}</span>
+        {onClick && <span className="dkpi-go" aria-hidden="true">›</span>}
       </div>
+      <div className="dkpi-v num">{v}</div>
+      {d && <div className="dkpi-d">{d}</div>}
     </Tag>
   );
 }
