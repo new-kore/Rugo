@@ -121,3 +121,22 @@ export async function weatherForTruck(t) {
   if (!w) { try { w = await api(`/weather?lat=${p.lat.toFixed(4)}&lng=${p.lng.toFixed(4)}`); } catch (e) { return { place, html: errorCardHtml(e.message) }; } }
   return { place, html: weatherCardHtml(w, { place, when: `Right now · as of ${clock(w.at)}`, foot: (t.label || '').split(' · ').slice(1, 3).join(' · ') }) };
 }
+
+/* ----------------------- weather in route hover tooltips ----------------------- */
+const hoverCache = new Map(); // "lat,lng,hour" → weather
+
+/** One compact line for a route tooltip: weather where the pointer is, at the time the truck gets there. */
+export async function routeHoverWeatherHtml(p, ctx) {
+  const r = resolveClick(p, { ...ctx, tolKm: 1e6 });
+  const key = `${p.lat.toFixed(2)},${p.lng.toFixed(2)},${Math.round(r.at / 1.8e6)}`;
+  let w = hoverCache.get(key);
+  if (!w) {
+    w = await api(`/weather?lat=${p.lat.toFixed(4)}&lng=${p.lng.toFixed(4)}&at=${Math.round(r.at)}`);
+    if (w) { hoverCache.set(key, w); if (hoverCache.size > 300) hoverCache.delete(hoverCache.keys().next().value); }
+  }
+  if (!w) return '';
+  const city = nearestCity(p);
+  const where = city ? (city.km < 8 ? city.name : `near ${city.name}`) : 'here';
+  const when = r.mode === 'eta' ? `~${clock(r.at)} when ${r.unit} arrives` : 'now';
+  return `<div class="tip-wx-row ${w.severity || ''}">${weatherSvg(kindOfW(w), 26)}<div><b>${w.tempC}° ${esc(w.label)}</b><span>${esc(where)} · ${esc(when)}</span>${w.tips?.length ? `<span class="tip-wx-alert">⚠︎ ${esc(w.tips[0])}</span>` : ''}</div></div>`;
+}

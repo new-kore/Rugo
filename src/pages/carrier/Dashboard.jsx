@@ -134,7 +134,6 @@ export default function Dashboard() {
           <h1 className="large-title">{greeting()}, {data.me.name.split(' ')[0]}</h1>
         </div>
         <div className="row wrap" style={{ gap: 8 }}>
-          <span className="pill green live"><span className="dot" />Live</span>
           <button className="btn" onClick={() => go('/board')}><Icon name="list" size={15} />Load board</button>
           <button className="btn primary" onClick={() => go('/calendar')}><Icon name="plus" size={15} stroke={2.4} />Add route</button>
         </div>

@@ -1383,3 +1383,14 @@ textarea.input { height: auto; min-height: 84px; padding: 11px 14px; line-height
 .move-times s { color: var(--label-3); font-size: 0.88rem; }
 .move-times b { color: var(--blue); font-size: 0.95rem; }
 .move-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px; }
+/* No browser focus box around map lines and shapes after clicking them */
+.leaflet-container .leaflet-interactive:focus, .leaflet-container path:focus, .leaflet-container svg:focus, .leaflet-container:focus, .gm-style *:focus { outline: none !important; }
+/* Weather row in route hover tooltips */
+.tip-wx-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--separator, var(--border)); }
+.tip-wx-row .wxi { flex: none; }
+.tip-wx-row > div { display: flex; flex-direction: column; gap: 1px; }
+.tip-wx-row b { font-size: 0.82rem; font-weight: 650; }
+.tip-wx-row span { font-size: 0.72rem; color: var(--label-2); font-weight: 500; }
+.tip-wx-row.warn b { color: #b45309; } .tip-wx-row.danger b { color: #b91c1c; }
+.tip-wx-row .tip-wx-alert { color: #b45309; }
+.gm-tip { font: 500 0.8rem/1.35 -apple-system, system-ui, sans-serif; color: #1c1c1e; }

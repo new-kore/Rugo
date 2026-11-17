@@ -146,7 +146,6 @@ export default function App() {
           <header className="topbar">
             <GlobalSearch />
             <div className="spacer" />
-            <span className={`pill hide-mobile ${online ? 'green live' : 'orange'}`} style={{ border: 0 }}><span className="dot" />{online ? 'Live' : 'Offline'}</span>
             <NotificationBell />
           </header>
           <div key={path} className={`page-anim ${viewTransitions ? '' : 'fade'}`}>{page}</div>

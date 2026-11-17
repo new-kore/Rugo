@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react';
 import { loadGoogle } from '../lib/google.js';
 import { truckTipText } from './WeatherChip.jsx';
 import { weatherForClick, weatherForTruck, loadingCardHtml, pxToKm } from '../lib/weatherPopup.js';
+import { routeHoverWeatherHtml } from '../lib/weatherPopup.js';
 
 const truckSvg = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 16.5V7a1.5 1.5 0 0 1 1.5-1.5h9A1.5 1.5 0 0 1 14.5 7v9.5"/><path d="M14.5 10h3.6l3.4 4v2.5h-1.6"/><circle cx="6.8" cy="17" r="2"/><circle cx="17.6" cy="17" r="2"/></svg>';
 const isDark = () => document.documentElement.dataset.theme === 'dark';
@@ -137,7 +138,16 @@ export default function GoogleMapView({ trucks = [], places = [], route, track, 
         const line = new maps.Polyline({ map, path, strokeColor: ln.color, strokeOpacity: 0.95, strokeWeight: 4 });
         [halo, line].forEach((pl) => {
           pl.addListener('mouseover', (e) => { latest.current.onLineHover?.(ln.id); r.info.setContent(ln.tooltip); r.info.setPosition(e.latLng); r.info.open({ map }); });
-          pl.addListener('mouseout', () => { latest.current.onLineHover?.(null); r.info.close(); });
+          pl.addListener('mousemove', (e) => {
+            clearTimeout(r.wxT);
+            r.wxT = setTimeout(() => {
+              const seq = (r.wxSeq = (r.wxSeq || 0) + 1);
+              const p = { lat: e.latLng.lat(), lng: e.latLng.lng() };
+              r.info.setPosition(e.latLng);
+              routeHoverWeatherHtml(p, { lines: [ln], trucks: latest.current.trucks || [] }).then((html) => { if (seq === r.wxSeq && html) r.info.setContent(`<div class="gm-tip">${ln.tooltip}${html}</div>`); }).catch(() => {});
+            }, 180);
+          });
+          pl.addListener('mouseout', () => { clearTimeout(r.wxT); r.wxSeq = (r.wxSeq || 0) + 1; latest.current.onLineHover?.(null); r.info.close(); });
           pl.addListener('click', () => latest.current.onLineClick?.(ln.id));
           pl.addListener('contextmenu', (e) => g.current.ctxClick(e));
         });

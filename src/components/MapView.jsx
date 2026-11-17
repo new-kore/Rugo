@@ -8,7 +8,7 @@ import { useState } from 'react';
 import GoogleMapView from './GoogleMapView.jsx';
 import { getKey, googleFailed, onGoogleFailure } from '../lib/google.js';
 import { truckTipHtml } from './WeatherChip.jsx';
-import { weatherForClick, weatherForTruck, loadingCardHtml, pxToKm } from '../lib/weatherPopup.js';
+import { weatherForClick, weatherForTruck, loadingCardHtml, pxToKm, routeHoverWeatherHtml } from '../lib/weatherPopup.js';
 
 const truckSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 16.5V7a1.5 1.5 0 0 1 1.5-1.5h9A1.5 1.5 0 0 1 14.5 7v9.5"/><path d="M14.5 10h3.6l3.4 4v2.5h-1.6"/><circle cx="6.8" cy="17" r="2"/><circle cx="17.6" cy="17" r="2"/></svg>';
 
@@ -201,6 +201,19 @@ function LeafletMapView({ trucks = [], places = [], route, track, lines = [], hi
       const g = L.featureGroup([halo, line, a, b]).addTo(m);
       g.bindTooltip(ln.tooltip, { sticky: true, className: 'rugo-tip', direction: 'top', offset: [0, -8] });
       g.on('mouseover', () => onLineHover?.(ln.id));
+      // Weather where the pointer is on the route, at the time the truck gets there.
+      let wxT = null; let wxSeq = 0;
+      g.on('mousemove', (e) => {
+        clearTimeout(wxT);
+        wxT = setTimeout(() => {
+          const seq = ++wxSeq;
+          const p = { lat: e.latlng.lat, lng: e.latlng.lng };
+          routeHoverWeatherHtml(p, { lines: [ln], trucks: wxCtx.current.trucks }).then((html) => {
+            if (seq === wxSeq && html && g.isTooltipOpen()) g.setTooltipContent(`<div>${ln.tooltip}</div>${html}`);
+          }).catch(() => {});
+        }, 180);
+      });
+      g.on('mouseout', () => { clearTimeout(wxT); wxSeq++; g.setTooltipContent(ln.tooltip); });
       g.on('mouseout', () => onLineHover?.(null));
       g.on('click', () => onLineClick?.(ln.id));
       g._line = line; g._halo = halo;
