@@ -1,5 +1,5 @@
 // Load lifecycle, live tracking, geofencing, realtime fan-out and the demo simulator.
-import { db, save, find, id } from './db.js';
+import { db, save, find, id, randomToken } from './db.js';
 import { haversine, pathLength, pointAlong, route } from './geo.js';
 import { invoice, economics, DEFAULT_SETTINGS } from './pricing.js';
 import { ACTIVE, MOVING, PHOTO_SLOTS } from './constants.js';
@@ -75,6 +75,11 @@ export function view(viewer, col, item) {
     delete out.sim;
     delete out.simDetour;
     if (viewer.role === 'shipper') { delete out.economics; out.messages = []; } // notes are internal to the carrier
+    // The pickup code is only for the shipper, the carrier that took the load, and its drivers.
+    const c = viewer.companyId;
+    const codeOk = (viewer.role === 'shipper' && item.shipperId === c) || (viewer.role === 'dispatcher' && item.carrierId === c)
+      || (viewer.role === 'driver' && (item.driverId === viewer.id || (item.teamDriverIds || []).includes(viewer.id)));
+    if (!codeOk) delete out.pickupCode;
     if (viewer.role !== 'shipper' && item.status === 'requested' && item.carrierId !== viewer.companyId) {
       // Carriers browsing the board only see the payout, not the shipper's invoice.
       out.quote = { ...item.quote, lines: undefined, tax: undefined, total: undefined, subtotal: undefined };
@@ -439,8 +444,25 @@ setInterval(async () => {
   try { await tick(); } catch (e) { console.error('simulator', e); } finally { running = false; }
 }, 2000).unref?.();
 
+/** 6-digit pickup code shared by the shipper and the assigned driver, exchanged at the dock to stop fake pickups. */
+export function newPickupCode() {
+  return String(parseInt(randomToken(4), 16) % 1000000).padStart(6, '0');
+}
+/** Give every load a code (older data didn't have one). */
+export function ensurePickupCodes() {
+  let n = 0;
+  for (const l of db.loads) {
+    if (!l.pickupCode) { l.pickupCode = newPickupCode(); n++; }
+    // Loads already picked up count as verified at the dock.
+    const at = l.loadingStartedAt || l.departedPickupAt;
+    if (at && !l.pickupCheck) { l.pickupCheck = { verifiedAt: at, by: find('companies', l.shipperId)?.name || 'Shipper', role: 'shipper' }; n++; }
+  }
+  if (n) save();
+}
+
 export function newLoadShell() {
   return {
+    pickupCode: newPickupCode(), pickupCheck: null,
     photos: { pickup: [], delivery: [] },
     timeline: [], track: [], messages: [], legs: {},
     metrics: { deadheadKm: 0, loadedKm: 0, driveHours: 0, dwellHours: { pickup: 0, delivery: 0 } },
@@ -469,6 +491,7 @@ export function loadEvent(load, type, actor, extra = {}) {
     case 'loading_start':
       if (load.status !== 'at_pickup') return 'You can start loading once you’re at the pickup.';
       if (load.loadingStartedAt) return null;
+      if (actor?.role === 'driver' && load.pickupCode && !load.pickupCheck?.verifiedAt) return 'Exchange the pickup code with the shipper first.';
       load.loadingStartedAt = now;
       note(`Loading started${load.arrivedPickupAt ? ` · waited ${Math.round((now - load.arrivedPickupAt) / 60000)} min at the dock` : ''}`);
       notify((v) => office(v) || v.companyId === load.shipperId, { title: 'Loading started', body: `${load.ref} is being loaded at ${load.pickup.city}.`, loadId: load.id });

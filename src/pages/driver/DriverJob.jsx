@@ -1,5 +1,6 @@
 // Driver mode: one clear next step, one big button. Designed for gloves, sunlight and any age.
 import { tripBlocker } from '../../lib/inspections.js';
+import PickupCode from '../../components/PickupCode.jsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Icon from '../../components/Icon.jsx';
 import MapView from '../../components/MapView.jsx';
@@ -86,7 +87,7 @@ export default function DriverJob({ loadId }) {
         : { title: 'Drive to the pickup', button: 'I’m at the pickup', icon: 'pin', run: status('at_pickup') };
       case 'at_pickup': return load.loadingStartedAt
         ? { tone: 'orange', title: 'Loading', sub: `Started ${at(load.loadingStartedAt)} · take the photos while you load`, button: 'Loaded — start trip', icon: 'truck', run: status('in_transit'), blocker: !pickupDone && 'Take all the photos first' }
-        : { tone: 'orange', title: 'You’re at the pickup', sub: `Arrived ${at(load.arrivedPickupAt)} · press Loading when they start loading you`, button: 'Loading', icon: 'box', run: event('loading_start') };
+        : { tone: 'orange', title: 'You’re at the pickup', sub: `Arrived ${at(load.arrivedPickupAt)} · swap pickup codes with the shipper, then press Loading`, button: 'Loading', icon: 'box', run: event('loading_start'), blocker: load.pickupCode && !load.pickupCheck?.verifiedAt && 'Match the pickup code first' };
       case 'in_transit': return load.activeStop
         ? { tone: 'orange', title: 'Gas stop', sub: `Stopped at ${at(load.activeStop.start)} · log your fill-up below`, button: 'Back on the road', icon: 'navigate', run: event('fuel_end') }
         : { title: 'Drive to the customer', button: 'Delivered — I’m at the customer', icon: 'flag', run: status('at_delivery') };
@@ -117,6 +118,8 @@ export default function DriverJob({ loadId }) {
         {truck?.weather && load.status !== 'delivered' && <div style={{ marginTop: 8 }}><WeatherChip w={truck.weather} onDark />{truck.weather.tips?.length ? <span className="footnote" style={{ marginLeft: 8, opacity: 0.95 }}>{truck.weather.tips.join(', ')}</span> : null}</div>}
         <div style={{ marginTop: 14 }}>{stepOf(load) ? <DriverSteps load={load} /> : <Tracker status={load.status} />}</div>
       </div>
+
+      {['accepted', 'en_route_pickup', 'at_pickup'].includes(load.status) && !load.loadingStartedAt && <div style={{ marginBottom: 16 }}><PickupCode load={load} /></div>}
 
       {load.status !== 'delivered' && (
         <div className="map-card" style={{ marginBottom: 16 }}>

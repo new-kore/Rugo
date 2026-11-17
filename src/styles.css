@@ -1394,3 +1394,25 @@ textarea.input { height: auto; min-height: 84px; padding: 11px 14px; line-height
 .tip-wx-row.warn b { color: #b45309; } .tip-wx-row.danger b { color: #b91c1c; }
 .tip-wx-row .tip-wx-alert { color: #b45309; }
 .gm-tip { font: 500 0.8rem/1.35 -apple-system, system-ui, sans-serif; color: #1c1c1e; }
+/* Pickup code */
+.pcode { border: 1px solid var(--border); border-radius: 16px; background: var(--bg-elevated); padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.pcode.ok { border-color: color-mix(in srgb, var(--green) 40%, var(--border)); }
+.pcode.bad { border-color: color-mix(in srgb, var(--red) 50%, var(--border)); background: color-mix(in srgb, var(--red) 5%, var(--bg-elevated)); }
+.pcode-head { display: flex; align-items: flex-start; gap: 12px; }
+.pcode-icon { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; flex: none; background: color-mix(in srgb, var(--blue) 13%, transparent); color: var(--blue); }
+.pcode.ok .pcode-icon { background: color-mix(in srgb, var(--green) 14%, transparent); color: var(--green); }
+.pcode.bad .pcode-icon { background: color-mix(in srgb, var(--red) 14%, transparent); color: var(--red); }
+.pcode-digits { display: flex; justify-content: center; gap: 8px; font-variant-numeric: tabular-nums; }
+.pcode-digits span { width: 46px; height: 58px; border-radius: 12px; display: grid; place-items: center; font-size: 2rem; font-weight: 700; letter-spacing: -0.02em; background: var(--bg-fill-2); color: var(--label); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.pcode-digits span.gap { margin-left: 10px; }
+.pcode.compact .pcode-digits span { width: 38px; height: 48px; font-size: 1.6rem; }
+.pcode-status { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 0.85rem; color: var(--label-2); text-align: center; }
+.pcode-status .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--orange); }
+.pcode-status.ok { color: var(--green-text); font-weight: 600; }
+.pcode-status.bad { color: var(--red-text); font-weight: 600; }
+.pcode-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.pcode-actions .btn { height: 44px; justify-content: center; }
+.pcode-new { align-self: center; color: var(--label-2); }
+.pcode-done { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 12px; font-size: 0.85rem; color: var(--green-text); background: color-mix(in srgb, var(--green) 8%, var(--bg-elevated)); border: 1px solid color-mix(in srgb, var(--green) 25%, var(--border)); }
+.pcode-done.bad { color: var(--red-text); background: color-mix(in srgb, var(--red) 7%, var(--bg-elevated)); border-color: color-mix(in srgb, var(--red) 30%, var(--border)); }
+@media (max-width: 600px) { .pcode-digits { gap: 5px; } .pcode-digits span { width: 40px; height: 52px; font-size: 1.7rem; } .pcode-digits span.gap { margin-left: 6px; } }

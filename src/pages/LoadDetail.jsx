@@ -10,6 +10,7 @@ import { money, money2, km, time, dayLabel, duration, ago, placeShort } from '..
 import { post } from '../lib/api.js';
 import { back } from '../lib/router.js';
 import WeatherChip from '../components/WeatherChip.jsx';
+import PickupCode from '../components/PickupCode.jsx';
 import PlanVsActual, { OffRouteBanner } from '../components/PlanVsActual.jsx';
 
 export default function LoadDetail({ id }) {
@@ -86,6 +87,8 @@ export default function LoadDetail({ id }) {
               {role !== 'shipper' && <OffRouteBanner load={load} />}
             </div>
           </div>
+
+          <PickupCode load={load} />
 
           <div className="card pad-lg stack">
             <div className="row between"><div className="title3">Inspection photos</div><span className="footnote secondary">Pickup vs. delivery</span></div>

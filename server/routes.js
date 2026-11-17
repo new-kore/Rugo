@@ -5,7 +5,7 @@ import { quote, EQUIPMENT } from './pricing.js';
 import { STATUSES, PHOTO_SLOTS, DAMAGE_SLOT, ACTIVE } from './constants.js';
 import {
   settings, snapshot, subscribe, publish, publishRemove, notify, accept, advance, addTimeline,
-  gpsUpdate, clockIn, clockOut, loadEvent, nextRef, newLoadShell, publicUser, updateEta, trailerInUse,
+  gpsUpdate, clockIn, clockOut, loadEvent, nextRef, newLoadShell, publicUser, updateEta, trailerInUse, ensurePickupCodes, newPickupCode,
 } from './fleet.js';
 import { PROVIDERS, providerMeta } from './eld/providers.js';
 import { rankDrivers, matchSummary } from './dispatch.js';
@@ -80,6 +80,7 @@ export function routes(app) {
   });
 
   app.get('/api/bootstrap', auth, (req, res) => {
+    ensurePickupCodes();
     res.json({
       me: me(req.user),
       settings: settings(),
@@ -177,6 +178,37 @@ export function routes(app) {
     if (truck.outOfService) return res.status(409).json({ error: `Unit ${truck.unit} is out of service (${truck.outOfService.reason}). Pick another truck or close the work order.` });
     if (driverBusy(driver.id)) return res.status(409).json({ error: `${driver.name} is already on a job.` });
     await accept(load, req.user, driver, truck);
+    res.json(load);
+  });
+
+  // Pickup code: the shipper and the driver exchange the same 6-digit code at the dock.
+  app.post('/api/loads/:id/pickup-code', auth, role('shipper', 'dispatcher', 'driver'), (req, res) => {
+    const load = getLoad(req, res); if (!load) return;
+    const u = req.user;
+    const mine = (u.role === 'shipper' && load.shipperId === u.companyId) || (u.role === 'dispatcher' && load.carrierId === u.companyId) || u.role === 'driver';
+    if (!mine) return res.status(403).json({ error: 'Only the shipper, the carrier and its driver can use this code.' });
+    if (!['accepted', 'en_route_pickup', 'at_pickup'].includes(load.status) || load.loadingStartedAt) return res.status(409).json({ error: 'The pickup code is only used before loading starts.' });
+    const { action, code } = req.body || {};
+    const who = `${u.name} (${u.role === 'shipper' ? 'shipper' : u.role === 'driver' ? 'driver' : 'carrier office'})`;
+    const parties = (v) => (v.role === 'dispatcher' && v.companyId === load.carrierId) || (v.role === 'shipper' && v.companyId === load.shipperId) || v.id === load.driverId || (load.teamDriverIds || []).includes(v.id);
+    if (action === 'confirm') {
+      if (code != null && String(code).replace(/\D/g, '') !== load.pickupCode) return res.status(400).json({ error: 'That code doesn’t match. Don’t release the freight — report it.' });
+      load.pickupCheck = { verifiedAt: Date.now(), by: u.name, role: u.role };
+      addTimeline(load, load.status, u, 'Pickup code matched — freight released to the driver');
+      notify((v) => parties(v) && v.id !== u.id, { title: `✅ Pickup code matched · ${load.ref}`, body: `Confirmed by ${who}.`, loadId: load.id, tone: 'ok' });
+    } else if (action === 'mismatch') {
+      load.pickupCheck = { alertAt: Date.now(), by: u.name, role: u.role, note: String(req.body?.note || '').slice(0, 300) };
+      addTimeline(load, load.status, u, 'Pickup code did NOT match — possible fraud, freight held');
+      notify(parties, { title: `⛔ Pickup code mismatch · ${load.ref}`, body: `Reported by ${who}. Don’t release the freight. Call the carrier office to confirm who is picking up.`, loadId: load.id, tone: 'error' });
+    } else if (action === 'regenerate') {
+      if (u.role === 'driver') return res.status(403).json({ error: 'Only the shipper or the carrier office can make a new code.' });
+      load.pickupCode = newPickupCode();
+      load.pickupCheck = null;
+      addTimeline(load, load.status, u, 'New pickup code issued');
+      notify((v) => parties(v) && v.id !== u.id, { title: `🔑 New pickup code · ${load.ref}`, body: `${who} issued a new code. Use the new one at the dock.`, loadId: load.id });
+    } else return res.status(400).json({ error: 'Unknown action.' });
+    save();
+    publish('loads', load);
     res.json(load);
   });
 

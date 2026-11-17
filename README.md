@@ -86,6 +86,14 @@ Every driver tracks with the Rugo app on their phone:
 
 Background tracking: a web app can only read GPS while it's open on screen. To keep tracking with the phone locked, package the app as a native app (for example with Capacitor and a background-geolocation plugin). It can post to the same `/api/driver/location` endpoint.
 
+### Pickup codes (fraud and theft defence)
+Every load gets a random 6-digit pickup code when it's created.
+- **Who sees it:** the shipper who requested the load, the carrier office that took it, and the assigned driver(s). Carriers browsing the load board don't see it.
+- **At the dock:** the driver and the shipper compare codes. Either side taps **Codes match** to release the freight, or **Doesn't match** to hold it. A mismatch alerts the carrier office and the shipper right away.
+- **Rule:** the driver can't press **Loading** until the code has been matched.
+- **New code:** the shipper or the carrier office can issue a new code before loading (for example if it was shared by mistake). The old one stops working and everyone is told.
+- Every check is logged on the load's timeline.
+
 ### Daily truck inspections (pre-trip / post-trip)
 Drivers open **Inspection** in the driver app. The checklist follows NSC Standard 13 Schedule 1 (Canada) and covers the FMCSA 396.11 DVIR (US).
 - **Checklist:** every item on the truck and trailer is marked **OK** or **Defect**. A defect needs a photo, and is either **minor** (can drive) or **major** (out of service).
