@@ -17,6 +17,7 @@ import { haversine } from '../lib/geo.js';
 import { useStore, useIndex, useNow } from '../lib/store.jsx';
 import { go } from '../lib/router.js';
 import { time, placeShort, km, duration, money, money2 } from '../lib/format.js';
+import { loc } from '../lib/i18n.js';
 
 const H = 3.6e6;
 const HOUR_PX = 48;
@@ -172,13 +173,13 @@ export default function Calendar() {
     else if (view === 'month') { const d = new Date(cursor); d.setMonth(d.getMonth() + dir, 1); setCursor(startOfDay(d.getTime())); } else setCursor(addDays(cursor, 7 * dir));
   };
   let title;
-  if (view === 'day') title = c.toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-  else if (view === 'month') title = c.toLocaleDateString('en-CA', { month: 'long', year: 'numeric' });
+  if (view === 'day') title = c.toLocaleDateString(loc(), { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  else if (view === 'month') title = c.toLocaleDateString(loc(), { month: 'long', year: 'numeric' });
   else {
     const a = new Date(days[0]); const b = new Date(days[6]);
     title = a.getMonth() === b.getMonth()
-      ? a.toLocaleDateString('en-CA', { month: 'long', year: 'numeric' })
-      : `${a.toLocaleDateString('en-CA', { month: 'short' })} – ${b.toLocaleDateString('en-CA', { month: 'short', year: 'numeric' })}`;
+      ? a.toLocaleDateString(loc(), { month: 'long', year: 'numeric' })
+      : `${a.toLocaleDateString(loc(), { month: 'short' })} – ${b.toLocaleDateString(loc(), { month: 'short', year: 'numeric' })}`;
   }
 
   const openDay = (d) => { setCursor(d); setView('day'); };
@@ -254,7 +255,7 @@ function MiniMonth({ cursor, view, days, trips, onPick }) {
   return (
     <div className="mini">
       <div className="mini-head">
-        <span>{m.toLocaleDateString('en-CA', { month: 'long', year: 'numeric' })}</span>
+        <span>{m.toLocaleDateString(loc(), { month: 'long', year: 'numeric' })}</span>
         <span>
           <button className="icon-btn" style={{ width: 26, height: 26 }} aria-label="Previous month" onClick={() => shift(-1)}><Icon name="chevronLeft" size={14} /></button>
           <button className="icon-btn" style={{ width: 26, height: 26 }} aria-label="Next month" onClick={() => shift(1)}><Icon name="chevron" size={14} /></button>
@@ -334,7 +335,7 @@ function TimeGrid({ days, trips, now, onEvent, onDay, holidays, onSlot, canMove,
   return (
     <div className="tg">
       <div className="tg-head" style={{ gridTemplateColumns: template }}>
-        <div className="tg-tz">{new Date().toLocaleTimeString('en-CA', { timeZoneName: 'short' }).split(' ').pop()}</div>
+        <div className="tg-tz">{new Date().toLocaleTimeString(loc(), { timeZoneName: 'short' }).split(' ').pop()}</div>
         {days.map((d) => (
           <button key={d} className={`tg-dayhead ${sameDay(d, now) ? 'today' : ''}`} onClick={() => onDay(d)}>
             <span className="tg-wd">{WEEKDAYS[new Date(d).getDay()].toUpperCase()}</span>
@@ -404,7 +405,7 @@ function MonthGrid({ days, month, trips, onEvent, onDay, holidays, onSlot }) {
           return (
             <div key={d} className={`mg-cell ${new Date(d).getMonth() !== month ? 'out' : ''} ${onSlot ? 'addable' : ''}`} onClick={() => (onSlot ? onSlot(d) : onDay(d))} title={onSlot ? 'Click to add a route on this day' : undefined}>
               <button className={`mg-num ${sameDay(d, Date.now()) ? 'today' : ''}`} onClick={(e) => { e.stopPropagation(); onDay(d); }}>
-                {new Date(d).getDate() === 1 ? new Date(d).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' }) : new Date(d).getDate()}
+                {new Date(d).getDate() === 1 ? new Date(d).toLocaleDateString(loc(), { month: 'short', day: 'numeric' }) : new Date(d).getDate()}
               </button>
               {holidays && holidaysOn(d).map((h) => <span key={h.name} className="hol-chip">{h.name}</span>)}
               {evs.slice(0, max).map((t) => {
@@ -442,7 +443,7 @@ function EventCard({ pop, idx, data, onClose }) {
   }, [onClose]);
   const t = pop.trip; const l = t.load;
   const d = idx.users[l.driverId]; const tr = idx.trucks[l.truckId];
-  const fmt = (x) => new Date(x).toLocaleString('en-CA', { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  const fmt = (x) => new Date(x).toLocaleString(loc(), { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' });
   const status = data.meta.statuses.find((s) => s.key === l.status)?.label;
   const live = tr && ['accepted', 'en_route_pickup', 'at_pickup', 'in_transit', 'at_delivery'].includes(l.status);
   const places = useMemo(() => [
@@ -481,7 +482,7 @@ function MoveConfirm({ trip, to, onClose }) {
   const { data, toast, upsert } = useStore();
   const l = trip.load;
   const newPickup = to; // where the block was dropped is the new pickup time
-  const fmt = (t) => new Date(t).toLocaleString('en-CA', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  const fmt = (t) => new Date(t).toLocaleString(loc(), { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
   const driver = data.users.find((u) => u.id === l.driverId);
   const past = newPickup < Date.now() - 15 * 60000;
   useEffect(() => { const on = (e) => e.key === 'Escape' && onClose(); window.addEventListener('keydown', on); return () => window.removeEventListener('keydown', on); }, [onClose]);
@@ -618,7 +619,7 @@ function AddRouteSheet({ day, minutes, onClose, onDone }) {
       instructions: steps, notes,
     });
     upsert('loads', load);
-    toast({ title: 'Route added', body: `${load.ref} · ${idx.users[chosen]?.name} · ${new Date(from).toLocaleString('en-CA', { weekday: 'short', hour: 'numeric', minute: '2-digit' })}` });
+    toast({ title: 'Route added', body: `${load.ref} · ${idx.users[chosen]?.name} · ${new Date(from).toLocaleString(loc(), { weekday: 'short', hour: 'numeric', minute: '2-digit' })}` });
     onDone(load);
   };
 
@@ -656,7 +657,7 @@ function AddRouteSheet({ day, minutes, onClose, onDone }) {
                 <div className={`ar-trip ${tripBusy ? 'busy' : ''}`}>
                   <div><span>Distance</span><b>{km(dist)}</b></div>
                   <div><span>Drive time</span><b>{duration(driveH)}</b></div>
-                  <div><span>Arrives about</span><b>{new Date(from + (driveH + 0.75) * H).toLocaleString('en-CA', { weekday: 'short', hour: 'numeric', minute: '2-digit' })}</b></div>
+                  <div><span>Arrives about</span><b>{new Date(from + (driveH + 0.75) * H).toLocaleString(loc(), { weekday: 'short', hour: 'numeric', minute: '2-digit' })}</b></div>
                   <div><span>Trip cost</span><b>{money(cost.total)}</b></div>
                   <div><span>Profit at {money(cost.rate)}</span><b className={cost.margin >= 0 ? 'green' : 'red'}>{money(cost.margin)}</b></div>
                   <em>{tripBusy ? 'Calculating road route…' : trip?.route?.source === 'google' ? 'Road route from Google Maps' : trip?.route?.source === 'road' ? 'Road route' : 'Estimated route'}</em>
@@ -787,8 +788,8 @@ function AddRouteSheet({ day, minutes, onClose, onDone }) {
             <dl>
               <div><dt>Distance</dt><dd>{dist ? km(dist) : '—'}</dd></div>
               <div><dt>Driving</dt><dd>{dist ? duration(driveH) : '—'}</dd></div>
-              <div><dt>Pickup</dt><dd>{new Date(from).toLocaleString('en-CA', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</dd></div>
-              <div><dt>Arrives about</dt><dd>{arrival ? new Date(arrival).toLocaleString('en-CA', { weekday: 'short', hour: 'numeric', minute: '2-digit' }) : '—'}</dd></div>
+              <div><dt>Pickup</dt><dd>{new Date(from).toLocaleString(loc(), { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</dd></div>
+              <div><dt>Arrives about</dt><dd>{arrival ? new Date(arrival).toLocaleString(loc(), { weekday: 'short', hour: 'numeric', minute: '2-digit' }) : '—'}</dd></div>
               <div><dt>Driver</dt><dd>{idx.users[chosen]?.name || '—'}{teamId ? ` + ${idx.users[teamId]?.name.split(' ')[0]}` : ''}</dd></div>
               <div><dt>Equipment</dt><dd>{idx.trucks[chosenTruck] ? `Unit ${idx.trucks[chosenTruck].unit}` : '—'}{idx.trailers?.[chosenTrailer] ? ` · ${idx.trailers[chosenTrailer].unit}` : ''}</dd></div>
             </dl>

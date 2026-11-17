@@ -9,6 +9,7 @@ import { go } from '../../lib/router.js';
 import { money, time, km, date, ago } from '../../lib/format.js';
 import { punctuality } from '../../../server/scorecard.js';
 import WeatherChip from '../../components/WeatherChip.jsx';
+import { loc } from '../../lib/i18n.js';
 
 const H = 3.6e6; const DAY = 864e5;
 const COLOR = { requested: '#f59e0b', accepted: '#6366f1', en_route_pickup: '#3b82f6', at_pickup: '#f97316', in_transit: '#10b981', at_delivery: '#14b8a6' };
@@ -55,7 +56,7 @@ export default function ShipperHome() {
     <div className="page wide dash" style={{ maxWidth: 1400 }}>
       <div className="dash-head">
         <div>
-          <div className="subhead secondary">{new Date(now).toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric' })}</div>
+          <div className="subhead secondary">{new Date(now).toLocaleDateString(loc(), { weekday: 'long', month: 'long', day: 'numeric' })}</div>
           <h1 className="large-title">{greeting()}, {data.me.name.split(' ')[0]}</h1>
         </div>
         <button className="btn primary large" onClick={() => go('/new')}><Icon name="plus" size={18} stroke={2.4} />Request a pickup</button>

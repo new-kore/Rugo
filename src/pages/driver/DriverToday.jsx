@@ -12,6 +12,7 @@ import { unread, openShift } from '../../lib/chat.js';
 import { punctuality } from '../../../server/scorecard.js';
 import { hm as fmtMin } from '../../lib/hos.js';
 import { PreTripStatus } from '../../components/DailyInspection.jsx';
+import { loc } from '../../lib/i18n.js';
 
 const H = 3.6e6; const DAY = 864e5;
 const greeting = () => { const h = new Date().getHours(); return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'; };
@@ -88,7 +89,7 @@ export default function DriverToday() {
       const worked = (data.shifts || []).some((s) => s.driverId === me.id && s.start < s0 + DAY && (s.end || now) > s0);
       if (!off && !worked) noShift.push(s0);
     }
-    if (noShift.length) out.push({ t: noShift[0], icon: 'calendar', text: `No shift logged on ${noShift.length === 1 ? new Date(noShift[0]).toLocaleDateString('en-CA', { weekday: 'long' }) : `${noShift.length} scheduled days (${noShift.slice().reverse().map((x) => DAYS[new Date(x).getDay()]).join(', ')})`}`, sub: 'Tell the office if this is wrong', to: '/messages' });
+    if (noShift.length) out.push({ t: noShift[0], icon: 'calendar', text: `No shift logged on ${noShift.length === 1 ? new Date(noShift[0]).toLocaleDateString(loc(), { weekday: 'long' }) : `${noShift.length} scheduled days (${noShift.slice().reverse().map((x) => DAYS[new Date(x).getDay()]).join(', ')})`}`, sub: 'Tell the office if this is wrong', to: '/messages' });
     const oldUnread = (data.chat || []).filter((m) => m.userId !== me.id && !m.receipts?.[me.id]?.r && now - m.t > 2 * H);
     if (oldUnread.length) out.push({ t: oldUnread[0].t, icon: 'message', text: `${oldUnread.length} message${oldUnread.length > 1 ? 's' : ''} from the office not read yet`, sub: 'Over 2 hours old', to: '/messages' });
     return out.sort((a, b) => b.t - a.t).slice(0, 8);
@@ -110,7 +111,7 @@ export default function DriverToday() {
     <div className="page dash" style={{ maxWidth: 980 }}>
       <div className="dash-head">
         <div>
-          <div className="subhead secondary">{new Date(now).toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric' })}</div>
+          <div className="subhead secondary">{new Date(now).toLocaleDateString(loc(), { weekday: 'long', month: 'long', day: 'numeric' })}</div>
           <h1 className="large-title">{greeting()}, {me.name.split(' ')[0]}</h1>
         </div>
       </div>
@@ -185,7 +186,7 @@ export default function DriverToday() {
           {upcoming.map((l) => (
             <button key={l.id} className="feed" onClick={() => go(`/loads/${l.id}`)}>
               <span className="feed-icon"><Icon name="truck" size={15} style={{ color: 'var(--indigo)' }} /></span>
-              <span style={{ minWidth: 0, flex: 1 }}><span className="subhead truncate" style={{ display: 'block', fontWeight: 600 }}>{l.pickup.city} → {l.dropoff.city}</span><span className="footnote secondary">{l.ref} · pickup {l.pickupWindow ? `${new Date(l.pickupWindow.from).toLocaleDateString('en-CA', { weekday: 'short' })} ${time(l.pickupWindow.from)}` : 'TBD'}</span></span>
+              <span style={{ minWidth: 0, flex: 1 }}><span className="subhead truncate" style={{ display: 'block', fontWeight: 600 }}>{l.pickup.city} → {l.dropoff.city}</span><span className="footnote secondary">{l.ref} · pickup {l.pickupWindow ? `${new Date(l.pickupWindow.from).toLocaleDateString(loc(), { weekday: 'short' })} ${time(l.pickupWindow.from)}` : 'TBD'}</span></span>
               <Icon name="chevron" size={14} className="tertiary" />
             </button>
           ))}

@@ -86,6 +86,13 @@ Every driver tracks with the Rugo app on their phone:
 
 Background tracking: a web app can only read GPS while it's open on screen. To keep tracking with the phone locked, package the app as a native app (for example with Capacitor and a background-geolocation plugin). It can post to the same `/api/driver/location` endpoint.
 
+### Languages: English, French, Spanish
+Change it in **Settings → Language**, or with the EN / FR / ES switch on the sign-in screen. Rugo starts in French or Spanish when the phone or browser is set to that language.
+- **What's translated:** every screen, button, label, tooltip and placeholder; toasts and error messages from the server; dates, times, money and numbers (fr-CA and es-MX formats). French is Canadian French with Québec trucking terms, which covers the Charter of the French Language (Bill 96) rule that workplace software be available in French.
+- **What stays as typed:** chat messages and notes people write, and names (companies, places, people).
+- **How it works:** the app is written in English. `src/lib/i18n.js` swaps English text on screen for the chosen language using `src/i18n/fr.json` and `es.json`, including sentences with values ("Pickup moved to {0}").
+- **Adding new screens:** run `node scripts/i18n-extract.mjs` to list strings, translate the new ones into `src/i18n/parts/out-N.json`, then `node scripts/i18n-merge.mjs`.
+
 ### Pickup codes (fraud and theft defence)
 Every load gets a random 6-digit pickup code when it's created.
 - **Who sees it:** the shipper who requested the load, the carrier office that took it, and the assigned driver(s). Carriers browsing the load board don't see it.

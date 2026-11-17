@@ -29,7 +29,7 @@ export default function LoadNotes({ load, compact }) {
       {load.notes && (
         <div className="note pinned">
           <div className="note-head"><Icon name="flag" size={13} /><b>From the customer</b><span className="tertiary">at booking</span></div>
-          <div className="note-text">{load.notes}</div>
+          <div className="note-text" data-no-i18n>{load.notes}</div>
         </div>
       )}
       {notes.length === 0 && !load.notes && <div className="subhead secondary" style={{ textAlign: 'center', padding: '6px 0' }}>No notes yet. Notes are shared between the office and the driver.</div>}
@@ -40,7 +40,7 @@ export default function LoadNotes({ load, compact }) {
             <b>{n.userId === me.id ? 'You' : n.name}</b>
             <span className="tertiary">{dayLabel(n.t)}</span>
           </div>
-          <div className="note-text">{n.text}</div>
+          <div className="note-text" data-no-i18n>{n.text}</div>
         </div>
       ))}
       <form className="note-add" onSubmit={add}>

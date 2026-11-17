@@ -5,6 +5,7 @@ import MapView from '../components/MapView.jsx';
 import { useStore, useIndex } from '../lib/store.jsx';
 import { go } from '../lib/router.js';
 import { time, placeShort, km, duration } from '../lib/format.js';
+import { loc } from '../lib/i18n.js';
 
 // One colour per weekday (Sun to Sat).
 const DAY_COLORS = ['#8e6ad8', '#5e6ad2', '#26b5ce', '#3fae72', '#d9a514', '#f2994a', '#e5484d'];
@@ -25,7 +26,7 @@ export default function CalendarMap({ days, byDay }) {
     const d = idx.users[l.driverId];
     return {
       id: l.id, color: g.color, points: l.legs.toDropoff?.points?.length ? l.legs.toDropoff.points : [l.pickup, l.dropoff],
-      tooltip: `<b>${l.ref}</b> · ${new Date(g.day).toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' })}, ${time(t)}<br>${placeShort(l.pickup)} → ${placeShort(l.dropoff)}<br><b>${km(kmv)}</b> · ${duration(hrs)} driving${d ? `<br>${d.name}` : ''}`,
+      tooltip: `<b>${l.ref}</b> · ${new Date(g.day).toLocaleDateString(loc(), { weekday: 'short', month: 'short', day: 'numeric' })}, ${time(t)}<br>${placeShort(l.pickup)} → ${placeShort(l.dropoff)}<br><b>${km(kmv)}</b> · ${duration(hrs)} driving${d ? `<br>${d.name}` : ''}`,
     };
   })), [shown, idx]); // eslint-disable-line react-hooks/exhaustive-deps
   const total = (g) => g.loads.reduce((a, { l }) => a + l.quote.distanceKm, 0);
@@ -40,7 +41,7 @@ export default function CalendarMap({ days, byDay }) {
           <div key={g.day} style={{ opacity: onlyDay && onlyDay !== g.day ? 0.4 : 1 }}>
             <button className="cal-mapday" onClick={() => setOnlyDay(onlyDay === g.day ? null : g.day)} title="Show only this day">
               <i style={{ background: g.color }} />
-              <span className="headline">{new Date(g.day).toLocaleDateString('en-CA', { weekday: 'long', month: 'short', day: 'numeric' })}</span>
+              <span className="headline">{new Date(g.day).toLocaleDateString(loc(), { weekday: 'long', month: 'short', day: 'numeric' })}</span>
               <span className="footnote secondary" style={{ marginLeft: 'auto' }}>{g.loads.length ? `${g.loads.length} · ${km(total(g))}` : '—'}</span>
             </button>
             {g.loads.map(({ l, t }) => (

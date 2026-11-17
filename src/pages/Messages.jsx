@@ -8,6 +8,7 @@ import { compressImage } from '../lib/image.js';
 import { go } from '../lib/router.js';
 import { time, ago } from '../lib/format.js';
 import { unread, threadTitle, openThread, currentThreadParam, openShift, lastShiftEnd, messageDriver } from '../lib/chat.js';
+import { loc } from '../lib/i18n.js';
 
 function shiftText(data, id) {
   const s = openShift(data, id);
@@ -20,7 +21,7 @@ function dayHeader(t) {
   const d = new Date(t); const today = new Date(); const y = new Date(Date.now() - 864e5);
   if (d.toDateString() === today.toDateString()) return 'Today';
   if (d.toDateString() === y.toDateString()) return 'Yesterday';
-  return d.toLocaleDateString('en-CA', { weekday: 'long', month: 'short', day: 'numeric' });
+  return d.toLocaleDateString(loc(), { weekday: 'long', month: 'short', day: 'numeric' });
 }
 
 function ThreadIcon({ t, data, size = '' }) {
@@ -153,7 +154,7 @@ function Conversation({ t }) {
               {showDay && <div className="day-sep"><span>{day}</span></div>}
               {m.system ? <div className="sys-note">{m.userId === me.id ? m.text.replace(me.name, 'You') : m.text} · {time(m.t)}</div> : <>
               <div className={`bubble-meta ${mine ? 'me' : ''}`}>{mine ? 'You' : `${m.name}${m.role === 'dispatcher' && me.role === 'driver' ? ' · office' : ''}`} · {time(m.t)}</div>
-              <div className={`bubble ${mine ? 'me' : 'them'} ${m.quick ? 'quick' : ''}`}>
+              <div className={`bubble ${mine ? 'me' : 'them'} ${m.quick ? 'quick' : ''}`} data-no-i18n>
                 {m.photoUrl && <img src={m.photoUrl} alt="Photo" className="bubble-photo" onClick={() => setLightbox({ url: m.photoUrl, label: 'Photo', t: m.t, by: m.name })} />}
                 {m.loadRef && (
                   <button className="load-chip" onClick={() => l && go(`/loads/${l.id}`)} disabled={!l}>

@@ -10,6 +10,7 @@ import { useStore } from '../../lib/store.jsx';
 import { money, money2, num, date, dateTime } from '../../lib/format.js';
 import { go } from '../../lib/router.js';
 import { buildReport, periodRange, change, downloadCsv } from '../../lib/reports.js';
+import { loc } from '../../lib/i18n.js';
 
 const SECTIONS = [
   ['summary', 'Summary'], ['money', 'Money'], ['payroll', 'Payroll'], ['drivers', 'Drivers'],
@@ -19,7 +20,7 @@ const PERIODS = [
   ['this_week', 'This week'], ['last_week', 'Last week'], ['this_month', 'This month'], ['last_month', 'Last month'],
   ['last_30', 'Last 30 days'], ['last_90', 'Last 90 days'], ['this_quarter', 'This quarter'], ['ytd', 'Year to date'], ['custom', 'Custom…'],
 ];
-const pctf = (x, d = 0) => (x == null ? '—' : `${(Math.round(x * 10 ** d) / 10 ** d).toLocaleString('en-CA')}%`);
+const pctf = (x, d = 0) => (x == null ? '—' : `${(Math.round(x * 10 ** d) / 10 ** d).toLocaleString(loc())}%`);
 const h1 = (x) => (x == null ? '—' : `${num(x, 1)} h`);
 const ymd = (t) => new Date(t).toISOString().slice(0, 10);
 
@@ -341,7 +342,7 @@ export default function Reports() {
 
   const Current = RENDER[tab];
   const company = data.me.company?.name || 'Company';
-  const periodText = `${new Date(range.from).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })} – ${new Date(range.to - 1).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+  const periodText = `${new Date(range.from).toLocaleDateString(loc(), { month: 'short', day: 'numeric', year: 'numeric' })} – ${new Date(range.to - 1).toLocaleDateString(loc(), { month: 'short', day: 'numeric', year: 'numeric' })}`;
 
   return (
     <div className="page wide reports" style={{ maxWidth: 1320 }}>

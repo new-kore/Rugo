@@ -12,6 +12,7 @@ import { ScorecardView, ScorecardTable } from './Scorecard.jsx';
 import { hosStatus, hm, clockTone, hosLeft } from '../../lib/hos.js';
 import { DAYS, weekSchedule, shiftHours, weeklyHours, scheduleText, expiry, driverAlerts } from '../../lib/drivers.js';
 import { scanLicence } from '../../lib/licenceScan.js';
+import { loc } from '../../lib/i18n.js';
 
 export { scheduleText };
 
@@ -149,7 +150,7 @@ export default function Drivers() {
 export function LicencePill({ driver }) {
   const e = expiry(driver.licenseExpiry);
   const tone = { expired: 'red', soon: 'orange', ok: 'green', none: 'gray' }[e.level];
-  const text = e.level === 'ok' ? `Valid · ${new Date(driver.licenseExpiry).toLocaleDateString('en-CA', { month: 'short', year: 'numeric' })}` : e.level === 'none' ? 'No expiry' : e.text;
+  const text = e.level === 'ok' ? `Valid · ${new Date(driver.licenseExpiry).toLocaleDateString(loc(), { month: 'short', year: 'numeric' })}` : e.level === 'none' ? 'No expiry' : e.text;
   return <span className={`pill ${tone}`} title={e.text}>{e.level !== 'ok' && e.level !== 'none' && <Icon name="warning" size={12} />}{text}</span>;
 }
 

@@ -27,7 +27,7 @@ export default function Chat({ load }) {
           return (
             <div key={m.id} style={{ display: 'contents' }}>
               <div className={`bubble-meta ${me ? 'me' : ''}`}>{me ? 'You' : `${m.name} · ${ROLE[m.role]}`} · {time(m.t)}</div>
-              <div className={`bubble ${me ? 'me' : 'them'}`}>{m.text}</div>
+              <div className={`bubble ${me ? 'me' : 'them'}`} data-no-i18n>{m.text}</div>
             </div>
           );
         })}

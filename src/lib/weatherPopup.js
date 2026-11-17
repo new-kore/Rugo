@@ -3,6 +3,7 @@
 import { api } from './api.js';
 import { CITIES } from './basemap.js';
 import { weatherSvg, skyOf } from '../components/WeatherIcon.jsx';
+import { loc } from './i18n.js';
 
 const KPH = 75; // average truck speed for "when will it get here"
 
@@ -71,7 +72,7 @@ export function resolveClick(p, ctx, now = Date.now()) {
   return { at: now, mode: 'passed', unit };
 }
 
-const clock = (t) => new Date(t).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit' });
+const clock = (t) => new Date(t).toLocaleTimeString(loc(), { hour: 'numeric', minute: '2-digit' });
 const esc = (x) => String(x ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 /** Apple-Weather-style card. */

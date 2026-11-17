@@ -2,6 +2,7 @@
 // Everything is computed from the data already in the app for a [from, to) period, plus the same-length period before it.
 import { scorecards, fleetAverages, punctuality } from '../../server/scorecard.js';
 import { planVsActual } from '../../server/routecheck.js';
+import { loc } from './i18n.js';
 
 const H = 3.6e6;
 const DAY = 864e5;
@@ -20,8 +21,8 @@ export function periodRange(key, custom, now = Date.now()) {
   switch (key) {
     case 'this_week': return { from: startOfWeek(now), to: now, label: 'This week' };
     case 'last_week': { const s = startOfWeek(now) - 7 * DAY; return { from: s, to: s + 7 * DAY, label: 'Last week' }; }
-    case 'this_month': return { from: new Date(d.getFullYear(), d.getMonth(), 1).getTime(), to: now, label: d.toLocaleDateString('en-CA', { month: 'long', year: 'numeric' }) };
-    case 'last_month': { const s = new Date(d.getFullYear(), d.getMonth() - 1, 1); return { from: s.getTime(), to: new Date(d.getFullYear(), d.getMonth(), 1).getTime(), label: s.toLocaleDateString('en-CA', { month: 'long', year: 'numeric' }) }; }
+    case 'this_month': return { from: new Date(d.getFullYear(), d.getMonth(), 1).getTime(), to: now, label: d.toLocaleDateString(loc(), { month: 'long', year: 'numeric' }) };
+    case 'last_month': { const s = new Date(d.getFullYear(), d.getMonth() - 1, 1); return { from: s.getTime(), to: new Date(d.getFullYear(), d.getMonth(), 1).getTime(), label: s.toLocaleDateString(loc(), { month: 'long', year: 'numeric' }) }; }
     case 'last_90': return { from: now - 90 * DAY, to: now, label: 'Last 90 days' };
     case 'this_quarter': { const q = Math.floor(d.getMonth() / 3); return { from: new Date(d.getFullYear(), q * 3, 1).getTime(), to: now, label: `Q${q + 1} ${d.getFullYear()}` }; }
     case 'ytd': return { from: new Date(d.getFullYear(), 0, 1).getTime(), to: now, label: `${d.getFullYear()} year to date` };
@@ -42,9 +43,9 @@ const clip = (s, from, to) => Math.max(0, (Math.min(s.end || Date.now(), to) - M
 export function buckets(from, to) {
   const days = (to - from) / DAY;
   const out = [];
-  if (days <= 15) for (let t = startOfDay(from); t < to; t += DAY) out.push({ from: t, to: t + DAY, label: new Date(t).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' }) });
-  else if (days <= 125) for (let t = startOfWeek(from); t < to; t += 7 * DAY) out.push({ from: t, to: t + 7 * DAY, label: `wk ${new Date(t).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}` });
-  else { const d = new Date(from); d.setDate(1); d.setHours(0, 0, 0, 0); while (d.getTime() < to) { const s = d.getTime(); d.setMonth(d.getMonth() + 1); out.push({ from: s, to: d.getTime(), label: new Date(s).toLocaleDateString('en-CA', { month: 'short' }) }); } }
+  if (days <= 15) for (let t = startOfDay(from); t < to; t += DAY) out.push({ from: t, to: t + DAY, label: new Date(t).toLocaleDateString(loc(), { month: 'short', day: 'numeric' }) });
+  else if (days <= 125) for (let t = startOfWeek(from); t < to; t += 7 * DAY) out.push({ from: t, to: t + 7 * DAY, label: `wk ${new Date(t).toLocaleDateString(loc(), { month: 'short', day: 'numeric' })}` });
+  else { const d = new Date(from); d.setDate(1); d.setHours(0, 0, 0, 0); while (d.getTime() < to) { const s = d.getTime(); d.setMonth(d.getMonth() + 1); out.push({ from: s, to: d.getTime(), label: new Date(s).toLocaleDateString(loc(), { month: 'short' }) }); } }
   return out;
 }
 
@@ -195,7 +196,7 @@ export function buildReport(data, from, to) {
 
 function insights(r) {
   const { m, p } = r; const good = []; const work = [];
-  const f0 = (x) => Math.round(x).toLocaleString('en-CA'); const f1 = (x) => (Math.round(x * 10) / 10).toLocaleString('en-CA');
+  const f0 = (x) => Math.round(x).toLocaleString(loc()); const f1 = (x) => (Math.round(x * 10) / 10).toLocaleString(loc());
   const $ = (x) => `$${f0(x)}`;
   const ch = (a, b) => change(a, b);
   if (p.loads) {

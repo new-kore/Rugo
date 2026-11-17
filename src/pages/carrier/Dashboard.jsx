@@ -13,6 +13,7 @@ import { unread, openShift } from '../../lib/chat.js';
 import { useMatches } from '../../lib/ai.js';
 import { stopWindow, punctuality } from '../../../server/scorecard.js';
 import { post } from '../../lib/api.js';
+import { loc } from '../../lib/i18n.js';
 
 const H = 3.6e6;
 const MOVING = ['en_route_pickup', 'in_transit'];
@@ -120,7 +121,7 @@ export default function Dashboard() {
   const week = Array.from({ length: 7 }, (_, i) => {
     const s = t0 - (6 - i) * 24 * H;
     const v = loads.filter((l) => l.status === 'delivered' && l.deliveredAt >= s && l.deliveredAt < s + 24 * H).reduce((a, l) => a + (l.economics?.revenue || 0), 0);
-    return { label: new Date(s).toLocaleDateString('en-CA', { weekday: 'short' }), value: Math.round(v) };
+    return { label: new Date(s).toLocaleDateString(loc(), { weekday: 'short' }), value: Math.round(v) };
   });
   const todayStops = stops.filter((x) => x.done);
   const onTimePct = todayStops.length ? Math.round((todayStops.filter((x) => !x.late).length / todayStops.length) * 100) : null;
@@ -130,7 +131,7 @@ export default function Dashboard() {
     <div className="page wide dash" style={{ maxWidth: 1480 }}>
       <div className="dash-head">
         <div>
-          <div className="subhead secondary">{new Date(now).toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric' })} · {time(now)}</div>
+          <div className="subhead secondary">{new Date(now).toLocaleDateString(loc(), { weekday: 'long', month: 'long', day: 'numeric' })} · {time(now)}</div>
           <h1 className="large-title">{greeting()}, {data.me.name.split(' ')[0]}</h1>
         </div>
         <div className="row wrap" style={{ gap: 8 }}>

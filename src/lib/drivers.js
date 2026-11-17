@@ -1,4 +1,5 @@
 // Driver helpers shared by Drivers, Calendar and notifications.
+import { loc } from './i18n.js';
 export const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const DAY_MS = 864e5;
 
@@ -38,7 +39,7 @@ export function expiry(t, now = Date.now()) {
   const days = Math.ceil((t - now) / DAY_MS);
   if (days < 0) return { level: 'expired', days, text: `Expired ${-days} day${days === -1 ? '' : 's'} ago` };
   if (days <= 30) return { level: 'soon', days, text: days === 0 ? 'Expires today' : `Expires in ${days} day${days === 1 ? '' : 's'}` };
-  return { level: 'ok', days, text: `Valid until ${new Date(t).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}` };
+  return { level: 'ok', days, text: `Valid until ${new Date(t).toLocaleDateString(loc(), { month: 'short', day: 'numeric', year: 'numeric' })}` };
 }
 
 /** Everything about a driver that needs attention soon. */

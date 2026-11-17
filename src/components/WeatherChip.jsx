@@ -2,6 +2,7 @@
 import { ago } from '../lib/format.js';
 import WeatherIcon from './WeatherIcon.jsx';
 import { kindOfW } from '../lib/weatherPopup.js';
+import { loc } from '../lib/i18n.js';
 
 export function weatherTitle(w) {
   if (!w) return '';
@@ -22,7 +23,7 @@ export default function WeatherChip({ w, compact, onDark }) {
 }
 
 const esc = (x) => String(x ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const clock = (t) => new Date(t).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit' });
+const clock = (t) => new Date(t).toLocaleTimeString(loc(), { hour: 'numeric', minute: '2-digit' });
 
 /** Weather line for a truck's map hover, e.g. "❄️ −6°C Heavy snow · feels −13° · gusts 62 km/h · as of 2:05 p.m.". */
 export function weatherLine(w) {

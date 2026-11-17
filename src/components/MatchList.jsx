@@ -1,6 +1,7 @@
 // Ranked driver list for a load, with the reasons behind each match score.
 import Icon from './Icon.jsx';
 import { Avatar } from './ui.jsx';
+import { loc } from '../lib/i18n.js';
 
 export function ScoreBadge({ score, size = 36 }) {
   const tone = score >= 80 ? 'var(--green)' : score >= 60 ? 'var(--blue)' : score >= 40 ? 'var(--orange)' : 'var(--label-3)';
@@ -38,7 +39,7 @@ export default function MatchList({ rows, pick, onPick, equipmentLabel }) {
               {r.driver.name}
               {r.best && <span className="pill green"><Icon name="sparkles" size={11} />Best match</span>}
             </div>
-            <div className="footnote secondary truncate">{r.truck ? `Unit ${r.truck.unit}${equipmentLabel ? ` · ${equipmentLabel(r.truck.equipment)}` : ''}` : 'No truck'} · costs ${Math.round(r.cost).toLocaleString('en-CA')}</div>
+            <div className="footnote secondary truncate">{r.truck ? `Unit ${r.truck.unit}${equipmentLabel ? ` · ${equipmentLabel(r.truck.equipment)}` : ''}` : 'No truck'} · costs ${Math.round(r.cost).toLocaleString(loc())}</div>
             <Reasons r={r} />
           </div>
           <div style={{ width: 24, height: 24, borderRadius: 12, flex: 'none', display: 'grid', placeItems: 'center', background: pick === r.driver.id ? 'var(--blue)' : 'transparent', boxShadow: pick === r.driver.id ? 'none' : 'inset 0 0 0 2px var(--label-3)', color: '#fff' }}>

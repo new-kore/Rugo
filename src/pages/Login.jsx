@@ -1,3 +1,4 @@
+import { LANGS, getLang, setLang } from '../lib/i18n.js';
 import { useState } from 'react';
 import Icon from '../components/Icon.jsx';
 import { post, standalone } from '../lib/api.js';
@@ -22,6 +23,9 @@ export default function Login() {
 
   return (
     <div className="login">
+      <div className="login-lang" role="group" aria-label="Language" data-no-i18n>
+        {LANGS.map((l) => <button key={l.code} className={getLang() === l.code ? 'on' : ''} onClick={() => setLang(l.code)}>{l.code.toUpperCase()}</button>)}
+      </div>
       <div className="login-card stack" style={{ gap: 28 }}>
         <div className="stack" style={{ alignItems: 'center', textAlign: 'center', gap: 10 }}>
           <div className="brand-mark" style={{ width: 72, height: 72, borderRadius: 18 }}><Icon name="truck" size={38} stroke={2.1} /></div>

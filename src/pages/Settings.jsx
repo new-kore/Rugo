@@ -1,3 +1,4 @@
+import { LANGS, getLang, setLang } from '../lib/i18n.js';
 import { useState } from 'react';
 import Icon from '../components/Icon.jsx';
 import { PageHead, Segmented, Switch, Avatar, ConfirmButton } from '../components/ui.jsx';
@@ -21,6 +22,7 @@ export default function Settings() {
   const { data, signOut, setData, toast } = useStore();
   const [text, setText] = usePref('rugo.text', 'text', 'normal');
   const [theme, setTheme] = usePref('rugo.theme', 'theme', 'light');
+  const [lang, setLangUi] = useState(getLang());
   const me = data.me;
   const s = data.settings;
   const [fuel, setFuel] = useState(s.fuelPricePerL);
@@ -58,6 +60,16 @@ export default function Settings() {
         </div>
       </div>
       <div className="section-footer">Bigger text makes every screen easier to read on the road or in the office.</div>
+
+      <div className="section-header">Language</div>
+      <div className="list">
+        <div className="list-row indent">
+          <div className="icon-tile" style={{ background: 'var(--teal, #30b0c7)' }}><Icon name="message" size={18} /></div>
+          <div className="label">Language</div>
+          <Segmented value={lang} onChange={(v) => { setLangUi(v); setLang(v); }} options={LANGS.map((l) => ({ value: l.code, label: <span data-no-i18n>{l.label}</span> }))} />
+        </div>
+      </div>
+      <div className="section-footer">Changes every screen right away, including dates and money. French meets Québec’s Charter of the French Language for workplace software.</div>
 
       {me.role === 'driver' && (
         <>

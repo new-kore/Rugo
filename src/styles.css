@@ -1416,3 +1416,7 @@ textarea.input { height: auto; min-height: 84px; padding: 11px 14px; line-height
 .pcode-done { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 12px; font-size: 0.85rem; color: var(--green-text); background: color-mix(in srgb, var(--green) 8%, var(--bg-elevated)); border: 1px solid color-mix(in srgb, var(--green) 25%, var(--border)); }
 .pcode-done.bad { color: var(--red-text); background: color-mix(in srgb, var(--red) 7%, var(--bg-elevated)); border-color: color-mix(in srgb, var(--red) 30%, var(--border)); }
 @media (max-width: 600px) { .pcode-digits { gap: 5px; } .pcode-digits span { width: 40px; height: 52px; font-size: 1.7rem; } .pcode-digits span.gap { margin-left: 6px; } }
+/* Language switch on the sign-in screen */
+.login-lang { position: fixed; top: 14px; right: 16px; z-index: 5; display: inline-flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--bg-fill-2); }
+.login-lang button { border: 0; background: none; font: inherit; font-size: 0.78rem; font-weight: 600; padding: 5px 10px; border-radius: 7px; color: var(--label-2); cursor: pointer; }
+.login-lang button.on { background: var(--bg-elevated); color: var(--label); box-shadow: 0 1px 3px rgba(0,0,0,.12); }

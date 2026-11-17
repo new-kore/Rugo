@@ -1,9 +1,11 @@
+import { loc } from './i18n.js';
+
 export const money = (n, cur = 'CAD', digits = 0) =>
-  n == null || Number.isNaN(n) ? '—' : new Intl.NumberFormat('en-CA', { style: 'currency', currency: cur, maximumFractionDigits: digits, minimumFractionDigits: digits }).format(n);
+  n == null || Number.isNaN(n) ? '—' : new Intl.NumberFormat(loc(), { style: 'currency', currency: cur, maximumFractionDigits: digits, minimumFractionDigits: digits }).format(n);
 export const money2 = (n, cur) => money(n, cur, 2);
-export const km = (n, d = 0) => (n == null ? '—' : `${Number(n).toLocaleString('en-CA', { maximumFractionDigits: d, minimumFractionDigits: d })} km`);
-export const num = (n, d = 0) => (n == null ? '—' : Number(n).toLocaleString('en-CA', { maximumFractionDigits: d, minimumFractionDigits: d }));
-export const kg = (n) => (n ? `${Number(n).toLocaleString('en-CA')} kg` : '—');
+export const km = (n, d = 0) => (n == null ? '—' : `${Number(n).toLocaleString(loc(), { maximumFractionDigits: d, minimumFractionDigits: d })} km`);
+export const num = (n, d = 0) => (n == null ? '—' : Number(n).toLocaleString(loc(), { maximumFractionDigits: d, minimumFractionDigits: d }));
+export const kg = (n) => (n ? `${Number(n).toLocaleString(loc())} kg` : '—');
 
 export function duration(hours) {
   if (hours == null || Number.isNaN(hours)) return '—';
@@ -12,8 +14,8 @@ export function duration(hours) {
   const h = Math.floor(m / 60);
   return `${h} h ${String(m % 60).padStart(2, '0')} min`;
 }
-export const time = (t) => (t ? new Date(t).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit' }) : '—');
-export const date = (t) => (t ? new Date(t).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' }) : '—');
+export const time = (t) => (t ? new Date(t).toLocaleTimeString(loc(), { hour: 'numeric', minute: '2-digit' }) : '—');
+export const date = (t) => (t ? new Date(t).toLocaleDateString(loc(), { month: 'short', day: 'numeric' }) : '—');
 export const dateTime = (t) => (t ? `${date(t)}, ${time(t)}` : '—');
 export function dayLabel(t) {
   const d = new Date(t); const now = new Date();

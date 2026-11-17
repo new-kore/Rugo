@@ -1,0 +1,8 @@
+{"fr": {
+ "Isaac’s partner API isn’t publicly documented. Rugo uses common field names; if your data doesn’t appear, send us Isaac’s API docs and we’ll adjust the mapping.": "L’API partenaire d’Isaac n’est pas documentée publiquement. Rugo utilise des noms de champs courants; si vos données n’apparaissent pas, envoyez-nous la documentation de l’API d’Isaac et nous ajusterons la correspondance.",
+ "Ranks drivers on every load; you confirm.": "Classe les chauffeurs pour chaque chargement; vous confirmez."
+},
+"es": {
+ "Isaac’s partner API isn’t publicly documented. Rugo uses common field names; if your data doesn’t appear, send us Isaac’s API docs and we’ll adjust the mapping.": "La API de socios de Isaac no está documentada públicamente. Rugo usa nombres de campo comunes; si sus datos no aparecen, envíenos la documentación de la API de Isaac y ajustaremos la correspondencia.",
+ "Ranks drivers on every load; you confirm.": "Clasifica a los conductores en cada carga; usted confirma."
+}}
