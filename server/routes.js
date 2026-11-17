@@ -180,6 +180,29 @@ export function routes(app) {
     res.json(load);
   });
 
+  // Move a planned load to a new pickup time (drag on the calendar). Only before the trip starts.
+  app.post('/api/loads/:id/reschedule', auth, role('dispatcher', 'shipper'), (req, res) => {
+    const load = getLoad(req, res); if (!load) return;
+    const u = req.user;
+    if (u.role === 'dispatcher' && load.carrierId !== u.companyId) return res.status(403).json({ error: 'Only your own loads can be moved.' });
+    if (u.role === 'shipper' && load.status !== 'requested') return res.status(409).json({ error: 'The carrier has this load now. Ask them to change the time.' });
+    if (!['requested', 'accepted'].includes(load.status)) return res.status(409).json({ error: `${load.ref} has already started, so its time can’t be moved.` });
+    const from = Number(req.body?.pickupFrom);
+    if (!(from > Date.now() - 15 * 60000)) return res.status(400).json({ error: 'Pick a time that hasn’t passed yet.' });
+    const old = load.pickupWindow?.from || from;
+    const delta = from - old;
+    load.pickupWindow = { from, to: (load.pickupWindow?.to || old + 2 * 3600e3) + delta };
+    if (load.deliveryWindow?.from) load.deliveryWindow = { from: load.deliveryWindow.from + delta, to: (load.deliveryWindow.to || load.deliveryWindow.from) + delta };
+    const when = new Date(from).toLocaleString('en-CA', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    addTimeline(load, load.status, u, `Pickup moved to ${when}`);
+    try { updateEta(load); } catch { /* no truck position yet */ }
+    save();
+    publish('loads', load);
+    const drivers = [load.driverId, ...(load.teamDriverIds || [])].filter(Boolean);
+    if (drivers.length) notify((v) => drivers.includes(v.id), { title: `🗓 ${load.ref} rescheduled`, body: `Pickup is now ${when} at ${load.pickup.city}.` });
+    res.json(load);
+  });
+
   app.post('/api/loads/:id/event', auth, role('driver', 'dispatcher'), (req, res) => {
     const load = getLoad(req, res); if (!load) return;
     const err = loadEvent(load, req.body?.type, req.user, { fuelLogId: req.body?.fuelLogId });

@@ -132,6 +132,8 @@ export default function Calendar() {
   const [who, setWho] = useState('');
   const [adding, setAdding] = useState(null); // null | { day, minutes? }
   const canAdd = role === 'dispatcher' || role === 'shipper';
+  const [moving, setMoving] = useState(null); // { trip, to } waiting for confirmation
+  const canMove = (t) => ['requested', 'accepted'].includes(t.load.status) && (role === 'dispatcher' ? t.load.carrierId === data.me.companyId : role === 'shipper' && t.load.status === 'requested');
   const addAt = (day, minutes) => (role === 'shipper' ? go('/new') : setAdding({ day, minutes }));
   const [secOpen, setSecOpen] = useState({ mine: true, other: true });
   const toggle = (id) => setHidden((h) => { const n = new Set(h); if (n.has(id)) n.delete(id); else n.add(id); return n; });
@@ -226,13 +228,14 @@ export default function Calendar() {
           <div className="spacer" />
           <Segmented value={view} onChange={setView} options={[{ value: 'day', label: 'Day' }, { value: 'week', label: 'Week' }, { value: 'month', label: 'Month' }, ...(isDispatch ? [{ value: 'schedule', label: 'Schedule' }] : []), { value: 'map', label: 'Map' }]} />
         </header>
-        {(view === 'week' || view === 'day') && <TimeGrid days={days} trips={trips} now={now} onEvent={showEvent} onDay={openDay} holidays={showHolidays} onSlot={canAdd ? addAt : null} />}
+        {(view === 'week' || view === 'day') && <TimeGrid days={days} trips={trips} now={now} onEvent={showEvent} onDay={openDay} holidays={showHolidays} onSlot={canAdd ? addAt : null} canMove={canMove} onMove={(trip, to) => setMoving({ trip, to })} />}
         {view === 'month' && <MonthGrid days={days} month={c.getMonth()} trips={trips} onEvent={showEvent} onDay={openDay} holidays={showHolidays} onSlot={canAdd ? addAt : null} />}
         {view === 'map' && <div style={{ padding: 16 }}><CalendarMap days={weekDays} byDay={byDay} /></div>}
         {view === 'schedule' && <ScheduleView days={weekDays} trips={trips} now={now} onEvent={showEvent} />}
       </section>
 
       {pop && <EventCard pop={pop} idx={idx} data={data} onClose={() => setPop(null)} />}
+      {moving && <MoveConfirm trip={moving.trip} to={moving.to} onClose={() => setMoving(null)} />}
       {adding && <AddRouteSheet day={adding.day} minutes={adding.minutes} onClose={() => setAdding(null)} onDone={(l) => { setAdding(null); setCursor(startOfDay(l.pickupWindow.from)); if (view === 'map' || view === 'month') setView('day'); }} />}
     </div>
   );
@@ -274,8 +277,44 @@ function MiniMonth({ cursor, view, days, trips, onPick }) {
   );
 }
 
-function TimeGrid({ days, trips, now, onEvent, onDay, holidays, onSlot }) {
+function TimeGrid({ days, trips, now, onEvent, onDay, holidays, onSlot, canMove, onMove }) {
   const scroller = useRef(null);
+  const inner = useRef(null);
+  const drag = useRef(null); // pointer bookkeeping while dragging an event
+  const [preview, setPreview] = useState(null); // { id, d, min, dur, color, title }
+  const pv = useRef(null);
+  const SNAP = 15;
+  const startDrag = (e, sg, d) => {
+    if (!canMove?.(sg.trip) || e.button !== 0) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    drag.current = { sg, d, x: e.clientX, y: e.clientY, grabY: e.clientY - r.top, moved: false, el: e.currentTarget };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const moveDrag = (e) => {
+    const g = drag.current; if (!g) return;
+    if (!g.moved && Math.hypot(e.clientX - g.x, e.clientY - g.y) < 6) return;
+    g.moved = true;
+    const colsEl = [...inner.current.querySelectorAll('.tg-col')];
+    let i = colsEl.findIndex((c) => { const b = c.getBoundingClientRect(); return e.clientX >= b.left && e.clientX < b.right; });
+    if (i < 0) i = e.clientX < colsEl[0].getBoundingClientRect().left ? 0 : colsEl.length - 1;
+    const top = e.clientY - g.grabY - colsEl[i].getBoundingClientRect().top;
+    const min = Math.max(0, Math.min(24 * 60 - SNAP, Math.round(((top / HOUR_PX) * 60) / SNAP) * SNAP));
+    const dur = g.sg.trip.end - g.sg.trip.start;
+    const next = { id: g.sg.trip.id, d: days[i], min, dur, color: g.sg.trip.color, title: g.sg.trip.load.ref };
+    pv.current = next;
+    setPreview((p) => (p && p.d === next.d && p.min === next.min ? p : next));
+  };
+  const endDrag = () => {
+    const g = drag.current; drag.current = null;
+    if (!g?.moved) return;
+    g.el.dataset.dragged = '1'; setTimeout(() => { delete g.el.dataset.dragged; }, 0);
+    const p = pv.current; pv.current = null; setPreview(null);
+    if (p) {
+      // Same offset into the segment as before, so multi-day trips keep their shape.
+      const delta = p.d + p.min * 60000 - g.sg.s;
+      if (Math.abs(delta) >= 60000) onMove?.(g.sg.trip, g.sg.trip.start + delta);
+    }
+  };
   const [ghost, setGhost] = useState(null); // { d, min } under the pointer
   const slotAt = (e) => { const r = e.currentTarget.getBoundingClientRect(); return Math.max(0, Math.min(23 * 60 + 30, Math.floor((((e.clientY - r.top) / HOUR_PX) * 60) / 30) * 30)); };
   const onEmpty = (e) => !e.target.closest('.tg-ev, .tg-now');
@@ -314,7 +353,7 @@ function TimeGrid({ days, trips, now, onEvent, onDay, holidays, onSlot }) {
         </div>
       )}
       <div className="tg-body" ref={scroller}>
-        <div className="tg-inner" style={{ gridTemplateColumns: template, height: 24 * HOUR_PX }}>
+        <div className="tg-inner" ref={inner} style={{ gridTemplateColumns: template, height: 24 * HOUR_PX }}>
           <div className="tg-hours">
             {Array.from({ length: 24 }, (_, h) => <div key={h} className="tg-hour" style={{ top: h * HOUR_PX }}>{hourLabel(h)}</div>)}
           </div>
@@ -330,15 +369,21 @@ function TimeGrid({ days, trips, now, onEvent, onDay, holidays, onSlot }) {
                 const height = Math.max(20, ((sg.e - sg.s) / H) * HOUR_PX - 2);
                 const l = sg.trip.load;
                 return (
-                  <button key={sg.trip.id} className={`tg-ev ${l.status === 'requested' ? 'tentative' : ''} ${l.status === 'delivered' ? 'past' : ''}`}
+                  <button key={sg.trip.id} className={`tg-ev ${l.status === 'requested' ? 'tentative' : ''} ${l.status === 'delivered' ? 'past' : ''} ${canMove?.(sg.trip) ? 'movable' : ''} ${preview?.id === sg.trip.id ? 'dragging' : ''}`}
                     style={{ top, height, ...stackPos(sg), '--ev': sg.trip.color }}
-                    onClick={(e) => onEvent(sg.trip, e)}>
+                    onPointerDown={(e) => startDrag(e, sg, d)} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={() => { drag.current = null; pv.current = null; setPreview(null); }}
+                    onClick={(e) => { if (e.currentTarget.dataset.dragged) return; onEvent(sg.trip, e); }}>
                     <span className="tg-ev-title">{l.ref} · {l.pickup.city} → {l.dropoff.city}</span>
                     {height > 34 && <span className="tg-ev-time">{sg.contStart ? '…' : shortTime(sg.trip.start)} – {sg.contEnd ? '…' : shortTime(sg.trip.end)}</span>}
                     {height > 56 && <span className="tg-ev-time">{l.cargo.description}</span>}
                   </button>
                 );
               })}
+              {preview?.d === d && (
+                <div className="tg-drop" style={{ top: (preview.min / 60) * HOUR_PX, height: Math.max(22, (preview.dur / H) * HOUR_PX - 2), '--ev': preview.color }}>
+                  <b>{preview.title}</b><span>{shortTime(d + preview.min * 60000)}</span>
+                </div>
+              )}
               {sameDay(d, now) && <div className="tg-now" style={{ top: nowTop }}><i /></div>}
             </div>
           ))}
@@ -432,6 +477,42 @@ function EventCard({ pop, idx, data, onClose }) {
 }
 
 /** Dispatch adds its own route. Left: numbered sections. Right: live summary with the route on a map. */
+function MoveConfirm({ trip, to, onClose }) {
+  const { data, toast, upsert } = useStore();
+  const l = trip.load;
+  const newPickup = to; // where the block was dropped is the new pickup time
+  const fmt = (t) => new Date(t).toLocaleString('en-CA', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  const driver = data.users.find((u) => u.id === l.driverId);
+  const past = newPickup < Date.now() - 15 * 60000;
+  useEffect(() => { const on = (e) => e.key === 'Escape' && onClose(); window.addEventListener('keydown', on); return () => window.removeEventListener('keydown', on); }, [onClose]);
+  const confirm = async () => {
+    const r = await post(`/loads/${l.id}/reschedule`, { pickupFrom: Math.round(newPickup) });
+    upsert('loads', r);
+    toast({ title: `${l.ref} moved`, body: `Pickup ${fmt(newPickup)}${driver ? ` · ${driver.name.split(' ')[0]} has been told` : ''}.`, tone: 'ok' });
+    onClose();
+  };
+  return (
+    <div className="scrim" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="move-confirm" role="alertdialog" aria-modal="true" aria-label={`Move ${l.ref}?`}>
+        <div className="move-icon" style={{ background: `color-mix(in srgb, ${trip.color} 16%, transparent)`, color: trip.color }}><Icon name="calendar" size={22} /></div>
+        <div className="title3" style={{ textAlign: 'center' }}>Move {l.ref}?</div>
+        <div className="subhead secondary" style={{ textAlign: 'center' }}>{placeShort(l.pickup)} → {placeShort(l.dropoff)}</div>
+        <div className="move-times">
+          <div><span>From</span><s>{fmt(trip.start)}</s></div>
+          <Icon name="chevron" size={16} className="tertiary" />
+          <div><span>To</span><b>{fmt(newPickup)}</b></div>
+        </div>
+        {past ? <div className="footnote" style={{ color: 'var(--red-text)', textAlign: 'center' }}>That time has already passed. Drop it later in the day.</div>
+          : <div className="footnote secondary" style={{ textAlign: 'center' }}>{driver ? `${driver.name} will get a notification with the new pickup time.` : 'No driver yet — the new time shows on the load board.'}{l.deliveryWindow?.from ? ' The delivery window moves by the same amount.' : ''}</div>}
+        <div className="move-actions">
+          <button className="btn large" onClick={onClose}>Cancel</button>
+          <ActionButton className="btn primary large" disabled={past} onClick={confirm}>Move route</ActionButton>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AddRouteSheet({ day, minutes, onClose, onDone }) {
   const { data, toast, upsert } = useStore();
   const idx = useIndex();
