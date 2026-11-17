@@ -130,7 +130,9 @@ export default function Calendar() {
   const [hidden, setHidden] = useState(() => new Set());
   const [pop, setPop] = useState(null);
   const [who, setWho] = useState('');
-  const [adding, setAdding] = useState(false);
+  const [adding, setAdding] = useState(null); // null | { day, minutes? }
+  const canAdd = role === 'dispatcher' || role === 'shipper';
+  const addAt = (day, minutes) => (role === 'shipper' ? go('/new') : setAdding({ day, minutes }));
   const [secOpen, setSecOpen] = useState({ mine: true, other: true });
   const toggle = (id) => setHidden((h) => { const n = new Set(h); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const showHolidays = !hidden.has('holidays');
@@ -193,7 +195,7 @@ export default function Calendar() {
     <div className="gcal">
       <aside className="gcal-rail">
         {role !== 'driver' && (
-          <button className="gcal-create" onClick={() => (role === 'shipper' ? go('/new') : setAdding(true))}>
+          <button className="gcal-create" onClick={() => addAt(cursor)}>
             <Icon name="plus" size={20} stroke={2.2} />{role === 'shipper' ? 'Request pickup' : 'Add route'}
           </button>
         )}
@@ -224,14 +226,14 @@ export default function Calendar() {
           <div className="spacer" />
           <Segmented value={view} onChange={setView} options={[{ value: 'day', label: 'Day' }, { value: 'week', label: 'Week' }, { value: 'month', label: 'Month' }, ...(isDispatch ? [{ value: 'schedule', label: 'Schedule' }] : []), { value: 'map', label: 'Map' }]} />
         </header>
-        {(view === 'week' || view === 'day') && <TimeGrid days={days} trips={trips} now={now} onEvent={showEvent} onDay={openDay} holidays={showHolidays} />}
-        {view === 'month' && <MonthGrid days={days} month={c.getMonth()} trips={trips} onEvent={showEvent} onDay={openDay} holidays={showHolidays} />}
+        {(view === 'week' || view === 'day') && <TimeGrid days={days} trips={trips} now={now} onEvent={showEvent} onDay={openDay} holidays={showHolidays} onSlot={canAdd ? addAt : null} />}
+        {view === 'month' && <MonthGrid days={days} month={c.getMonth()} trips={trips} onEvent={showEvent} onDay={openDay} holidays={showHolidays} onSlot={canAdd ? addAt : null} />}
         {view === 'map' && <div style={{ padding: 16 }}><CalendarMap days={weekDays} byDay={byDay} /></div>}
         {view === 'schedule' && <ScheduleView days={weekDays} trips={trips} now={now} onEvent={showEvent} />}
       </section>
 
       {pop && <EventCard pop={pop} idx={idx} data={data} onClose={() => setPop(null)} />}
-      {adding && <AddRouteSheet day={cursor} onClose={() => setAdding(false)} onDone={(l) => { setAdding(false); setCursor(startOfDay(l.pickupWindow.from)); if (view === 'map' || view === 'month') setView('day'); }} />}
+      {adding && <AddRouteSheet day={adding.day} minutes={adding.minutes} onClose={() => setAdding(null)} onDone={(l) => { setAdding(null); setCursor(startOfDay(l.pickupWindow.from)); if (view === 'map' || view === 'month') setView('day'); }} />}
     </div>
   );
 }
@@ -272,8 +274,11 @@ function MiniMonth({ cursor, view, days, trips, onPick }) {
   );
 }
 
-function TimeGrid({ days, trips, now, onEvent, onDay, holidays }) {
+function TimeGrid({ days, trips, now, onEvent, onDay, holidays, onSlot }) {
   const scroller = useRef(null);
+  const [ghost, setGhost] = useState(null); // { d, min } under the pointer
+  const slotAt = (e) => { const r = e.currentTarget.getBoundingClientRect(); return Math.max(0, Math.min(23 * 60 + 30, Math.floor((((e.clientY - r.top) / HOUR_PX) * 60) / 30) * 30)); };
+  const onEmpty = (e) => !e.target.closest('.tg-ev, .tg-now');
   useLayoutEffect(() => {
     // Open around the current time.
     if (scroller.current) scroller.current.scrollTop = Math.max(0, new Date().getHours() - 2) * HOUR_PX;
@@ -314,7 +319,11 @@ function TimeGrid({ days, trips, now, onEvent, onDay, holidays }) {
             {Array.from({ length: 24 }, (_, h) => <div key={h} className="tg-hour" style={{ top: h * HOUR_PX }}>{hourLabel(h)}</div>)}
           </div>
           {cols.map(({ d, segs }) => (
-            <div key={d} className="tg-col">
+            <div key={d} className={`tg-col ${onSlot ? 'addable' : ''}`}
+              onMouseMove={onSlot ? (e) => { if (!onEmpty(e)) return setGhost(null); const min = slotAt(e); if (ghost?.d !== d || ghost.min !== min) setGhost({ d, min }); } : undefined}
+              onMouseLeave={onSlot ? () => setGhost(null) : undefined}
+              onClick={onSlot ? (e) => { if (onEmpty(e)) { setGhost(null); onSlot(d, slotAt(e)); } } : undefined}>
+              {ghost?.d === d && <div className="tg-ghost" style={{ top: (ghost.min / 60) * HOUR_PX, height: HOUR_PX * 2 - 2 }}><Icon name="plus" size={13} stroke={2.6} />Add route · {shortTime(d + ghost.min * 60000)}</div>}
               {Array.from({ length: 24 }, (_, h) => <div key={h} className="tg-line" style={{ top: h * HOUR_PX }} />)}
               {segs.map((sg) => {
                 const top = ((sg.s - d) / H) * HOUR_PX;
@@ -339,7 +348,7 @@ function TimeGrid({ days, trips, now, onEvent, onDay, holidays }) {
   );
 }
 
-function MonthGrid({ days, month, trips, onEvent, onDay, holidays }) {
+function MonthGrid({ days, month, trips, onEvent, onDay, holidays, onSlot }) {
   const max = 3;
   return (
     <div className="mg">
@@ -348,7 +357,7 @@ function MonthGrid({ days, month, trips, onEvent, onDay, holidays }) {
         {days.map((d) => {
           const evs = trips.filter((t) => sameDay(t.start, d)).sort((a, b) => a.start - b.start);
           return (
-            <div key={d} className={`mg-cell ${new Date(d).getMonth() !== month ? 'out' : ''}`} onClick={() => onDay(d)}>
+            <div key={d} className={`mg-cell ${new Date(d).getMonth() !== month ? 'out' : ''} ${onSlot ? 'addable' : ''}`} onClick={() => (onSlot ? onSlot(d) : onDay(d))} title={onSlot ? 'Click to add a route on this day' : undefined}>
               <button className={`mg-num ${sameDay(d, Date.now()) ? 'today' : ''}`} onClick={(e) => { e.stopPropagation(); onDay(d); }}>
                 {new Date(d).getDate() === 1 ? new Date(d).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' }) : new Date(d).getDate()}
               </button>
@@ -423,7 +432,7 @@ function EventCard({ pop, idx, data, onClose }) {
 }
 
 /** Dispatch adds its own route. Left: numbered sections. Right: live summary with the route on a map. */
-function AddRouteSheet({ day, onClose, onDone }) {
+function AddRouteSheet({ day, minutes, onClose, onDone }) {
   const { data, toast, upsert } = useStore();
   const idx = useIndex();
   const pad = (n) => String(n).padStart(2, '0');
@@ -437,8 +446,10 @@ function AddRouteSheet({ day, onClose, onDone }) {
   const [showPc, setShowPc] = useState(false);
   const [showDc, setShowDc] = useState(false);
   const [pDate, setPDate] = useState(dayStr(day));
-  const [pFrom, setPFrom] = useState(`${pad(firstHour)}:00`);
-  const [pTo, setPTo] = useState(`${pad(Math.min(23, firstHour + 2))}:00`);
+  const startMin = minutes != null ? minutes : firstHour * 60;
+  const hm = (m) => `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
+  const [pFrom, setPFrom] = useState(hm(startMin));
+  const [pTo, setPTo] = useState(hm(Math.min(23 * 60 + 59, startMin + 120)));
   const [appt, setAppt] = useState('');
   const [f, setF] = useState({ equipment: 'dry_van', description: '', weightKg: '', pallets: '', tempC: 3, hazmat: false, valueCad: '', poNumber: '', customer: '', rate: '' });
   const [opts, setOpts] = useState({ liftgate: false, expedite: false });

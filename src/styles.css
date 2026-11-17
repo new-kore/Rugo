@@ -1362,3 +1362,9 @@ textarea.input { height: auto; min-height: 84px; padding: 11px 14px; line-height
   .dkpi-icon { display: none; } .dkpi-head { gap: 6px; }
   .dkpi.alert .dkpi-head::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--red); flex: none; }
 }
+/* Calendar: click any empty slot to add a route */
+.tg-col.addable { cursor: cell; }
+.tg-ghost { position: absolute; left: 3px; right: 6px; z-index: 1; pointer-events: none; display: flex; align-items: flex-start; gap: 5px; padding: 5px 8px; border-radius: 8px; border: 1.5px dashed var(--blue); background: color-mix(in srgb, var(--blue) 8%, transparent); color: var(--blue); font-size: 0.75rem; font-weight: 600; white-space: nowrap; overflow: hidden; }
+.mg-cell.addable { cursor: cell; transition: background .12s; }
+.mg-cell.addable:hover { background: color-mix(in srgb, var(--blue) 5%, transparent); }
+@media (hover: none) { .tg-ghost { display: none; } }
