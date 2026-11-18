@@ -2,7 +2,7 @@
 // The result is always shown to a person to confirm. Where outside scripts are blocked, it reports that and the
 // form is filled in by hand.
 let loading = null;
-function loadTesseract() {
+export function loadTesseract() {
   if (window.Tesseract) return Promise.resolve(window.Tesseract);
   if (loading) return loading;
   loading = new Promise((resolve, reject) => {

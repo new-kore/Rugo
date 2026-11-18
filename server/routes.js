@@ -467,28 +467,67 @@ export function routes(app) {
     const truckId = req.user.role === 'driver' ? req.user.truckId : b.truckId;
     const truck = find('trucks', truckId);
     if (!truck || truck.carrierId !== req.user.companyId) return res.status(400).json({ error: 'Choose a truck.' });
-    const litres = Number(b.litres);
-    const pricePerL = Number(b.pricePerL);
-    // Every driver fill-up needs a photo of the receipt.
+    const n = (v) => (Number(v) > 0 ? Math.round(Number(v) * 1000) / 1000 : 0);
+    const litres = n(b.litres);
+    const pricePerL = n(b.pricePerL);
+    // Every driver fill-up needs two photos: the receipt and the pump display.
     const receiptUrl = b.receipt ? saveUpload(b.receipt) : null;
+    const pumpUrl = b.pump ? saveUpload(b.pump) : null;
     if (req.user.role === 'driver' && !receiptUrl) return res.status(400).json({ error: 'Take a photo of the fuel receipt to log this fill-up.' });
+    if (req.user.role === 'driver' && !pumpUrl) return res.status(400).json({ error: 'Take a photo of the pump display too.' });
     if (!(litres > 0) || !(pricePerL > 0)) return res.status(400).json({ error: 'Enter litres and price per litre.' });
+    const tax = {};
+    for (const k of ['gst', 'hst', 'qst', 'pst']) if (n(b.tax?.[k])) tax[k] = Math.round(n(b.tax[k]) * 100) / 100;
+    const taxTotal = Math.round(Object.values(tax).reduce((a, v) => a + v, 0) * 100) / 100;
+    const subtotal = n(b.subtotal) ? Math.round(n(b.subtotal) * 100) / 100 : Math.round(litres * pricePerL * 100) / 100;
+    const total = n(b.total) ? Math.round(n(b.total) * 100) / 100 : Math.round((subtotal + taxTotal) * 100) / 100;
     const active = db.loads.find((l) => l.truckId === truck.id && ACTIVE.includes(l.status));
     const odo = Number(b.odometerKm) || truck.odometerKm;
+
+    // What the receipt/pump said versus what was saved: anything changed or not matching goes to the office.
+    const read = b.read && typeof b.read === 'object' ? { litres: n(b.read.litres), pricePerL: n(b.read.pricePerL), total: n(b.read.total), taxTotal: n(b.read.taxTotal) } : null;
+    const pumpRead = b.pumpRead && typeof b.pumpRead === 'object' ? { litres: n(b.pumpRead.litres), amount: n(b.pumpRead.amount) } : null;
+    const off = (a, x) => a > 0 && x > 0 && Math.abs(a - x) / x > 0.01;
+    const flags = [];
+    if (req.user.role === 'driver') {
+      if (!read || !(read.total || read.litres)) flags.push({ kind: 'manual', text: 'Receipt couldn’t be read — amounts typed by the driver' });
+      else {
+        if (off(read.litres, litres)) flags.push({ kind: 'edited', text: `Litres changed ${read.litres} → ${litres}` });
+        if (off(read.pricePerL, pricePerL)) flags.push({ kind: 'edited', text: `Price changed $${read.pricePerL} → $${pricePerL}/L` });
+        if (off(read.total, total)) flags.push({ kind: 'edited', text: `Total changed $${read.total.toFixed(2)} → $${total.toFixed(2)}` });
+        if (read.taxTotal && off(read.taxTotal, taxTotal)) flags.push({ kind: 'edited', text: `Tax changed $${read.taxTotal.toFixed(2)} → $${taxTotal.toFixed(2)}` });
+      }
+      if (pumpRead?.litres && Math.abs(pumpRead.litres - litres) / litres > 0.02) flags.push({ kind: 'pump', text: `Pump shows ${pumpRead.litres} L, receipt ${litres} L` });
+      if (pumpRead?.amount && Math.abs(pumpRead.amount - total) / total > 0.02 && Math.abs(pumpRead.amount - subtotal) / subtotal > 0.02) flags.push({ kind: 'pump', text: `Pump shows $${pumpRead.amount.toFixed(2)}, receipt $${total.toFixed(2)}` });
+      if (truck.tankL && litres > truck.tankL * 1.05) flags.push({ kind: 'tank', text: `${litres} L is more than the ${truck.tankL} L tank` });
+    }
+
     const log = {
       id: id('ful'), carrierId: req.user.companyId, truckId: truck.id,
       driverId: req.user.role === 'driver' ? req.user.id : (b.driverId || truck.driverId || null),
       loadId: b.loadId === undefined ? active?.id || null : b.loadId || null,
-      t: b.t ? Number(b.t) : Date.now(), litres, pricePerL, total: Math.round(litres * pricePerL * 100) / 100,
+      t: b.t ? Number(b.t) : Date.now(), litres, pricePerL, subtotal, tax, taxTotal, total,
       odometerKm: odo, station: b.station || '', fuelType: b.fuelType || 'diesel', def: Number(b.defLitres) || 0,
-      receiptUrl, location: truck.location ? { lat: truck.location.lat, lng: truck.location.lng } : null,
+      receiptUrl, pumpUrl, read, pumpRead, flags, location: truck.location ? { lat: truck.location.lat, lng: truck.location.lng } : null,
       by: req.user.name,
     };
     if (odo > truck.odometerKm) truck.odometerKm = odo;
     db.fuelLogs.push(log);
+    if (log.loadId) {
+      const l = find('loads', log.loadId);
+      if (l) { addTimeline(l, l.status, req.user, `Fuel · ${litres} L · $${total.toFixed(2)}${log.station ? ` at ${log.station}` : ''}`); publish('loads', l); }
+    }
     save();
     publish('fuelLogs', log);
     publish('trucks', truck);
+    // The office hears about every driver fill-up right away; changes and mismatches are flagged.
+    if (req.user.role === 'driver') {
+      notify((v) => v.role === 'dispatcher' && v.companyId === req.user.companyId, {
+        title: flags.length ? `⚠︎ Check fuel · Unit ${truck.unit}` : `⛽ Fuel · Unit ${truck.unit}`,
+        body: `${req.user.name}: ${litres} L · $${total.toFixed(2)}${log.station ? ` · ${log.station}` : ''}${active ? ` · ${active.ref}` : ''}${flags.length ? ` — ${flags.map((f) => f.text).join('; ')}` : ''}`,
+        tone: flags.length ? 'warn' : undefined, loadId: log.loadId || undefined,
+      });
+    }
     res.json(log);
   });
 

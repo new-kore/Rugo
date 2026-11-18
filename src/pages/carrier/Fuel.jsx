@@ -63,7 +63,7 @@ export default function Fuel() {
                   <td className="r">{money2(f.total)}</td>
                   <td className="r">{km(f.odometerKm)}</td>
                   <td className="mono">{idx.loads[f.loadId]?.ref || '—'}</td>
-                  <td>{f.receiptUrl ? <button className="pill green" style={{ cursor: 'pointer' }} onClick={() => setViewing(f)}><Icon name="receipt" size={12} />View</button> : <span className="pill orange">Missing</span>}</td>
+                  <td>{f.receiptUrl ? <button className={`pill ${f.flags?.length ? 'orange' : 'green'}`} style={{ cursor: 'pointer' }} onClick={() => setViewing(f)} title={f.flags?.map((x) => x.text).join('\n')}><Icon name={f.flags?.length ? 'warning' : 'receipt'} size={12} />{f.flags?.length ? 'Check' : 'View'}</button> : <span className="pill orange">Missing</span>}</td>
                   <td><ConfirmButton className="btn small danger" confirmLabel="Delete?" aria-label="Delete fill-up" onConfirm={() => del(`/fuel/${f.id}`)}><Icon name="trash" size={14} /></ConfirmButton></td>
                 </tr>
               ))}
@@ -74,7 +74,12 @@ export default function Fuel() {
       {viewing && (
         <Sheet title={`Receipt · ${viewing.station}`} onClose={() => setViewing(null)}>
           <div className="footnote secondary" style={{ marginBottom: 10 }}>{dateTime(viewing.t)} · Unit {idx.trucks[viewing.truckId]?.unit} · {idx.users[viewing.driverId]?.name || viewing.by} · {num(viewing.litres, 1)} L · {money2(viewing.total)}</div>
-          <img src={viewing.receiptUrl} alt="Fuel receipt" style={{ width: '100%', maxHeight: '70vh', objectFit: 'contain', borderRadius: 8, border: '1px solid var(--border)', background: '#fff' }} />
+          {viewing.flags?.length > 0 && <div className="fuel-note warn" style={{ marginBottom: 10 }}><Icon name="warning" size={15} /><div>{viewing.flags.map((x, i) => <div key={i}>{x.text}</div>)}</div></div>}
+          <div className="fuel-view">
+            <figure><img src={viewing.receiptUrl} alt="Fuel receipt" /><figcaption>Receipt</figcaption></figure>
+            {viewing.pumpUrl && <figure><img src={viewing.pumpUrl} alt="Pump display" /><figcaption>Pump display{viewing.pumpRead?.litres ? ` · ${viewing.pumpRead.litres} L` : ''}{viewing.pumpRead?.amount ? ` · $${viewing.pumpRead.amount.toFixed(2)}` : ''}</figcaption></figure>}
+          </div>
+          <div className="footnote secondary" style={{ marginTop: 8 }}>{viewing.litres} L × ${viewing.pricePerL}/L{viewing.subtotal ? ` · before tax $${viewing.subtotal.toFixed(2)}` : ''}{viewing.taxTotal ? ` · tax $${viewing.taxTotal.toFixed(2)}` : ''} · total ${viewing.total.toFixed(2)}{viewing.read ? ` · receipt read: ${viewing.read.litres || '—'} L, $${(viewing.read.total || 0).toFixed(2)}` : ''}</div>
         </Sheet>
       )}
       {adding && <Sheet title="Add fill-up" onClose={() => setAdding(false)}><FuelForm onDone={() => setAdding(false)} /></Sheet>}

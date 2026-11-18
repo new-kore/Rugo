@@ -86,7 +86,8 @@ export function economics(load, driver, truck, fuelLogs, s, team = []) {
   const pay = [driver, ...team].filter(Boolean).reduce((a, d) => a + payOf(d), 0);
   const linked = fuelLogs.filter((f) => f.loadId === load.id);
   const litresEst = (totalKm * (truck?.fuelLPer100 || 36)) / 100;
-  const fuel = linked.length ? linked.reduce((a, f) => a + f.total, 0) : litresEst * s.fuelPricePerL;
+  const fuelCost = (f) => (f.subtotal != null ? f.subtotal + (f.tax?.pst || 0) : f.total);
+  const fuel = linked.length ? linked.reduce((a, f) => a + fuelCost(f), 0) : litresEst * s.fuelPricePerL;
   const revenue = load.invoice?.carrierPayout ?? load.quote.carrierPayout;
   const overhead = totalKm * (s.overheadPerKm ?? 0.92);
   const cost = pay + fuel + overhead;

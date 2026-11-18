@@ -6,7 +6,7 @@ import Icon from '../../components/Icon.jsx';
 import MapView from '../../components/MapView.jsx';
 import LoadNotes from '../../components/LoadNotes.jsx';
 import { PhotoChecklist, SignaturePad } from '../../components/Inspection.jsx';
-import { RouteLine, ActionButton, Empty, Tracker, StatusPill } from '../../components/ui.jsx';
+import { RouteLine, ActionButton, Empty, Tracker, StatusPill, Sheet } from '../../components/ui.jsx';
 import { CargoFacts, TaskDetails } from '../../components/LoadBits.jsx';
 import FuelForm from '../../components/FuelForm.jsx';
 import WeatherChip from '../../components/WeatherChip.jsx';
@@ -51,6 +51,7 @@ export default function DriverJob({ loadId }) {
   const load = loadId ? idx.loads[loadId] : data.loads.filter(isActive).sort((a, b) => a.acceptedAt - b.acceptedAt)[0];
   const truck = idx.trucks[data.me.truckId];
   const [odo, setOdo] = useState('');
+  const [fueling, setFueling] = useState(false);
   const [chat, setChat] = useState(false);
 
   const mapTrucks = useMemo(() => (truck ? [{ ...truck, color: data.me.color, moving: load && isActive(load), label: 'You' }] : []), [truck, data.me.color, load]);
@@ -98,6 +99,8 @@ export default function DriverJob({ loadId }) {
     }
   })();
   const ready = !h.blocker;
+  const tripLogs = data.fuelLogs.filter((x) => x.loadId === load.id);
+  const tripFuel = { count: tripLogs.length, litres: tripLogs.reduce((a, x) => a + x.litres, 0), total: tripLogs.reduce((a, x) => a + x.total, 0), flagged: tripLogs.filter((x) => x.flags?.length).length };
 
   const moving = ['en_route_pickup', 'in_transit'].includes(load.status);
   const etaAt = leg === 'toPickup' ? load.eta?.pickupAt : load.eta?.deliveryAt;
@@ -125,6 +128,7 @@ export default function DriverJob({ loadId }) {
         <div className="map-card" style={{ marginBottom: 16 }}>
           <MapView height={moving ? 340 : 220} trucks={mapTrucks} places={places} route={load.legs[leg]?.points} fitKey={`${load.id}-${leg}`} padding={40} />
           <div className="map-overlay" style={{ right: 12, bottom: 12 }}>
+            <button className="btn fuel-add" onClick={() => setFueling(true)} style={{ boxShadow: 'var(--shadow-lg)', marginRight: 8 }}><Icon name="plus" size={16} stroke={2.6} /><Icon name="fuel" size={16} />Fuel</button>
             <a className="btn primary" href={navUrl(target)} target="_blank" rel="noreferrer" style={{ boxShadow: 'var(--shadow-lg)' }}><Icon name="navigate" size={18} />Directions</a>
           </div>
           {moving && truck?.location && (
@@ -185,10 +189,18 @@ export default function DriverJob({ loadId }) {
         </>
       )}
 
+      {tripFuel.count > 0 && load.status !== 'delivered' && (
+        <button className="card pad row fuel-trip" style={{ marginBottom: 16, width: '100%' }} onClick={() => setFueling(true)}>
+          <div className="icon-tile" style={{ background: 'var(--orange)' }}><Icon name="fuel" size={16} /></div>
+          <div className="spacer" style={{ textAlign: 'left' }}><div className="headline">Fuel this trip</div><div className="footnote secondary">{tripFuel.count} fill-up{tripFuel.count === 1 ? '' : 's'} · {tripFuel.litres.toFixed(0)} L{tripFuel.flagged ? ` · ${tripFuel.flagged} sent to the office to check` : ''}</div></div>
+          <div className="title3 num">{money(tripFuel.total)}</div>
+        </button>
+      )}
+
       {moving && load.activeStop && (
         <div className="card pad-lg stack" style={{ marginBottom: 16 }}>
           <div className="title3">Log your fill-up</div>
-          <div className="footnote secondary">Take a photo of the receipt. Saving it puts you back on the road.</div>
+          <div className="footnote secondary">Take a photo of the receipt and the pump. Saving it puts you back on the road.</div>
           <FuelForm truckId={load.truckId} onDone={(f) => event('fuel_end', { fuelLogId: f.id })()} />
         </div>
       )}
@@ -218,6 +230,11 @@ export default function DriverJob({ loadId }) {
             <Icon name={h.icon} size={24} stroke={2.2} />{h.blocker || h.button}
           </ActionButton>
         </div>
+      )}
+      {fueling && (
+        <Sheet title="Add fuel" onClose={() => setFueling(false)}>
+          <FuelForm truckId={load.truckId} onDone={() => setFueling(false)} />
+        </Sheet>
       )}
       {moving && !load.activeStop && <div className="footnote tertiary" style={{ textAlign: 'center', marginTop: 10 }}>Arrival is detected automatically when you reach the gate.</div>}
     </div>

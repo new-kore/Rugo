@@ -1475,3 +1475,30 @@ textarea.input { height: auto; min-height: 84px; padding: 11px 14px; line-height
   .inv-parties { grid-template-columns: 1fr; } .inv-paper { padding: 18px; }
   .inv-send-sum { grid-template-columns: 1fr; }
 }
+
+/* Fuel: two photos, read-from-receipt tags, money box */
+.fuel-photos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.fuel-photo { aspect-ratio: 4 / 3; position: relative; }
+.fuel-reading { position: absolute; inset: auto 8px 8px 8px; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 6px 10px; border-radius: 8px; background: rgba(0,0,0,.6); color: #fff; font-size: 0.78rem; font-weight: 600; }
+.fuel-note { display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px; border-radius: 10px; font-size: 0.85rem; background: color-mix(in srgb, var(--blue) 8%, transparent); color: var(--label); }
+.fuel-note svg { flex: none; margin-top: 1px; color: var(--blue); }
+.fuel-note.ok { background: color-mix(in srgb, var(--green) 9%, transparent); } .fuel-note.ok svg { color: var(--green); }
+.fuel-note.warn { background: color-mix(in srgb, var(--orange) 11%, transparent); color: var(--orange-text); } .fuel-note.warn svg { color: var(--orange); }
+.fuel-big { font-size: 1.4rem !important; height: 60px !important; }
+.fuel-tag { display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; padding: 1px 6px; border-radius: 6px; font-size: 0.68rem; font-weight: 600; vertical-align: middle; }
+.fuel-tag.read { color: var(--green-text); background: color-mix(in srgb, var(--green) 12%, transparent); }
+.fuel-tag.edited { color: var(--orange-text); background: color-mix(in srgb, var(--orange) 14%, transparent); }
+.fuel-money { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 12px; background: var(--bg-fill-2); }
+.fuel-money-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.fuel-money-row > span { font-size: 0.9rem; color: var(--label-2); }
+.fuel-money-row .input { max-width: 160px; text-align: right; }
+.fuel-money-row.total { padding-top: 8px; border-top: 1px solid var(--separator); }
+.fuel-money-row.total > span { font-weight: 650; color: var(--label); font-size: 1rem; }
+.fuel-money-row.total .input { font-size: 1.2rem; font-weight: 650; }
+.fuel-taxsel { height: 34px; min-width: 86px; padding: 0 28px 0 10px !important; font-size: 0.85rem; }
+.fuel-add { background: var(--bg-elevated); }
+.fuel-trip { border: 0; cursor: pointer; font: inherit; color: inherit; text-align: left; gap: 12px; }
+.fuel-view { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.fuel-view figure { margin: 0; } .fuel-view img { width: 100%; max-height: 60vh; object-fit: contain; border-radius: 8px; border: 1px solid var(--border); background: #fff; }
+.fuel-view figcaption { font-size: 0.78rem; color: var(--label-2); margin-top: 4px; }
+@media (max-width: 600px) { .fuel-view { grid-template-columns: 1fr; } }

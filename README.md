@@ -86,6 +86,13 @@ Every driver tracks with the Rugo app on their phone:
 
 Background tracking: a web app can only read GPS while it's open on screen. To keep tracking with the phone locked, package the app as a native app (for example with Capacitor and a background-geolocation plugin). It can post to the same `/api/driver/location` endpoint.
 
+### Fuel during a job
+Drivers tap **+ Fuel** on their job screen (next to Directions) at any point during a job.
+- **Two photos:** the receipt and the pump display. Both are required.
+- **The receipt is read automatically** (Tesseract OCR in the browser, English and French receipts): litres, price per litre, before-tax amount, GST/HST/QST/PST, total and the station. Each value read shows a "From receipt" tag; anything the driver changes shows "Changed". Where automatic reading isn't available (for example inside a sandboxed preview), the driver types the amounts.
+- **The office is told right away** about every fill-up. It is flagged **Check** when the driver changed what the receipt said, the receipt couldn't be read, the pump display doesn't match the receipt, or the litres are more than the tank holds. Office → **Fuel** shows both photos and what was read.
+- **Job cost:** the fill-up is linked to the active job and logged on its timeline. The job's final numbers use the fuel cost before recoverable sales tax (GST/HST/QST are claimed back), and the driver sees "Fuel this trip".
+
 ### Invoicing (carrier)
 Every delivered load gets a draft invoice automatically, the moment the receiver signs and the job ends.
 - **Numbers:** each invoice gets the carrier's own invoice number (`VFL-2026-0016`: prefix, year, sequence) and a work order number for the job (`WO-260016`). Shop repair orders use `RO-` so they never mix with job work orders.
