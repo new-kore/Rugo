@@ -86,6 +86,15 @@ Every driver tracks with the Rugo app on their phone:
 
 Background tracking: a web app can only read GPS while it's open on screen. To keep tracking with the phone locked, package the app as a native app (for example with Capacitor and a background-geolocation plugin). It can post to the same `/api/driver/location` endpoint.
 
+### Invoicing (carrier)
+Every delivered load gets a draft invoice automatically, the moment the receiver signs and the job ends.
+- **Numbers:** each invoice gets the carrier's own invoice number (`VFL-2026-0016`: prefix, year, sequence) and a work order number for the job (`WO-260016`). Shop repair orders use `RO-` so they never mix with job work orders.
+- **Lines drafted for you:** line haul with GPS kilometres, fuel surcharge, accessorials (hazmat, liftgate, expedite), and **detention** from the dock arrival and departure times in the driver app, past the free time (2 h by default, $75/h, in quarter hours). The timestamps print on the invoice as proof.
+- **Sales tax by province:** HST where the freight is picked up in an HST province (ON 13%, NS 14%, NB/NL/PE 15%); GST + QST for moves inside Québec; GST elsewhere; zero-rated for continuous cross-border moves. A tax-exempt switch covers customers with an exemption.
+- **Review, edit, send:** **Invoices** shows drafts to review. Edit the customer, billing email, PO, terms (receipt / Net 15–60), any line, or add lines (accessorial, detention, lumper, other). Totals and tax update as you type. **Send** goes to the customer's billing email with the signed POD attached; customers on Rugo also see it under **Billing**.
+- **After sending:** record full or part payments (EFT, cheque, wire, card, factoring advance), see overdue invoices, or void and make a new draft. Everything is logged in the invoice history and prints as a clean invoice.
+- **Not built yet:** real email delivery (the server records the send; connect an email provider for production), QuickBooks sync, and factoring/fuel-card partners.
+
 ### Languages: English, French, Spanish
 Change it in **Settings → Language**, or with the EN / FR / ES switch on the sign-in screen. Rugo starts in French or Spanish when the phone or browser is set to that language.
 - **What's translated:** every screen, button, label, tooltip and placeholder; toasts and error messages from the server; dates, times, money and numbers (fr-CA and es-MX formats). French is Canadian French with Québec trucking terms, which covers the Charter of the French Language (Bill 96) rule that workplace software be available in French.

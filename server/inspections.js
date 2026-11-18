@@ -174,7 +174,7 @@ function syncServiceQuiet(truck, trailer) {
 
 function nextWo() {
   db.settings.nextWo = (db.settings.nextWo || 1040) + 1;
-  return `WO-${db.settings.nextWo}`;
+  return `RO-${db.settings.nextWo}`;
 }
 
 /** Shop actions on a work order: start, repaired, reopen. */

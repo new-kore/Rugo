@@ -11,6 +11,7 @@ import { PROVIDERS, providerMeta } from './eld/providers.js';
 import { rankDrivers, matchSummary } from './dispatch.js';
 import { chatRoutes, driverThread } from './chat.js';
 import { inspectionRoutes, tripBlocker, INSPECTION_META } from './inspections.js';
+import { billingRoutes } from './billing.js';
 import { weatherAt } from './weather.js'; // live weather at each truck + any point
 import { eldFor, publicIntegration, cleanCreds, testConnection, connect, disconnect, setMaps, syncIntegration, syncSoon, importUnlinked } from './eld/sync.js';
 
@@ -740,6 +741,7 @@ export function routes(app) {
 
   chatRoutes(app, auth, role);
   inspectionRoutes(app, auth, role);
+  billingRoutes(app, auth, role, { publish, notify });
 
   // Weather at any map point, now or at a given time (forecast).
   app.get('/api/weather', auth, async (req, res) => {

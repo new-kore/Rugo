@@ -2,6 +2,7 @@
 import { db, save, find, id, randomToken } from './db.js';
 import { haversine, pathLength, pointAlong, route } from './geo.js';
 import { invoice, economics, DEFAULT_SETTINGS } from './pricing.js';
+import { draftInvoiceForLoad } from './billing.js';
 import { ACTIVE, MOVING, PHOTO_SLOTS } from './constants.js';
 import { distanceToPath, offRouteKm } from './routecheck.js';
 import { threadVisible, canSeeChat } from './chat.js';
@@ -55,6 +56,9 @@ export function canSee(viewer, col, item) {
       if (item.carrierId === c) return true;
       if (viewer.role === 'shipper') return db.loads.some((l) => l.shipperId === c && l.trailerId === item.id && ACTIVE.includes(l.status));
       return false;
+    case 'invoices':
+      if (viewer.role === 'dispatcher') return item.carrierId === c;
+      return viewer.role === 'shipper' && item.shipperId === c && ['sent', 'partial', 'paid'].includes(item.status);
     case 'inspections':
     case 'workOrders':
       if (item.carrierId !== c) return false;
@@ -107,6 +111,7 @@ export function snapshot(viewer) {
     chat: pick('chat').slice(-1500),
     inspections: pick('inspections').sort((a, b) => a.at - b.at).slice(-600),
     workOrders: pick('workOrders'),
+    invoices: pick('invoices'),
   };
 }
 
@@ -280,6 +285,15 @@ export async function advance(load, to, actor, extra = {}) {
   if (titles[to]) {
     notify((v) => v.companyId === load.shipperId || (v.role === 'dispatcher' && v.companyId === load.carrierId),
       { title: titles[to][0], body: titles[to][1], loadId: load.id, tone: to === 'delivered' && load.damage?.hasDamage ? 'warn' : 'ok' });
+  }
+  if (to === 'delivered') {
+    // The carrier's invoice is drafted the moment the receiver has signed and the job ends.
+    const inv = draftInvoiceForLoad(load, settings());
+    if (inv) {
+      save();
+      publish('invoices', inv);
+      notify((v) => v.role === 'dispatcher' && v.companyId === load.carrierId, { title: `🧾 Invoice ${inv.number} ready to review`, body: `${load.ref} · ${inv.workOrder} · $${inv.total.toFixed(2)} to ${inv.billTo.name}. Check it and press Send.`, loadId: load.id });
+    }
   }
   return null;
 }

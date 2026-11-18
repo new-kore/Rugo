@@ -6,6 +6,7 @@ import { PHOTO_SLOTS } from './constants.js';
 import { newLoadShell, updateEta } from './fleet.js';
 import { driverThread, postMessage, stamp } from './chat.js';
 import { recordInspection, updateWorkOrder, WALKAROUND } from './inspections.js';
+import { draftInvoiceForLoad, recompute } from './billing.js';
 
 const P = {
   mississauga: { name: 'Northwind DC — Mississauga', address: '6855 Airport Rd', city: 'Mississauga', region: 'ON', lat: 43.6905, lng: -79.6215, contact: 'Receiving desk', phone: '905-555-0142' },
@@ -349,6 +350,7 @@ export async function seed() {
     });
   }
   seedInspections(drivers, trucks, alex);
+  seedInvoices(velocity, alex);
   save();
 }
 
@@ -440,4 +442,28 @@ function sampleReceipt(station, litres, price) {
     + row(245, 'TOTAL', `$${(litres * price).toFixed(2)}`, true)
     + '<text x="150" y="350" text-anchor="middle" font-size="13">THANK YOU</text></g></svg>';
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+/* ---------------- invoices ---------------- */
+function seedInvoices(velocity, alex) {
+  velocity.address = velocity.address || '45 Rutherford Rd S';
+  velocity.billing = { prefix: 'VFL', terms: 30, gstNumber: '81234 5678 RT0001', qstNumber: '1234567890 TQ0001', email: 'billing@velocityfreight.ca', notes: 'Thank you for your business. Pay by EFT to account 00123-004-5678901 or cheque to Velocity Freight Lines.' };
+  for (const c of db.companies) if (c.type === 'shipper' && !c.billingEmail) c.billingEmail = `ap@${c.name.toLowerCase().split(' ')[0].replace(/[^a-z]/g, '')}.com`;
+  const done = db.loads.filter((l) => l.status === 'delivered' && l.carrierId === velocity.id).sort((a, b) => a.deliveredAt - b.deliveredAt);
+  done.forEach((l, i) => {
+    // The latest job waited at the receiver: detention shows up on its draft automatically.
+    if (i === done.length - 1 && l.deliveredAt) { l.arrivedDeliveryAt = l.deliveredAt - 3.6 * 3600e3; l.metrics.dwellHours.delivery = 3.6; }
+    const inv = draftInvoiceForLoad(l, db.settings);
+    if (!inv) return;
+    const age = (Date.now() - l.deliveredAt) / 864e5;
+    // Older jobs were sent and mostly paid; the most recent ones wait for review.
+    if (i >= done.length - 2) return;
+    inv.status = 'sent'; inv.sentAt = l.deliveredAt + 3 * 3600e3; inv.sentTo = inv.billTo.email; inv.sentBy = alex.name;
+    inv.history.push({ t: inv.sentAt, by: alex.name, text: `Sent to ${inv.sentTo}` });
+    if (age > 6 && i % 4 !== 1) {
+      inv.paidAmount = inv.total; inv.payments = [{ t: inv.sentAt + Math.min(age - 1, 20) * 864e5, amount: inv.total, method: 'EFT', by: alex.name }];
+      inv.status = 'paid'; inv.paidAt = inv.payments[0].t; recompute(inv);
+      inv.history.push({ t: inv.paidAt, by: alex.name, text: `Payment received $${inv.total.toFixed(2)} (EFT)` });
+    }
+  });
 }

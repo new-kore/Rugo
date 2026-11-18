@@ -11,6 +11,7 @@ import { post } from '../lib/api.js';
 import { back } from '../lib/router.js';
 import WeatherChip from '../components/WeatherChip.jsx';
 import PickupCode from '../components/PickupCode.jsx';
+import InvoiceEditor, { InvoiceView, statusOf } from '../components/InvoiceEditor.jsx';
 import PlanVsActual, { OffRouteBanner } from '../components/PlanVsActual.jsx';
 
 export default function LoadDetail({ id }) {
@@ -20,6 +21,8 @@ export default function LoadDetail({ id }) {
   const load = idx.loads[id];
   const [accepting, setAccepting] = useState(false);
   const [invoice, setInvoice] = useState(false);
+  const [cInv, setCInv] = useState(false);
+  const carrierInvoice = (data.invoices || []).filter((x) => x.loadId === id && x.status !== 'void').sort((a, b) => b.issueDate - a.issueDate)[0];
   const role = data.me.role;
 
   const truck = load && idx.trucks[load.truckId];
@@ -66,7 +69,8 @@ export default function LoadDetail({ id }) {
           {role === 'dispatcher' && load.status === 'requested' && <button className="btn primary large" onClick={() => setAccepting(true)}><Icon name="check" size={20} stroke={2.4} />Accept for {money(load.quote.carrierPayout)}</button>}
           {role === 'dispatcher' && load.status === 'accepted' && <ActionButton className="btn danger" onClick={async () => upsert('loads', await post(`/loads/${load.id}/cancel`))}>Release load</ActionButton>}
           {role === 'shipper' && ['requested', 'accepted'].includes(load.status) && <ConfirmButton confirmLabel="Tap again to cancel" onConfirm={async () => upsert('loads', await post(`/loads/${load.id}/cancel`))}>Cancel request</ConfirmButton>}
-          {load.invoice && <button className="btn" onClick={() => setInvoice(true)}><Icon name="receipt" size={18} />Invoice</button>}
+          {carrierInvoice && <button className="btn" onClick={() => setCInv(true)}><Icon name="receipt" size={18} />{carrierInvoice.number}<span className={`pill ${statusOf(carrierInvoice).tone}`} style={{ marginLeft: 4 }}>{statusOf(carrierInvoice).label}</span></button>}
+          {load.invoice && !carrierInvoice && role === 'shipper' && <button className="btn" onClick={() => setInvoice(true)}><Icon name="receipt" size={18} />Invoice</button>}
         </div>
       </div>
 
@@ -160,6 +164,7 @@ export default function LoadDetail({ id }) {
         </StickyCol>
       </div>
       {accepting && <AcceptSheet load={load} onClose={() => setAccepting(false)} />}
+      {cInv && carrierInvoice && (role === 'dispatcher' ? <InvoiceEditor inv={carrierInvoice} onClose={() => setCInv(false)} /> : <InvoiceView inv={carrierInvoice} onClose={() => setCInv(false)} />)}
       {invoice && <InvoiceDoc load={load} company={carrier} shipper={shipper} onClose={() => setInvoice(false)} />}
     </div>
   );

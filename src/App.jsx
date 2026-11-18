@@ -33,6 +33,7 @@ import { unread } from './lib/chat.js';
 import DriverHours from './pages/driver/DriverHours.jsx';
 import DriverInspect from './pages/driver/DriverInspect.jsx';
 import Shop from './pages/carrier/Shop.jsx';
+import Invoices from './pages/carrier/Invoices.jsx';
 import { validPreTrip } from './lib/inspections.js';
 
 const NAV = {
@@ -49,6 +50,7 @@ const NAV = {
     { path: '/board', label: 'Load board', icon: 'list', page: Board, badge: (d) => d.loads.filter((l) => l.status === 'requested').length },
     { path: '/dispatch', label: 'Jobs', icon: 'route', page: Dispatch, badge: (d) => d.loads.filter(isActive).length, quiet: true },
     { path: '/calendar', label: 'Calendar', icon: 'calendar', page: CalendarPage },
+    { path: '/invoices', label: 'Invoices', icon: 'receipt', page: Invoices, badge: (d) => (d.invoices || []).filter((x) => x.status === 'draft').length || null },
     { path: '/messages', label: 'Messages', icon: 'message', page: Messages, badge: (d) => unread(d) },
     { path: '/fleet', label: 'Live fleet', icon: 'map', page: Fleet, section: 'Fleet' },
     { path: '/drivers', label: 'Drivers', icon: 'people', page: Drivers, section: 'Fleet' },

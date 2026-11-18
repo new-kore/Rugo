@@ -1,3 +1,4 @@
+import { InvoiceView, statusOf } from '../../components/InvoiceEditor.jsx';
 import { useMemo, useState } from 'react';
 import { PageHead, Stat, Empty } from '../../components/ui.jsx';
 import { InvoiceDoc } from '../../components/LoadBits.jsx';
@@ -9,6 +10,8 @@ export default function Billing() {
   const { data } = useStore();
   const idx = useIndex();
   const [open, setOpen] = useState(null);
+  const [cOpen, setCOpen] = useState(null);
+  const fromCarriers = (data.invoices || []).slice().sort((a, b) => (b.sentAt || 0) - (a.sentAt || 0));
   const invoiced = data.loads.filter((l) => l.invoice).sort((a, b) => b.invoice.issuedAt - a.invoice.issuedAt);
   const total = invoiced.reduce((a, l) => a + l.invoice.total, 0);
   const due = invoiced.filter((l) => !l.invoice.paid).reduce((a, l) => a + l.invoice.total, 0);
@@ -39,6 +42,25 @@ export default function Billing() {
         <div className="footnote secondary" style={{ marginBottom: 10 }}>Invoice totals incl. tax, last 6 weeks</div>
         <BarChart data={weekly} format={(v, axis) => (axis ? `$${Math.round(v / 1000)}k` : money(v))} highlightLast />
       </div>
+      {fromCarriers.length > 0 && (
+        <>
+          <div className="section-header">Invoices from carriers</div>
+          <div className="card table-wrap">
+            <table className="table">
+              <thead><tr><th>Invoice</th><th>Work order</th><th>Carrier</th><th>Load</th><th>Due</th><th className="r">Total</th><th>Status</th></tr></thead>
+              <tbody>
+                {fromCarriers.map((x) => (
+                  <tr key={x.id} className="click" onClick={() => setCOpen(x)}>
+                    <td className="mono">{x.number}</td><td className="mono">{x.workOrder}</td><td>{x.from.name}</td><td className="mono">{x.loadRef}</td>
+                    <td>{x.terms ? date(x.dueDate) : 'On receipt'}</td><td className="r">{money2(x.balance > 0 ? x.balance : x.total)}</td>
+                    <td><span className={`pill ${statusOf(x).tone}`}>{statusOf(x).label}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
       <div className="section-header">Invoices</div>
       <div className="card table-wrap">
         {invoiced.length === 0 ? <Empty icon="receipt" title="No invoices yet">They appear here after your first delivery.</Empty> : (
@@ -60,6 +82,7 @@ export default function Billing() {
           </table>
         )}
       </div>
+      {cOpen && <InvoiceView inv={cOpen} onClose={() => setCOpen(null)} />}
       {open && <InvoiceDoc load={open} company={idx.companies[open.carrierId]} shipper={idx.companies[open.shipperId]} onClose={() => setOpen(null)} />}
     </div>
   );
