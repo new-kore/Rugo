@@ -1513,3 +1513,16 @@ textarea.input { height: auto; min-height: 84px; padding: 11px 14px; line-height
 .brand-logo { display: flex; align-items: center; gap: 8px; padding: 2px 4px 10px; }
 .brand-mark.rugo { background: var(--brand); }
 .login-logo { display: flex; justify-content: center; margin-bottom: 4px; }
+
+/* ------------------- readable text on brand-red backgrounds ------------------- */
+/* Account button: opening the menu shouldn't paint it red — keep it neutral. */
+.nav-item.acct-btn.active, .nav-item.acct-btn.active:hover { background: var(--bg-active); color: var(--label); box-shadow: none; }
+.nav-item.acct-btn.active svg { color: var(--label-2); fill: none; }
+/* Anything secondary sitting on red turns light so it stays readable. */
+.nav-item.active:not(.acct-btn) .secondary, .nav-item.active:not(.acct-btn) .tertiary, .nav-item.active:not(.acct-btn) .count,
+.btn.primary .secondary, .btn.primary .tertiary, .bubble.me .secondary, .bubble.me .tertiary,
+.driver-hero .secondary, .driver-hero .tertiary, .day-toggle.on .secondary { color: rgba(255, 255, 255, 0.85) !important; }
+/* Badges on the selected (red) menu item: white badge, red number. */
+.nav-item.active:not(.acct-btn) .badge { background: #fff; color: var(--brand); }
+/* Out-of-service hero is darker than the normal brand hero so the two never look alike. */
+.driver-hero.red { background: #7f1d1d; }
