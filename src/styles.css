@@ -1039,8 +1039,7 @@ img, svg, video { max-width: 100%; }
 .dkpi-v { font-size: 1.7rem; font-weight: 650; line-height: 1.1; letter-spacing: -0.025em; margin-top: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .dkpi-d { margin-top: 4px; font-size: 0.75rem; color: var(--label-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dkpi.alert .dkpi-v { color: var(--red); }
-.dkpi.alert .dkpi-icon::after { content: ''; position: absolute; top: -3px; right: -3px; width: 8px; height: 8px; border-radius: 50%; background: var(--red); box-shadow: 0 0 0 2px var(--bg-elevated); transition: box-shadow .15s; }
-.dkpi.alert.click:hover .dkpi-icon::after { box-shadow: 0 0 0 2px var(--bg-hover); }
+/* Alerts show as a red number, not a dot stuck on the icon. */
 .dash-main { display: grid; grid-template-columns: minmax(0, 2.1fr) minmax(300px, 1fr); gap: 14px; height: 560px; }
 .dash-map { height: 100%; min-height: 360px; border-radius: 14px; overflow: hidden; position: relative; }
 .dash-filters { top: 12px; left: 12px; display: flex; gap: 2px; padding: 3px; border-radius: 10px; }
@@ -1538,3 +1537,20 @@ textarea.input { height: auto; min-height: 84px; padding: 11px 14px; line-height
 @media (max-width: 760px), (pointer: coarse) {
   .btn, .btn.small, .btn.large, .gcal-bar .btn, .pcode-actions .btn { height: 42px; min-height: 42px; }
 }
+
+/* ------------------- modern icons: monochrome, outlined, colour only for alerts ------------------- */
+.dkpi-icon, .attn-icon, .dash-card-head > svg:first-child {
+  background: var(--bg-elevated) !important; color: var(--label-2) !important;
+  box-shadow: inset 0 0 0 1px var(--border), 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+.dkpi-icon { width: 26px; height: 26px; border-radius: 7px; }
+.dkpi-icon svg { width: 14px; height: 14px; }
+.attn-icon { width: 30px; height: 30px; border-radius: 8px; }
+.dash-card-head > svg:first-child { box-shadow: none; background: none !important; }
+.dkpi.alert .dkpi-head::before { display: none; }
+/* Alerts keep a hint of colour on the icon itself. */
+.dkpi.alert .dkpi-icon { color: var(--red) !important; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--red) 35%, var(--border)); }
+.attn.red .attn-icon { color: var(--red) !important; }
+.attn.orange .attn-icon { color: var(--orange-text) !important; }
+.attn.blue .attn-icon { color: var(--label-2) !important; }
+.dkpi.click:hover .dkpi-icon { color: var(--label) !important; }

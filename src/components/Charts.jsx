@@ -75,7 +75,7 @@ export function KpiTile({ icon, tone = 'blue', k, v, d, onClick, alert }) {
   return (
     <Tag className={`dkpi ${alert ? 'alert' : ''} ${onClick ? 'click' : ''}`} onClick={onClick} title={d ? `${k}: ${v} — ${d}` : undefined}>
       <div className="dkpi-head">
-        <span className="dkpi-icon" style={{ background: `color-mix(in srgb, var(--${tone}) 13%, transparent)`, color: `var(--${tone})` }}>{icon}</span>
+        <span className="dkpi-icon" style={{ background: `color-mix(in srgb, var(--${tone}) 15%, transparent)`, color: `var(--${tone})` }}>{icon}</span>
         <span className="dkpi-k">{k}</span>
         {onClick && <span className="dkpi-go" aria-hidden="true">›</span>}
       </div>
