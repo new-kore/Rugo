@@ -1526,3 +1526,15 @@ textarea.input { height: auto; min-height: 84px; padding: 11px 14px; line-height
 .nav-item.active:not(.acct-btn) .badge { background: #fff; color: var(--brand); }
 /* Out-of-service hero is darker than the normal brand hero so the two never look alike. */
 .driver-hero.red { background: #7f1d1d; }
+
+/* ------------------- one button size everywhere ------------------- */
+/* Every button is the same height, text size and corner radius (small/large variants included).
+   Only the driver's full-width step button (.btn.xl) stays big, for gloves and a glance from the cab. */
+.btn, .btn.small, .btn.large, .gcal-bar .btn, .pcode-actions .btn {
+  height: 36px; min-height: 36px; padding: 0 14px; font-size: 0.9rem; border-radius: 8px;
+}
+.btn.plain { padding: 0 8px; }
+.btn svg { flex: none; }
+@media (max-width: 760px), (pointer: coarse) {
+  .btn, .btn.small, .btn.large, .gcal-bar .btn, .pcode-actions .btn { height: 42px; min-height: 42px; }
+}
