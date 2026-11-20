@@ -171,7 +171,7 @@ function LeafletMapView({ trucks = [], places = [], route, track, lines = [], hi
     }
     lay.route?.remove(); lay.route = null;
     lay.track?.remove(); lay.track = null;
-    const blue = getComputedStyle(document.documentElement).getPropertyValue('--blue').trim() || '#007aff';
+    const blue = getComputedStyle(document.documentElement).getPropertyValue('--route').trim() || '#3478f6';
     if (route?.length > 1) {
       lay.route = L.layerGroup([
         L.polyline(route.map((p) => [p.lat, p.lng]), { color: '#ffffff', weight: 8, opacity: 0.9 }),

@@ -1,3 +1,4 @@
+import Logo from './components/Logo.jsx';
 import { useEffect, useState } from 'react';
 import { useStore, isActive } from './lib/store.jsx';
 import { useRoute, go, match, viewTransitions } from './lib/router.js';
@@ -122,7 +123,7 @@ export default function App() {
             <div className="brand-name truncate">{data.me.company?.name}</div>
           </div>
           <div className="spacer" />
-          <span className="tertiary" title="Rugo"><Icon name="truck" size={16} /></span>
+          <span title="Rugo" style={{ display: 'flex', alignItems: 'center' }}><Logo mark height={14} /></span>
         </div>
         {sections.map((sec) => (
           <div key={sec || 'main'} className="stack" style={{ gap: 1 }}>
@@ -201,7 +202,7 @@ function Splash() {
   return (
     <div style={{ height: '100%', display: 'grid', placeItems: 'center' }}>
       <div className="stack" style={{ alignItems: 'center' }}>
-        <div className="brand-mark" style={{ width: 48, height: 48, borderRadius: 12 }}><Icon name="truck" size={26} stroke={2.2} /></div>
+        <Logo height={40} />
         <span className="spinner" style={{ color: 'var(--label-3)' }} />
       </div>
     </div>

@@ -1,3 +1,4 @@
+import Logo from '../components/Logo.jsx';
 import { LANGS, getLang, setLang } from '../lib/i18n.js';
 import { useState } from 'react';
 import Icon from '../components/Icon.jsx';
@@ -28,8 +29,7 @@ export default function Login() {
       </div>
       <div className="login-card stack" style={{ gap: 28 }}>
         <div className="stack" style={{ alignItems: 'center', textAlign: 'center', gap: 10 }}>
-          <div className="brand-mark" style={{ width: 72, height: 72, borderRadius: 18 }}><Icon name="truck" size={38} stroke={2.1} /></div>
-          <h1 className="large-title" style={{ fontSize: '2.6rem' }}>Rugo</h1>
+          <h1 className="login-logo" style={{ margin: 0 }}><Logo height={56} /></h1>
           <div className="title3 secondary" style={{ fontWeight: 500, maxWidth: 560 }}>Freight, as easy as a ride. Request a pickup, get a truck, watch it arrive.</div>
         </div>
 

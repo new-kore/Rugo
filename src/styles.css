@@ -24,15 +24,19 @@
   --label-3: #a1a4ab;
 
   /* accent + semantic */
-  --blue: #5e6ad2;             /* accent (indigo) */
-  --accent-soft: rgba(94, 106, 210, 0.1);
+  --brand: #C9242F;            /* Rugo red (logo) */
+  --brand-hover: #B01E28;
+  --blue: var(--brand);        /* accent: buttons, selection, links */
+  --accent-soft: rgba(201, 36, 47, 0.09);
+  --info: #3478f6;             /* routes on maps, information notes */
+  --route: #3478f6;
   --green: #4cb782;
   --green-text: #2f8f5f;
   --yellow: #f2c94c;
   --orange: #f2994a;
   --orange-text: #c26a1c;
-  --red: #eb5757;
-  --red-text: #d23d3d;
+  --red: #f04438;
+  --red-text: #c4320a;
   --indigo: #5e6ad2;
   --teal: #26b5ce;
   --purple: #8e6ad8;
@@ -52,7 +56,7 @@
   --bg-fill: #1e1f23; --bg-fill-2: #17181b; --material: rgba(16, 17, 19, 0.9); --material-thick: rgba(22, 23, 26, 0.96);
   --border: #23252a; --border-strong: #2e3036; --separator: #1f2125;
   --label: #e6e6e8; --label-2: #8b8f97; --label-3: #5c6068;
-  --blue: #7480e6; --accent-soft: rgba(116, 128, 230, 0.14); --green-text: #5fc792; --orange-text: #f2a65f; --red-text: #f07070;
+  --brand: #E5484F; --brand-hover: #F0636A; --blue: var(--brand); --accent-soft: rgba(229, 72, 79, 0.16); --info: #5b9bff; --route: #5b9bff; --green-text: #5fc792; --orange-text: #f2a65f; --red-text: #f07070;
   --shadow: none; --shadow-lg: 0 10px 34px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.06);
   --land: #1f2328; --water: #17263c; --water-edge: #1d3350; --map-label: rgba(235, 235, 240, 0.8); --urban: #262a30; --park: #1e2e23; --road: #8a7442; --road-case: #5c4d2c; --road-main: #3c4148; --road-main-case: #2c3036; --border-line: #6b6f76;
   color-scheme: dark;
@@ -1429,8 +1433,8 @@ textarea.input { height: auto; min-height: 84px; padding: 11px 14px; line-height
 .inv-row.head:hover { background: var(--bg-fill-2); }
 .inv-row .num, .inv-lines .num { text-align: right; font-variant-numeric: tabular-nums; }
 .inv-due { color: var(--label-3); }
-.inv-review { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, var(--blue) 8%, var(--bg-elevated)); color: var(--label); font-size: 0.86rem; border: 1px solid color-mix(in srgb, var(--blue) 22%, var(--border)); }
-.inv-review svg { color: var(--blue); flex: none; margin-top: 2px; }
+.inv-review { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, var(--info) 8%, var(--bg-elevated)); color: var(--label); font-size: 0.86rem; border: 1px solid color-mix(in srgb, var(--info) 22%, var(--border)); }
+.inv-review svg { color: var(--info); flex: none; margin-top: 2px; }
 .inv-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .inv-lines { display: flex; flex-direction: column; gap: 8px; }
 .inv-lines-head, .inv-line { display: grid; grid-template-columns: minmax(0, 3fr) 130px 80px 110px 110px 36px; gap: 8px; align-items: center; }
@@ -1480,8 +1484,8 @@ textarea.input { height: auto; min-height: 84px; padding: 11px 14px; line-height
 .fuel-photos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .fuel-photo { aspect-ratio: 4 / 3; position: relative; }
 .fuel-reading { position: absolute; inset: auto 8px 8px 8px; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 6px 10px; border-radius: 8px; background: rgba(0,0,0,.6); color: #fff; font-size: 0.78rem; font-weight: 600; }
-.fuel-note { display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px; border-radius: 10px; font-size: 0.85rem; background: color-mix(in srgb, var(--blue) 8%, transparent); color: var(--label); }
-.fuel-note svg { flex: none; margin-top: 1px; color: var(--blue); }
+.fuel-note { display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px; border-radius: 10px; font-size: 0.85rem; background: color-mix(in srgb, var(--info) 8%, transparent); color: var(--label); }
+.fuel-note svg { flex: none; margin-top: 1px; color: var(--info); }
 .fuel-note.ok { background: color-mix(in srgb, var(--green) 9%, transparent); } .fuel-note.ok svg { color: var(--green); }
 .fuel-note.warn { background: color-mix(in srgb, var(--orange) 11%, transparent); color: var(--orange-text); } .fuel-note.warn svg { color: var(--orange); }
 .fuel-big { font-size: 1.4rem !important; height: 60px !important; }
@@ -1502,3 +1506,10 @@ textarea.input { height: auto; min-height: 84px; padding: 11px 14px; line-height
 .fuel-view figure { margin: 0; } .fuel-view img { width: 100%; max-height: 60vh; object-fit: contain; border-radius: 8px; border: 1px solid var(--border); background: #fff; }
 .fuel-view figcaption { font-size: 0.78rem; color: var(--label-2); margin-top: 4px; }
 @media (max-width: 600px) { .fuel-view { grid-template-columns: 1fr; } }
+
+/* ------------------------------ Rugo brand ------------------------------ */
+.btn.primary:hover:not(:disabled) { background: var(--brand-hover); }
+.rugo-logo { display: block; flex: none; }
+.brand-logo { display: flex; align-items: center; gap: 8px; padding: 2px 4px 10px; }
+.brand-mark.rugo { background: var(--brand); }
+.login-logo { display: flex; justify-content: center; margin-bottom: 4px; }
